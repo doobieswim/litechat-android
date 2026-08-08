@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- cleartext for local Ollama / LAN; production HTTPS still preferred -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
