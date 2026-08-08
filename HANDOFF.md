@@ -9,6 +9,7 @@ If the human says that word (alone or in a sentence), you are the **coding agent
 |-------|--------|
 | Product | **LiteChat** — thin BYOK OpenAI-compatible chat for weak Android phones |
 | Repo root | `/opt/data/workspace/byok-chat-android` |
+| GitHub | **public**: `github.com/flamingspade1995-coder/litechat-android` (CI: `.github/workflows/build.yml` — static-verify + assembleRelease + 20MB APK gate) |
 | Package | `com.litechat.android` |
 | Skill (patterns) | Hermes skill `android-byok-chat-apps` |
 | Sister role | **Research agent** owns digs, history, competitor/OSS notes → writes `docs/` + backlog items. **You** implement tickets. |
