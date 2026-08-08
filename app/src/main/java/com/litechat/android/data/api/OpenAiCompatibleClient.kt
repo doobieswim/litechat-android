@@ -110,10 +110,12 @@ class OpenAiCompatibleClient(
         }
 
         if (!canceled) {
+            // Copy to local val: smart-cast impossible on a closure-mutated var.
+            val streamErr = streamError
             val shouldFallback = allowNonStreamFallback &&
                 !gotDelta &&
-                streamError != null &&
-                isStreamClassFailure(streamError)
+                streamErr != null &&
+                isStreamClassFailure(streamErr)
 
             if (shouldFallback) {
                 try {

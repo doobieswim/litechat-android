@@ -28,7 +28,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
@@ -147,7 +147,7 @@ fun ChatScreen(
         addAll(state.messages)
         if (state.isStreaming && state.streamingText.isNotEmpty()) {
             // Replace last empty/partial assistant bubble visually
-            val last = lastOrNull()
+            val last: MessageEntity? = lastOrNull()
             if (last?.role == "assistant") {
                 removeAt(lastIndex)
                 add(last.copy(content = state.streamingText.ifEmpty { "…" }))
@@ -298,7 +298,7 @@ fun ChatScreen(
                         ) {
                             Icon(
                                 if (state.isStreaming) Icons.Default.Close
-                                else Icons.Default.ArrowUpward,
+                                else Icons.Default.Send,
                                 contentDescription = if (state.isStreaming) "Stop" else "Send",
                             )
                         }
