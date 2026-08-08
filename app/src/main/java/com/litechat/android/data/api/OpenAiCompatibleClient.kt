@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -25,6 +25,10 @@ import java.util.concurrent.TimeUnit
 sealed class StreamEvent {
     data class Delta(val text: String) : StreamEvent()
     data class Error(val message: String) : StreamEvent()
+    /** Emitted when content was delivered via the non-stream path (fallback
+     *  after stream failure, or preferNonStream skip). Consumers may use this
+     *  to remember the baseUrl prefers non-stream (C-004). */
+    data object FallbackUsed : StreamEvent()
     data object Done : StreamEvent()
 }
 
@@ -59,6 +63,11 @@ class OpenAiCompatibleClient(
     /**
      * Stream tokens; on stream-class failure with zero deltas, one non-stream retry.
      * Mirrors numAi-plus AUTO streaming mode.
+     *
+     * @param preferNonStream when true (baseUrl flagged stream-broken, C-004),
+     *   skip the SSE attempt entirely and deliver via [completeChat]. The flag
+     *   is TTL-based (see SettingsRepository.markStreamBroken), so providers
+     *   that fix streaming recover automatically after expiry.
      */
     fun streamChat(
         baseUrl: String,
@@ -67,6 +76,7 @@ class OpenAiCompatibleClient(
         messages: List<ChatMessageDto>,
         temperature: Float,
         allowNonStreamFallback: Boolean = true,
+        preferNonStream: Boolean = false,
     ): Flow<StreamEvent> = callbackFlow {
         cancel()
 
@@ -75,52 +85,55 @@ class OpenAiCompatibleClient(
         var streamError: String? = null
         var canceled = false
 
-        try {
-            val response = executeChat(url, apiKey, model, messages, temperature, stream = true)
+        if (!preferNonStream) {
             try {
-                if (!response.isSuccessful) {
-                    val err = response.body?.string()?.take(500) ?: response.message
-                    streamError = "HTTP ${response.code}: $err"
-                } else {
-                    parseSse(response) { event ->
-                        when (event) {
-                            is StreamEvent.Delta -> {
-                                if (event.text.isNotEmpty()) gotDelta = true
-                                trySend(event).isSuccess
+                val response = executeChat(url, apiKey, model, messages, temperature, stream = true)
+                try {
+                    if (!response.isSuccessful) {
+                        val err = response.body?.string()?.take(500) ?: response.message
+                        streamError = "HTTP ${response.code}: $err"
+                    } else {
+                        parseSse(response) { event ->
+                            when (event) {
+                                is StreamEvent.Delta -> {
+                                    if (event.text.isNotEmpty()) gotDelta = true
+                                    trySend(event).isSuccess
+                                }
+                                is StreamEvent.Error -> {
+                                    streamError = event.message
+                                    trySend(event).isSuccess
+                                }
+                                StreamEvent.FallbackUsed -> true
+                                StreamEvent.Done -> true
                             }
-                            is StreamEvent.Error -> {
-                                streamError = event.message
-                                trySend(event).isSuccess
-                            }
-                            StreamEvent.Done -> true
                         }
                     }
+                } finally {
+                    response.close()
                 }
-            } finally {
-                response.close()
+            } catch (e: IOException) {
+                if (activeCall?.isCanceled() == true) {
+                    canceled = true
+                } else {
+                    streamError = e.message ?: "Network error"
+                }
+            } catch (e: Exception) {
+                streamError = e.message ?: "Unknown error"
             }
-        } catch (e: IOException) {
-            if (activeCall?.isCanceled() == true) {
-                canceled = true
-            } else {
-                streamError = e.message ?: "Network error"
-            }
-        } catch (e: Exception) {
-            streamError = e.message ?: "Unknown error"
         }
 
         if (!canceled) {
             // Copy to local val: smart-cast impossible on a closure-mutated var.
             val streamErr = streamError
-            val shouldFallback = allowNonStreamFallback &&
+            val shouldFallback = (allowNonStreamFallback || preferNonStream) &&
                 !gotDelta &&
-                streamErr != null &&
-                isStreamClassFailure(streamErr)
+                (preferNonStream || (streamErr != null && isStreamClassFailure(streamErr)))
 
             if (shouldFallback) {
                 try {
                     val full = completeChat(baseUrl, apiKey, model, messages, temperature)
                     if (full.isNotEmpty()) {
+                        trySend(StreamEvent.FallbackUsed)
                         trySend(StreamEvent.Delta(full))
                     } else if (streamError != null) {
                         trySend(StreamEvent.Error(streamError!!))
@@ -159,6 +172,39 @@ class OpenAiCompatibleClient(
             }
             return extractCompleteContent(raw)
                 ?: throw IOException("Empty completion body")
+        }
+    }
+
+    /**
+     * C-005: list model ids from `{base}/models` (OpenAI-compatible servers).
+     * Lenient parse: returns ids found in `data[].id`; malformed responses
+     * yield an empty list rather than a crash. Empty key + local Ollama still
+     * works (no Authorization header when key is blank).
+     */
+    fun listModels(baseUrl: String, apiKey: String): List<String> {
+        val root = baseUrl.trim().trimEnd('/')
+        val url = if (root.endsWith("/models")) root else "$root/models"
+        val builder = Request.Builder()
+            .url(url)
+            .get()
+            .header("Accept", "application/json")
+        if (apiKey.isNotBlank()) {
+            builder.header("Authorization", "Bearer $apiKey")
+        }
+        val call = client.newCall(builder.build())
+        activeCall = call
+        call.execute().use { response ->
+            if (!response.isSuccessful) return emptyList()
+            val raw = response.body?.string().orEmpty()
+            return try {
+                val rootObj = json.parseToJsonElement(raw).jsonObject
+                val data = rootObj["data"]?.jsonArray ?: return emptyList()
+                data.mapNotNull { el ->
+                    (el.jsonObject["id"] as? JsonPrimitive)?.contentOrNull
+                }
+            } catch (_: Exception) {
+                emptyList()
+            }
         }
     }
 
@@ -204,37 +250,14 @@ class OpenAiCompatibleClient(
             while (true) {
                 val line = br.readLine() ?: break
                 if (line.isEmpty()) continue
-                if (!line.startsWith("data:")) continue
-                val data = line.removePrefix("data:").trim()
-                if (data == "[DONE]") break
-                if (data.isEmpty()) continue
-                val delta = extractDelta(data)
-                if (delta != null) {
-                    if (delta.isNotEmpty() && !emit(StreamEvent.Delta(delta))) break
-                } else {
-                    val err = extractError(data)
-                    if (err != null && !emit(StreamEvent.Error(err))) break
+                when (val event = ChatSseParser.parseEvent(line)) {
+                    null -> Unit // non-data line or malformed payload — skip
+                    StreamEvent.Done -> break
+                    else -> if (!emit(event)) break
                 }
             }
         }
     }
-
-    private fun extractDelta(data: String): String? {
-        return try {
-            val root = json.parseToJsonElement(data).jsonObject
-            val choices = root["choices"]?.jsonArray ?: return null
-            if (choices.isEmpty()) return ""
-            val choice = choices[0].jsonObject
-            val delta = choice["delta"]?.jsonObject
-            val content = delta?.get("content")?.jsonPrimitive?.contentOrNull
-            content
-                ?: choice["text"]?.jsonPrimitive?.contentOrNull
-                ?: ""
-        } catch (_: Exception) {
-            null
-        }
-    }
-
     private fun extractCompleteContent(raw: String): String? {
         return try {
             val root = json.parseToJsonElement(raw).jsonObject
@@ -243,19 +266,6 @@ class OpenAiCompatibleClient(
             val msg = choices[0].jsonObject["message"]?.jsonObject
             msg?.get("content")?.jsonPrimitive?.contentOrNull
                 ?: choices[0].jsonObject["text"]?.jsonPrimitive?.contentOrNull
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun extractError(data: String): String? {
-        return try {
-            val root = json.parseToJsonElement(data).jsonObject
-            val err = root["error"]
-            when (err) {
-                is JsonObject -> err["message"]?.jsonPrimitive?.contentOrNull
-                else -> err?.toString()
-            }
         } catch (_: Exception) {
             null
         }
@@ -289,6 +299,7 @@ class OpenAiCompatibleClient(
                 n.contains("unexpected") ||
                 n.contains("malformed") ||
                 n.contains("timeout") ||
+                n.contains("timed out") ||
                 n.contains("json") ||
                 n.contains("stream") ||
                 n.contains("connection") ||

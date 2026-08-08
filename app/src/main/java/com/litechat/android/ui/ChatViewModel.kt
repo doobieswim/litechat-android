@@ -70,13 +70,12 @@ class ChatViewModel(
     fun setInput(value: String) {
         // Cap paste size: Compose Constraints overflow / OOM on huge single-line measure
         // (see gpt_mobile#226: "Can't represent a width of … height of 369898 in Constraints")
-        val capped = if (value.length > MAX_INPUT_CHARS) value.take(MAX_INPUT_CHARS) else value
-        _state.update { it.copy(input = capped) }
+        _state.update { it.copy(input = InputPolicy.cap(value)) }
     }
 
     companion object {
-        /** Soft ceiling keeps layout measure and binder IPC safe on 4GB devices. */
-        const val MAX_INPUT_CHARS = 32_000
+        /** Delegated to [InputPolicy]; kept as an alias for call sites + verify_static. */
+        const val MAX_INPUT_CHARS = InputPolicy.MAX_INPUT_CHARS
     }
 
     fun clearError() {
@@ -165,12 +164,17 @@ class ChatViewModel(
             streamJob?.cancel()
             streamJob = viewModelScope.launch {
                 try {
+                    // C-004: skip SSE when this baseUrl was recently flagged
+                    // stream-broken (TTL-based, see SettingsRepository).
+                    val preferNonStream =
+                        container.settingsRepository.isStreamBrokenNow(settings.baseUrl)
                     container.openAiClient.streamChat(
                         baseUrl = settings.baseUrl,
                         apiKey = key,
                         model = settings.model,
                         messages = dto,
                         temperature = settings.temperature,
+                        preferNonStream = preferNonStream,
                     ).collect { event ->
                         when (event) {
                             is StreamEvent.Delta -> {
@@ -179,6 +183,11 @@ class ChatViewModel(
                             }
                             is StreamEvent.Error -> {
                                 _state.update { it.copy(error = event.message) }
+                            }
+                            // Non-stream path delivered content — remember this
+                            // baseUrl prefers non-stream for a while.
+                            StreamEvent.FallbackUsed -> {
+                                container.settingsRepository.markStreamBroken(settings.baseUrl)
                             }
                             StreamEvent.Done -> Unit
                         }

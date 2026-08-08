@@ -36,7 +36,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -546,6 +549,12 @@ fun SettingsScreen(
     var confirmClear by remember { mutableStateOf(false) }
     var billingMsg by remember { mutableStateOf<String?>(null) }
     var showMatrix by remember { mutableStateOf(false) }
+    // C-005: /models picker state
+    var fetchedModels by remember { mutableStateOf<List<String>?>(null) }
+    var modelsMsg by remember { mutableStateOf<String?>(null) }
+    var modelsLoading by remember { mutableStateOf(false) }
+    var showModelsMenu by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val snap = remember(context) { DeviceCompat.snapshot(context) }
 
     Scaffold(
@@ -595,6 +604,70 @@ fun SettingsScreen(
             }
             item {
                 OutlinedTextField(model, { model = it }, label = { Text("Model") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            }
+            // C-005: optional GET /models picker — failures show a short message, never crash.
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TextButton(
+                        onClick = {
+                            modelsLoading = true
+                            modelsMsg = null
+                            scope.launch {
+                                val ids = app.container.openAiClient.listModels(base, key)
+                                fetchedModels = ids
+                                modelsMsg = when {
+                                    ids.isEmpty() -> "No models returned (check base URL)"
+                                    else -> "${ids.size} models found"
+                                }
+                                modelsLoading = false
+                            }
+                        },
+                        enabled = !modelsLoading,
+                    ) {
+                        Text(if (modelsLoading) "Fetching…" else "Fetch models")
+                    }
+                    modelsMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+            fetchedModels?.let { ids ->
+                if (ids.isNotEmpty()) {
+                    item {
+                        ExposedDropdownMenuBox(
+                            expanded = showModelsMenu,
+                            onExpandedChange = { showModelsMenu = it },
+                        ) {
+                            OutlinedTextField(
+                                value = model,
+                                onValueChange = { model = it },
+                                label = { Text("Pick a model") },
+                                readOnly = true,
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = showModelsMenu)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
+                            )
+                            ExposedDropdownMenu(
+                                expanded = showModelsMenu,
+                                onDismissRequest = { showModelsMenu = false },
+                            ) {
+                                ids.forEach { id ->
+                                    DropdownMenuItem(
+                                        text = { Text(id, maxLines = 1) },
+                                        onClick = {
+                                            model = id
+                                            showModelsMenu = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
             item {
                 OutlinedTextField(temp, { temp = it }, label = { Text("Temperature") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
@@ -649,12 +722,15 @@ fun SettingsScreen(
                     }
                 }) { Text("Restore purchases") }
             }
-            // Debug: long-press free unlock for emulator without Play
-            item {
-                TextButton(onClick = {
-                    onSetPro(true)
-                    billingMsg = "Dev: Pro flagged locally (debug builds)"
-                }) { Text("Dev: mark Pro (local)") }
+            // Debug-only foot-gun guard (C-003): the local Pro flag must never
+            // appear in release binaries.
+            if (BuildConfig.DEBUG) {
+                item {
+                    TextButton(onClick = {
+                        onSetPro(true)
+                        billingMsg = "Dev: Pro flagged locally (debug builds)"
+                    }) { Text("Dev: mark Pro (local)") }
+                }
             }
             billingMsg?.let {
                 item { Text(it, color = MaterialTheme.colorScheme.primary) }

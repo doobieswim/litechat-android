@@ -9,7 +9,12 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("litechat_settings")
 
@@ -31,7 +36,59 @@ class SettingsRepository(
         val TEMPERATURE = floatPreferencesKey("temperature")
         val ONBOARDING = booleanPreferencesKey("onboarding_done")
         val IS_PRO = booleanPreferencesKey("is_pro")
+        val NON_STREAM_EXPIRY = stringPreferencesKey("non_stream_expiry_map")
     }
+
+    /**
+     * C-004: baseUrl → epoch millis when its "prefer non-stream" flag expires.
+     * TTL-based by design: a provider that fixes streaming recovers
+     * automatically after [STREAM_BROKEN_TTL_MS]. Only baseUrls are stored —
+     * never keys, tokens, or message content.
+     */
+    suspend fun markStreamBroken(
+        baseUrl: String,
+        ttlMs: Long = STREAM_BROKEN_TTL_MS,
+    ) {
+        context.dataStore.edit { p ->
+            val map = decodeExpiryMap(p[Keys.NON_STREAM_EXPIRY])
+            map[baseUrl] = System.currentTimeMillis() + ttlMs
+            p[Keys.NON_STREAM_EXPIRY] = encodeExpiryMap(map)
+        }
+    }
+
+    /** True while the baseUrl's non-stream flag is unexpired. */
+    suspend fun isStreamBrokenNow(baseUrl: String): Boolean {
+        val expiry = decodeExpiryMap(
+            context.dataStore.data.first()[Keys.NON_STREAM_EXPIRY]
+        )[baseUrl] ?: return false
+        return expiry > System.currentTimeMillis()
+    }
+
+    /** Drop a flag early (e.g. user changed provider and wants fresh streams). */
+    suspend fun clearStreamBroken(baseUrl: String) {
+        context.dataStore.edit { p ->
+            val map = decodeExpiryMap(p[Keys.NON_STREAM_EXPIRY])
+            if (map.remove(baseUrl) != null) {
+                p[Keys.NON_STREAM_EXPIRY] = encodeExpiryMap(map)
+            }
+        }
+    }
+
+    private fun decodeExpiryMap(raw: String?): MutableMap<String, Long> {
+        if (raw.isNullOrBlank()) return mutableMapOf()
+        return try {
+            Json.parseToJsonElement(raw).jsonObject
+                .mapValues { (_, v) -> v.toString().trim('"').toLong() }
+                .toMutableMap()
+        } catch (_: Exception) {
+            mutableMapOf()
+        }
+    }
+
+    private fun encodeExpiryMap(map: Map<String, Long>): String =
+        buildJsonObject {
+            map.forEach { (k, v) -> put(k, v) }
+        }.toString()
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
         AppSettings(
@@ -64,6 +121,8 @@ class SettingsRepository(
     }
 
     companion object {
+        /** C-004: how long a baseUrl stays flagged "prefer non-stream" (24h). */
+        const val STREAM_BROKEN_TTL_MS = 24L * 60 * 60 * 1000
         val PRESETS = listOf(
             Preset("OpenAI", "https://api.openai.com/v1", "gpt-4o-mini"),
             Preset("OpenRouter", "https://openrouter.ai/api/v1", "openai/gpt-4o-mini"),

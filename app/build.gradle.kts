@@ -99,4 +99,8 @@ dependencies {
     // Monetization (same pattern as Opclaw: ads + one-time Pro)
     implementation("com.google.android.gms:play-services-ads:23.6.0")
     implementation("com.android.billingclient:billing-ktx:7.1.1")
+
+    // Unit tests (JVM): SSE parser, failure heuristic, compat bands, input cap.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }
