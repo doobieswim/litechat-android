@@ -28,6 +28,21 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design rationale.
 python3 scripts/verify_static.py   # no Android SDK required
 ```
 
+## Building — two flavors (C-002)
+
+| Flavor | Includes | Use for |
+|--------|----------|---------|
+| `play` | AdMob banner + Play Billing (GMS) | Play Store / GMS devices |
+| `foss` | **No** GMS/Play code at all (ads + billing stubbed) | Sideload, F-Droid-shaped builds, privacy |
+
+```bash
+./gradlew assemblePlayRelease   # com.litechat.android
+./gradlew assembleFossRelease   # com.litechat.android.foss (side-by-side install)
+./gradlew testPlayReleaseUnitTest testFossReleaseUnitTest
+```
+
+CI builds both on every push; tagging `v*` publishes a signed GitHub Release with both APKs (signing needs `KEYSTORE_FILE` / `KEYSTORE_PASSWORD` / `KEYSTORE_KEY_ALIAS` / `KEYSTORE_KEY_PASSWORD` secrets).
+
 ## Features (v1)
 
 - Streaming chat (`/v1/chat/completions` SSE) + **non-stream fallback** on flaky providers

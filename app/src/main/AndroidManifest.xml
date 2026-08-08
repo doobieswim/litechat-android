@@ -15,17 +15,9 @@
         android:theme="@style/Theme.LiteChat"
         android:largeHeap="false">
 
-        <!-- Sample AdMob App ID — replace before Play release -->
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
-
-        <!-- C-001: strip the ads SDK's auto-init provider so Pro users never warm
-             the SDK at cold start. Init happens explicitly in AdMobLazyInit on the
-             first banner (non-Pro path). -->
-        <provider
-            android:name="com.google.android.gms.ads.MobileAdsInitProvider"
-            tools:node="remove" />
+        <!-- AdMob APPLICATION_ID + auto-init provider strip live in the play
+             flavor's manifest overlay (app/src/play/AndroidManifest.xml) —
+             foss builds carry zero GMS manifest entries (C-002). -->
 
         <activity
             android:name=".MainActivity"

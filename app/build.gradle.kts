@@ -31,10 +31,35 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Optional signing: activates when CI secrets (or local env) provide
+            // a keystore path. Unsigned builds still succeed (sideload dev use).
+            val keystorePath = System.getenv("KEYSTORE_FILE")
+            if (!keystorePath.isNullOrBlank()) {
+                signingConfig = signingConfigs.create("release") {
+                    storeFile = file(keystorePath)
+                    storePassword = System.getenv("KEYSTORE_PASSWORD")
+                    keyAlias = System.getenv("KEYSTORE_KEY_ALIAS")
+                    keyPassword = System.getenv("KEYSTORE_KEY_PASSWORD")
+                }
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
             isMinifyEnabled = false
+        }
+    }
+
+    // C-002: play keeps GMS ads+billing; foss builds without them (sideload/F-Droid).
+    flavorDimensions += "store"
+    productFlavors {
+        create("play") {
+            dimension = "store"
+            // Default applicationId (com.litechat.android); GMS deps via playImplementation.
+        }
+        create("foss") {
+            dimension = "store"
+            // Side-by-side install with play build (H-002 recommendation).
+            applicationIdSuffix = ".foss"
         }
     }
 
@@ -96,9 +121,11 @@ dependencies {
     implementation("androidx.room:room-ktx:$room")
     ksp("androidx.room:room-compiler:$room")
 
-    // Monetization (same pattern as Opclaw: ads + one-time Pro)
-    implementation("com.google.android.gms:play-services-ads:23.6.0")
-    implementation("com.android.billingclient:billing-ktx:7.1.1")
+    // Monetization (same pattern as Opclaw: ads + one-time Pro).
+    // Play flavor only — foss builds carry no GMS/Play code at all (C-002).
+    // `add(...)` form: with create() flavors the typed accessor isn't generated.
+    add("playImplementation", "com.google.android.gms:play-services-ads:23.6.0")
+    add("playImplementation", "com.android.billingclient:billing-ktx:7.1.1")
 
     // Unit tests (JVM): SSE parser, failure heuristic, compat bands, input cap.
     testImplementation("junit:junit:4.13.2")

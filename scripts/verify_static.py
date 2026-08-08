@@ -41,11 +41,23 @@ def main() -> int:
     ok("largeHeap false", 'largeHeap="false"' in manifest)
 
     # C-001 regression guards: ads init must be lazy (never at cold start).
+    # C-002: ads code lives in the play flavor source set only.
     app_kt = (KT_ROOT / "com/litechat/android/LiteChatApp.kt").read_text()
-    ad_init = (KT_ROOT / "com/litechat/android/data/ads/AdMobLazyInit.kt").read_text()
+    play_kt_root = ROOT / "app" / "src" / "play" / "java"
+    play_manifest = (ROOT / "app" / "src" / "play" / "AndroidManifest.xml").read_text()
+    ad_init = (play_kt_root / "com/litechat/android/data/ads/AdMobLazyInit.kt").read_text()
     ok("lazy ads init (no cold-start MobileAds)", "MobileAds.initialize" not in app_kt)
     ok("lazy ads init (single explicit path)", "MobileAds.initialize" in ad_init and "AtomicBoolean" in ad_init)
-    ok("ads auto-init provider stripped", "MobileAdsInitProvider" in manifest and 'tools:node="remove"' in manifest)
+    ok("ads auto-init provider stripped", "MobileAdsInitProvider" in play_manifest and 'tools:node="remove"' in play_manifest)
+
+    # C-002 flavor split guards.
+    ok("play flavor exists", (ROOT / "app" / "src" / "play").is_dir())
+    ok("foss flavor exists", (ROOT / "app" / "src" / "foss").is_dir())
+    ok("foss has no GMS code", "com.google.android.gms" not in
+       "\n".join(p.read_text() for p in (ROOT / "app" / "src" / "foss").rglob("*.kt")))
+    build_kts = (ROOT / "app" / "build.gradle.kts").read_text()
+    ok("play/foss productFlavors", "create(\"play\")" in build_kts and "create(\"foss\")" in build_kts)
+    ok("GMS deps are play-only", "playImplementation" in build_kts and "implementation(\"com.google.android.gms" not in build_kts)
 
     all_kt = "\n".join(p.read_text() for p in KT_ROOT.rglob("*.kt"))
     for bad in ("WebView", "trustAll", "react-native", "io.flutter"):

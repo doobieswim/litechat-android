@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play flavor overlay (C-002): AdMob app id + auto-init provider strip.
+     Merged into the main manifest only for the play variant. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!-- Sample AdMob App ID — replace before Play release -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
+
+        <!-- C-001: strip the ads SDK's auto-init provider so Pro users never warm
+             the SDK at cold start. Init happens explicitly in AdMobLazyInit on the
+             first banner (non-Pro path). -->
+        <provider
+            android:name="com.google.android.gms.ads.MobileAdsInitProvider"
+            tools:node="remove" />
+    </application>
+</manifest>

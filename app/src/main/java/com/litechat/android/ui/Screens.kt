@@ -72,12 +72,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.AdView
 import com.litechat.android.BuildConfig
 import com.litechat.android.LiteChatApp
-import com.litechat.android.data.ads.AdMobLazyInit
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.util.DeviceCompat
 import kotlinx.coroutines.launch
@@ -387,25 +383,10 @@ private fun MessageBubble(msg: MessageEntity) {
     }
 }
 
-@Composable
-private fun BannerAd() {
-    val unitId = BuildConfig.ADMOB_BANNER_ID
-    AndroidView(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp),
-        factory = { ctx ->
-            // C-001: one-time lazy SDK init on first banner need (non-Pro only —
-            // this composable is never created for Pro users).
-            AdMobLazyInit.ensureInitialized(ctx)
-            AdView(ctx).apply {
-                setAdSize(AdSize.BANNER)
-                adUnitId = unitId
-                loadAd(AdRequest.Builder().build())
-            }
-        }
-    )
-}
+/**
+ * BannerAd is flavor-specific (C-002): the play build shows an AdMob banner,
+ * the foss build renders nothing. Defined in each flavor's ui source set.
+ */
 
 @Composable
 fun OnboardingScreen(
