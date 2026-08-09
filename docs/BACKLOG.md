@@ -48,7 +48,8 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Out of scope:** image-to-image editing, multi-turn refinement, separate image gallery, SDXL/Flux via separate keys
 
 ### C-012 — Prompt template variables (Pro-gated)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** PromptTemplate data model with [Var] render(), CRUD in SettingsRepository (DataStore JSON), built-in Translate template, template picker row above chat input, Pro-gate: free=1 template, Pro=unlimited. Static verify: 44/44.
 - **Goal:** Users create prompt templates with dynamic `[Variable]` fields. Pro users get unlimited; free tier gets 1 built-in. Store in DataStore JSON.
 - **Research:** `docs/PREMIUM-STRATEGY.md` (R-008)
 - **Touch:** `ChatViewModel.kt`, `Screens.kt`, `SettingsRepository.kt`
