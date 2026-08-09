@@ -69,4 +69,19 @@ class ChatRepository(
         messageDao.update(msg.copy(content = content))
         touchConversation(conversationId)
     }
+
+    suspend fun exportAsText(convId: String): String {
+        val conv = conversationDao.get(convId) ?: return ""
+        val msgs = messageDao.listForConversation(convId)
+        return buildString {
+            appendLine(conv.title)
+            appendLine("=".repeat(conv.title.length))
+            appendLine()
+            msgs.forEach { msg ->
+                appendLine(if (msg.role == "user") "You:" else "Assistant:")
+                appendLine(msg.content)
+                appendLine()
+            }
+        }
+    }
 }

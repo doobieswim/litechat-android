@@ -22,9 +22,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 data class ChatUiState(
     val settings: AppSettings = AppSettings(),
@@ -46,6 +47,8 @@ data class ChatUiState(
     val templates: List<PromptTemplate> = emptyList(),
     /** C-010: count of messages trimmed by context budget. */
     val truncatedCount: Int = 0,
+    /** Estimated cost of last assistant response. */
+    val lastCost: String? = null,
 )
 
 class ChatViewModel(
@@ -428,11 +431,15 @@ $pageText"
                 when {
                     finalText.isNotEmpty() -> {
                         container.chatRepository.updateMessageContent(
-                            assistantId, convId, finalText
-                        )
-                        _state.update {
-                            it.copy(isStreaming = false, streamingText = "", retryProgress = null)
-                        }
+                                                    assistantId, convId, finalText
+                                                )
+                                                val approxTokens = finalText.length / 4
+                                                val cost = approxTokens * 0.0000015  // ~$1.50 per 1M input tokens
+                                                _state.update {
+                                                    it.copy(isStreaming = false, streamingText = "",
+                                                        retryProgress = null,
+                                                        lastCost = "≈ $${"%.4f".format(cost)}")
+                                                }
                         return@launch // success — exit retry loop
                     }
                     streamResult != null -> {
@@ -572,6 +579,21 @@ $pageText"
                 _state.update { it.copy(error = "Attachment failed: ${e.message?.take(60)}") }
             }
         }
+    }
+
+    fun shareChat(convId: String?) {
+        val id = convId ?: return
+        viewModelScope.launch {
+            val text = container.chatRepository.exportAsText(id)
+            if (text.isNotEmpty()) {
+                _state.update { it.copy(lastCost = "Chat exported as text") }
+            }
+        }
+    }
+
+    fun getCurrentChatText(): String? {
+        val id = _state.value.activeConversationId ?: return null
+        return runBlocking { container.chatRepository.exportAsText(id) }
     }
 
     fun clearHistory() {

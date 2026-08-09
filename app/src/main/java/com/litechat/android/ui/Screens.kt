@@ -180,15 +180,25 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onStop = vm::stopStreaming,
             onClearError = vm::clearError,
             onInsertTemplate = vm::insertTemplate,
-            onAttachImage = { imagePicker.launch("image/*") },
-            onVoiceInput = {
-                val intent = android.speech.RecognizerIntent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                        android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                }
-                voiceLauncher.launch(intent)
-            },
-        )
+                        onAttachImage = { imagePicker.launch("image/*") },
+                        onVoiceInput = {
+                            val intent = android.speech.RecognizerIntent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                    android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            }
+                            voiceLauncher.launch(intent)
+                        },
+                        onShare = {
+                            if (state.activeConversationId != null) {
+                                val text = vm.getCurrentChatText() ?: "No messages yet"
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, text)
+                                }
+                                context.startActivity(Intent.createChooser(intent, "Share chat"))
+                            }
+                        },
+                    )
     }
 }
 
@@ -207,6 +217,7 @@ fun ChatScreen(
     onInsertTemplate: (PromptTemplate) -> Unit,
     onAttachImage: () -> Unit,
     onVoiceInput: () -> Unit,
+    onShare: () -> Unit,
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -304,13 +315,16 @@ fun ChatScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = onNewChat) {
-                            Icon(Icons.Default.Add, contentDescription = "New chat")
-                        }
-                        IconButton(onClick = onOpenSettings) {
-                            Icon(Icons.Default.Settings, contentDescription = "Settings")
-                        }
-                    },
+                                            IconButton(onClick = onNewChat) {
+                                                Icon(Icons.Default.Add, contentDescription = "New chat")
+                                            }
+                                            IconButton(onClick = onShare) {
+                                                Icon(Icons.Default.Send, contentDescription = "Share")
+                                            }
+                                            IconButton(onClick = onOpenSettings) {
+                                                Icon(Icons.Default.Settings, contentDescription = "Settings")
+                                            }
+                                        },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
                     ),
@@ -491,6 +505,20 @@ fun ChatScreen(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
+                }
+            // Cost display: radical transparency.
+                state.lastCost?.let { cost ->
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            cost,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
