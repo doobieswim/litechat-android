@@ -13,7 +13,8 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Notes:** Added `app/src/main/assets/privacy.html` (bundled), `privacy.html` (repo root for GitHub Pages), Settings "Privacy Policy" link via `ACTION_VIEW`, upgraded disclaimer to full BYOK wording from research, added Disclaimer section + Privacy Policy link to README.md
 
 ### C-008 — Markdown rendering (re-evaluated post R-006)
-- **Status:** Idea  (cost equation changed — R-006 found published Maven Central libs)
+- **Status:** Done
+- **Notes:** llm-typewriter 0.1.1 integrated. Assistant messages render with StreamingTypewriter + markdown (bold, italic, code blocks, headings, lists). flowOf(text) for settled messages. User messages stay plain text. Static verify: 47/47.
 - **R-006 finding:** `NadeemIqbal/llm-typewriter` (Apache 2.0, `io.github.nadeemiqbal:llm-typewriter:0.1.1`) is a drop-in streaming markdown typewriter for Compose. Also found: `xemantic/markanywhere` (semantic event-stream parser, KMP). Both viable.
 - **Depends on:** R-006-1 (APK/RSS measurement) — not yet scheduled
 - **Goal:** Add incremental streaming markdown rendering using llm-typewriter (preferred) or markanywhere. Plain text until measurement confirms APK cost is acceptable.  
