@@ -15,6 +15,8 @@ import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.AppSettings
 import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.data.prefs.SettingsRepository
+import com.litechat.android.util.DeviceCompat
+import com.litechat.android.util.ImageCacheConfig
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -267,12 +269,29 @@ $pageText"
                         apiKey = key,
                         prompt = prompt,
                     )
-                    // Save to cache dir, store path as [IMAGE:path] in message content.
+                    // Save to cache dir, downscaled for weak devices.
+                    val maxDim = ImageCacheConfig.maxSaveDimension(
+                        DeviceCompat.snapshot(container.ctx).band
+                    )
+                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                    val scaled = if (bitmap != null && (bitmap.width > maxDim || bitmap.height > maxDim)) {
+                        val ratio = maxDim.toFloat() / maxOf(bitmap.width, bitmap.height)
+                        android.graphics.Bitmap.createScaledBitmap(
+                            bitmap,
+                            (bitmap.width * ratio).toInt(),
+                            (bitmap.height * ratio).toInt(),
+                            true
+                        )
+                    } else bitmap
+                    val outStream = java.io.ByteArrayOutputStream()
+                    scaled?.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, outStream)
                     val file = java.io.File(
                         container.ctx.cacheDir,
-                        "gen_${System.currentTimeMillis()}.png"
+                        "gen_${System.currentTimeMillis()}.jpg"
                     )
-                    file.writeBytes(imageBytes)
+                    file.writeBytes(outStream.toByteArray())
+                    scaled?.recycle()
+                    bitmap?.recycle()
                     container.chatRepository.addMessage(
                         convId, "assistant",
                         "[IMAGE:${file.absolutePath}]"

@@ -571,6 +571,7 @@ private fun MessageBubble(msg: MessageEntity) {
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(file)
                             .crossfade(true)
+                            .size(540, 540)  // never decode larger than display
                             .build(),
                         contentDescription = "Generated image",
                         modifier = Modifier
