@@ -20,7 +20,8 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Goal:** Add incremental streaming markdown rendering using llm-typewriter (preferred) or markanywhere. Plain text until measurement confirms APK cost is acceptable.  
 
 ### C-009 — Streaming height placeholders (from EveryTalk pattern)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** EveryTalk Layer 1: detect open code blocks (``` with odd backtick count) and tables (| at line start) in streaming text, inject Spacer(32.dp/8.dp). Prevents LazyColumn jump when fence closes. 0 deps, ~20 lines. Static verify: 50/50.
 - **Goal:** Combine `animateItemPlacement()` + `AnimatedContent(SizeTransform)` to prevent LazyColumn jumps when streaming markdown finishes. No new deps.
 - **Source:** `roseforljh/EveryTalk` `PerformanceConfig.kt` + Reddit research
 - **Touch:** `Screens.kt` (ChatScreen, MessageBubble)
