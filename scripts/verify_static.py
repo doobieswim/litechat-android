@@ -116,11 +116,57 @@ def main() -> int:
     ok("truncation indicator in UI", "truncatedCount > 0" in screens
         and "earlier message(s) not included" in screens)
 
+    all_kt = "\n".join(p.read_text() for p in KT_ROOT.rglob("*.kt"))
+    api = cli  # alias for cleaner guard naming
+
+    # C-013 /browse guards.
+    ok("Jsoup dep", "org.jsoup:jsoup:1.18.1" in build_kts)
+    ok("fetchPage in client", "fetchPage" in api and "Jsoup" in api)
+    ok("/browse handler", "/browse " in vm and "fetchPage" in vm)
+
+    # C-014 backup/restore guards.
+    ok("exportChats in VM", "exportChats" in vm and "importChats" in vm)
+
+    # C-015 overlay guards.
+    ok("OverlayService file", (KT_ROOT / "com/litechat/android/ui/OverlayService.kt").is_file())
+    ok("SYSTEM_ALERT_WINDOW in manifest", "SYSTEM_ALERT_WINDOW" in manifest)
+
+    # C-016 attach guards.
+    ok("attachImage in VM", "attachImage" in vm and "Base64" in vm)
+
+    # C-017 failover guards.
+    ok("ProviderEntry in repo", "ProviderEntry" in settings_repo and "providerListKey" in settings_repo)
+    ok("failover in VM", "getProviderList" in vm and "Trying" in vm)
+
+    # C-018 per-conv model guards.
+    ok("ConversationEntity.model", "val model: String = """ in all_kt and "per-conversation model binding" in all_kt)
+
+    # C-019 test button guards.
+    ok("Test button in Settings", "onClick = {\n                                        testing = true" in screens)
+
+    # C-020 memory guards.
+    ok("MemoryManager file", (KT_ROOT / "com/litechat/android/data/context/MemoryManager.kt").is_file())
+
+    # C-021 voice input guards.
+    ok("voice launcher", "rememberLauncherForActivityResult" in screens and "onVoiceInput" in screens)
+
+    # C-022 export/import guards.
+    ok("export/import wired", "onExport" in screens and "onImport" in screens and "Backup chats" in screens)
+
+    # C-023 NamedKeyStore guards.
+    ok("NamedKeyStore file", (KT_ROOT / "com/litechat/android/data/prefs/NamedKeyStore.kt").is_file())
+
+    # C-024 conversation forks guards.
+    ok("MessageEntity.parentId", "val parentId: String? = null" in all_kt and "conversation forks" in all_kt)
+
+    # Image cache guards.
+    ok("ImageCacheConfig file", (KT_ROOT / "com/litechat/android/util/ImageCacheConfig.kt").is_file())
+    ok("Coil SingletonImageLoader", "SingletonImageLoader" in all_kt and "ImageCacheConfig" in all_kt)
+
     # Kai 9000 honesty rule guard.
     ok("honesty rule in system prompt", '"Do not fabricate tool outputs' in vm
         and 'ChatMessageDto("system"' in vm)
 
-    all_kt = "\n".join(p.read_text() for p in KT_ROOT.rglob("*.kt"))
     for bad in ("WebView", "trustAll", "react-native", "io.flutter"):
         ok(f"no {bad}", bad not in all_kt)
 

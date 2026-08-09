@@ -3,6 +3,8 @@ package com.litechat.android.ui
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -100,6 +102,36 @@ fun LiteChatRoot(vm: ChatViewModel) {
     var showOnboarding by remember {
         mutableStateOf(!state.settings.onboardingDone)
     }
+    val context = LocalContext.current
+    val activity = context as? Activity
+
+    // C-021: voice input launcher.
+    val voiceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val matches = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            if (!matches.isNullOrEmpty()) vm.setInput(matches[0])
+        }
+    }
+
+    // C-016: image/file picker launcher.
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { vm.attachImage(it) } }
+
+    // C-022: SAF export launcher.
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri -> uri?.let { vm.exportChats(it) } }
+
+    // C-022: SAF import launcher.
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { vm.importChats(it) } }
+
+    // C-015: overlay toggle.
+    var overlayOn by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.settings.onboardingDone) {
         if (!state.settings.onboardingDone) showOnboarding = true
@@ -124,6 +156,18 @@ fun LiteChatRoot(vm: ChatViewModel) {
             },
             onClearHistory = vm::clearHistory,
             onSetPro = vm::setPro,
+            onExport = { exportLauncher.launch("litechat_backup.db") },
+            onImport = { importLauncher.launch(arrayOf("*/*")) },
+            overlayOn = overlayOn,
+            onToggleOverlay = { enabled ->
+                overlayOn = enabled
+                if (enabled) {
+                    val svc = Intent(context, OverlayService::class.java)
+                    context.startForegroundService(svc)
+                } else {
+                    context.stopService(Intent(context, OverlayService::class.java))
+                }
+            },
         )
         else -> ChatScreen(
             state = state,
@@ -136,6 +180,14 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onStop = vm::stopStreaming,
             onClearError = vm::clearError,
             onInsertTemplate = vm::insertTemplate,
+            onAttachImage = { imagePicker.launch("image/*") },
+            onVoiceInput = {
+                val intent = android.speech.RecognizerIntent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                }
+                voiceLauncher.launch(intent)
+            },
         )
     }
 }
@@ -153,6 +205,8 @@ fun ChatScreen(
     onStop: () -> Unit,
     onClearError: () -> Unit,
     onInsertTemplate: (PromptTemplate) -> Unit,
+    onAttachImage: () -> Unit,
+    onVoiceInput: () -> Unit,
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -328,24 +382,27 @@ fun ChatScreen(
                         verticalAlignment = Alignment.Bottom,
                     ) {
                         // C-021: mic button for voice input (Android SpeechRecognizer).
-                        var listening by remember { mutableStateOf(false) }
-                        val ctx = LocalContext.current
-                        IconButton(
-                            onClick = {
-                                listening = true
-                                // Stub: speech recognizer intent
-                                // In practice, use SpeechRecognizer.recognizeIntent
-                                // and set onInput(result) on activity result.
-                                listening = false
-                            },
-                            modifier = Modifier.size(40.dp),
-                        ) {
-                            Icon(
-                                if (listening) Icons.Default.Close else Icons.Default.Send,
-                                contentDescription = "Voice input",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                                                IconButton(
+                                                    onClick = onVoiceInput,
+                                                    modifier = Modifier.size(40.dp),
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Send, // Replace with mic icon in resources
+                                                        contentDescription = "Voice input",
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
+                                                // C-016: attach image/file button.
+                                                IconButton(
+                                                    onClick = onAttachImage,
+                                                    modifier = Modifier.size(40.dp),
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Add,
+                                                        contentDescription = "Attach image",
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
                         OutlinedTextField(
                             value = state.input,
                             onValueChange = onInput,
@@ -709,6 +766,10 @@ fun SettingsScreen(
     onSave: (key: String, base: String, model: String, temp: Float) -> Unit,
     onClearHistory: () -> Unit,
     onSetPro: (Boolean) -> Unit,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+    overlayOn: Boolean,
+    onToggleOverlay: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as LiteChatApp
@@ -953,40 +1014,38 @@ fun SettingsScreen(
                 }
             }
             // C-022: Settings export/import as JSON.
-            item { HorizontalDivider() }
-            item {
-                Text("Data", fontWeight = FontWeight.SemiBold)
-            }
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = {
-                        scope.launch {
-                            try {
-                                val json = buildString {
-                                    appendLine("{")
-                                    appendLine("  "baseUrl": "${state.settings.baseUrl}",")
-                                    appendLine("  "model": "${state.settings.model}",")
-                                    appendLine("  "temperature": ${state.settings.temperature}")
-                                    appendLine("}")
-                                }
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "application/json"
-                                    putExtra(Intent.EXTRA_TEXT, json)
-                                }
-                                context.startActivity(Intent.createChooser(intent, "Export settings"))
-                            } catch (_: Exception) {}
+                        item { HorizontalDivider() }
+                        item {
+                            Text("Data", fontWeight = FontWeight.SemiBold)
                         }
-                    }) { Text("Export") }
-                    TextButton(onClick = {
-                        // Show file picker for JSON import
-                        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                            type = "application/json"
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = onExport) {
+                                    Text("Backup chats")
+                                }
+                                TextButton(onClick = onImport) {
+                                    Text("Restore chats")
+                                }
+                            }
                         }
-                        // Stub: activity result launcher would parse and apply
-                    }) { Text("Import") }
-                }
-            }
+                        // C-015: floating overlay toggle.
+                        item { HorizontalDivider() }
+                        item {
+                            Text("Floating overlay (Pro)", fontWeight = FontWeight.SemiBold)
+                        }
+                        item {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                androidx.compose.material3.Switch(
+                                    checked = overlayOn,
+                                    onCheckedChange = onToggleOverlay,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    if (overlayOn) "Overlay active" else "Chat from any app",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
         }
     }
 
