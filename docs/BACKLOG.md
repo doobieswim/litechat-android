@@ -33,7 +33,8 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Out of scope:** LLM-based summary compression (v2)
 
 ### C-011 — Image generation via /imagine slash command
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** Coil 3 deps (~200KB), generateImage() in client (POST /v1/images/generations), /imagine handler in ViewModel, [IMAGE:path] message convention, AsyncImage bubble, generating banner. Static verify: 39/39.
 - **Goal:** User types `/imagine <prompt>` → image generated via same BYOK OpenAI key → displayed inline in chat. Uses Coil 3 for display (~200KB APK). Optional Pollinations AI free fallback for FOSS flavor.
 - **Research:** `docs/IMAGE-GENERATION-RESEARCH.md` (R-007)
 - **AC:**
