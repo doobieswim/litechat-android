@@ -15,6 +15,9 @@ import com.litechat.android.core.flags.FeatureFlags
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
 
+    /** Public context for file I/O (e.g. saving generated images to cache). */
+    val ctx: Context = appContext
+
     val database: AppDatabase = Room.databaseBuilder(
         appContext,
         AppDatabase::class.java,

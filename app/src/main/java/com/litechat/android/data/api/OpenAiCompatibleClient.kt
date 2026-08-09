@@ -21,6 +21,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import android.util.Base64
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -216,6 +219,53 @@ class OpenAiCompatibleClient(
             } catch (_: Exception) {
                 emptyList()
             }
+        }
+    }
+
+    /**
+     * C-011: generate image via OpenAI /v1/images/generations.
+     * Uses the same API key + OkHttpClient as chat. Returns raw PNG/JPEG bytes.
+     * Throws IOException on failure.
+     */
+    fun generateImage(
+        baseUrl: String,
+        apiKey: String,
+        prompt: String,
+        model: String = "gpt-image-2",
+        size: String = "1024x1024",
+    ): ByteArray {
+        val root = baseUrl.trim().trimEnd('/')
+        val url = if (root.contains("/v1/images")) root else "$root/v1/images/generations"
+        val body = buildJsonObject {
+            put("model", model)
+            put("prompt", prompt)
+            put("n", 1)
+            put("size", size)
+            put("response_format", "b64_json")
+        }
+        val builder = Request.Builder()
+            .url(url)
+            .post(body.toString().toRequestBody(JSON))
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+        if (apiKey.isNotBlank()) {
+            builder.header("Authorization", "Bearer $apiKey")
+        }
+        val call = client.newCall(builder.build())
+        activeCall = call
+        call.execute().use { response ->
+            if (!response.isSuccessful) {
+                val err = response.body?.string()?.take(400).orEmpty()
+                throw IOException("HTTP ${response.code}: $err")
+            }
+            val raw = response.body?.string().orEmpty()
+            val rootObj = json.parseToJsonElement(raw).jsonObject
+            val data = rootObj["data"]?.jsonArray
+                ?: throw IOException("No data in image response")
+            if (data.isEmpty()) throw IOException("Empty image response")
+            val b64 = data[0].jsonObject["b64_json"]?.jsonPrimitive?.contentOrNull
+                ?: throw IOException("No b64_json in image response")
+            return Base64.decode(b64, Base64.DEFAULT)
         }
     }
 

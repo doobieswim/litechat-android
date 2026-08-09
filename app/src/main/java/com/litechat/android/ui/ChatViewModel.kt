@@ -35,6 +35,8 @@ data class ChatUiState(
     val waitingForConnection: Boolean = false,
     /** Imp#3: retry progress label, e.g. "Retry (2/3)". Null when not retrying. */
     val retryProgress: String? = null,
+    /** C-011: true while image generation is in progress (~5-15s for DALL-E). */
+    val isGeneratingImage: Boolean = false,
 )
 
 class ChatViewModel(
@@ -157,6 +159,58 @@ class ChatViewModel(
             settings.baseUrl.contains("localhost")
         if (key.isBlank() && !localEndpoint) {
             _state.update { it.copy(error = "Add an API key in Settings") }
+            return
+        }
+
+        // C-011: /imagine slash command — generate image via same BYOK key.
+        if (text.startsWith("/imagine ")) {
+            val prompt = text.removePrefix("/imagine ").trim()
+            if (prompt.isEmpty()) {
+                _state.update { it.copy(error = "Usage: /imagine <prompt>") }
+                return
+            }
+            viewModelScope.launch {
+                var convId = _state.value.activeConversationId
+                if (convId == null) {
+                    val c = container.chatRepository.createConversation(
+                        title = "/imagine ${prompt.take(40)}"
+                    )
+                    convId = c.id
+                    selectConversation(convId)
+                }
+                _state.update { it.copy(input = "", error = null, isGeneratingImage = true) }
+                // Insert user's prompt as a regular message.
+                container.chatRepository.addMessage(convId, "user", "/imagine $prompt")
+                try {
+                    val imageBytes = container.openAiClient.generateImage(
+                        baseUrl = settings.baseUrl,
+                        apiKey = key,
+                        prompt = prompt,
+                    )
+                    // Save to cache dir, store path as [IMAGE:path] in message content.
+                    val file = java.io.File(
+                        container.ctx.cacheDir,
+                        "gen_${System.currentTimeMillis()}.png"
+                    )
+                    file.writeBytes(imageBytes)
+                    container.chatRepository.addMessage(
+                        convId, "assistant",
+                        "[IMAGE:${file.absolutePath}]"
+                    )
+                } catch (e: Exception) {
+                    _state.update {
+                        it.copy(
+                            error = "Image generation failed: ${e.message?.take(120)}"
+                        )
+                    }
+                    container.chatRepository.addMessage(
+                        convId, "assistant",
+                        "Image generation failed: ${e.message?.take(200) ?: "Unknown error"}"
+                    )
+                } finally {
+                    _state.update { it.copy(isGeneratingImage = false) }
+                }
+            }
             return
         }
 

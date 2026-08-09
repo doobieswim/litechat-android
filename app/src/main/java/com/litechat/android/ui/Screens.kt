@@ -70,8 +70,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import java.io.File
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.litechat.android.BuildConfig
@@ -339,6 +345,25 @@ fun ChatScreen(
                         )
                     }
                 }
+            // C-011: image generation progress banner.
+                if (state.isGeneratingImage) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                "Generating image…",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            )
+                        }
+                    }
+                }
             if (displayMessages.isEmpty()) {
                 val ctx = LocalContext.current
                 val snap = remember(ctx) { DeviceCompat.snapshot(ctx) }
@@ -384,6 +409,37 @@ fun ChatScreen(
 @Composable
 private fun MessageBubble(msg: MessageEntity) {
     val isUser = msg.role == "user"
+
+    // C-011: render image messages with Coil AsyncImage.
+    if (!isUser && msg.content.startsWith("[IMAGE:")) {
+        val path = msg.content.removePrefix("[IMAGE:").removeSuffix("]")
+        val file = File(path)
+        if (file.exists()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.widthIn(max = 520.dp),
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(file)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Generated image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.FillWidth,
+                    )
+                }
+            }
+            return
+        }
+        // File not found — fall through to text rendering.
+    }
+
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,

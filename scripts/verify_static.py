@@ -70,6 +70,18 @@ def main() -> int:
     ok("error path unthrottled", "is StreamEvent.Error ->" in vm and "lastUiUpdate" not in
         vm[vm.find("is StreamEvent.Error"):vm.find("is StreamEvent.Error")+200])
 
+    # C-011 image generation guards.
+    ok("Coil 3 dependency", "io.coil-kt.coil3:coil-compose" in build_kts
+        and "io.coil-kt.coil3:coil-network-okhttp" in build_kts)
+    ok("/imagine handler in ViewModel", "/imagine " in vm and "generateImage" in vm)
+    ok("generateImage in client", "fun generateImage" in cli
+        and "v1/images/generations" in cli
+        and "b64_json" in cli)
+    ok("image bubble in Screens", "[IMAGE:" in screens and "AsyncImage" in screens
+        and "coil3.compose.AsyncImage" in screens)
+    ok("image gen loading state", "isGeneratingImage" in vm
+        and "Generating image" in screens)
+
     all_kt = "\n".join(p.read_text() for p in KT_ROOT.rglob("*.kt"))
     for bad in ("WebView", "trustAll", "react-native", "io.flutter"):
         ok(f"no {bad}", bad not in all_kt)
