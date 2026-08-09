@@ -1,0 +1,10 @@
+[
+  {"name": "Summarize", "template": "Summarize the following in 3 bullet points:\n\n[TEXT]"},
+  {"name": "Translate to Spanish", "template": "Translate to natural Spanish:\n\n[TEXT]"},
+  {"name": "Code review", "template": "Review this code for bugs and suggest improvements:\n\n[CODE]"},
+  {"name": "Explain like I'm 5", "template": "Explain the following like I'm 5 years old:\n\n[TOPIC]"},
+  {"name": "Write email", "template": "Write a professional email about [TOPIC]. Tone: [TONE]"},
+  {"name": "Fix grammar", "template": "Fix grammar and spelling in:\n\n[TEXT]"},
+  {"name": "Brainstorm ideas", "template": "Brainstorm 10 ideas for [TOPIC]. Be creative and specific."},
+  {"name": "Debug error", "template": "I got this error:\n\n[ERROR]\n\nWhat caused it and how do I fix it?"}
+]

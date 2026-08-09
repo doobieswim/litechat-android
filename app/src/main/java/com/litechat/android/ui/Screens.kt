@@ -88,6 +88,7 @@ import com.litechat.android.LiteChatApp
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.util.DeviceCompat
+import com.litechat.android.util.LanDetector
 import io.github.nadeemiqbal.llmtypewriter.StreamingTypewriter
 import io.github.nadeemiqbal.llmtypewriter.rememberMarkdownTypewriterRenderer
 import io.github.nadeemiqbal.llmtypewriter.rememberStreamingTypewriterState
@@ -875,23 +876,29 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 TextButton(
-                                    onClick = {
-                                        modelsLoading = true
-                                        modelsMsg = null
-                                        scope.launch {
-                                            val ids = app.container.openAiClient.listModels(base, key)
-                                            fetchedModels = ids
-                                            modelsMsg = when {
-                                                ids.isEmpty() -> "No models returned (check base URL)"
-                                                else -> "${ids.size} models found"
-                                            }
-                                            modelsLoading = false
-                                        }
-                                    },
-                                    enabled = !modelsLoading,
-                                ) {
-                                    Text(if (modelsLoading) "Fetching…" else "Fetch models")
-                                }
+                                                                    onClick = {
+                                                                        modelsLoading = true
+                                                                        modelsMsg = null
+                                                                        scope.launch {
+                                                                            val lanBase = LanDetector.scan()
+                                                                            if (lanBase != null) {
+                                                                                base = lanBase
+                                                                                modelsMsg = "LAN Ollama found"
+                                                                            } else {
+                                                                                val ids = app.container.openAiClient.listModels(base, key)
+                                                                                fetchedModels = ids
+                                                                                modelsMsg = when {
+                                                                                    ids.isEmpty() -> "No models returned (check base URL)"
+                                                                                    else -> "${ids.size} models found"
+                                                                                }
+                                                                            }
+                                                                            modelsLoading = false
+                                                                        }
+                                                                    },
+                                                                    enabled = !modelsLoading,
+                                                                ) {
+                                                                    Text(if (modelsLoading) "Fetching…" else "Fetch models")
+                                                                }
                                 // C-019: Test Connection button — quick validation before saving.
                                 var testMsg by remember { mutableStateOf<String?>(null) }
                                 var testing by remember { mutableStateOf(false) }
