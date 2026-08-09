@@ -135,6 +135,18 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Source:** Agora key rotation pattern + `docs/COMPETITIVE-STEAL-LIST.md`
 - **APK:** 0 KB | **Touch:** `SettingsRepository.kt`, `Screens.kt`
 
+### C-023 — Multi-key per provider (Agora steal)
+- **Status:** Ready
+- **Goal:** Named API keys per provider with radio-button active selection + masked previews. Users can have "Work OpenAI" and "Personal OpenAI" keys.
+- **Source:** Agora subagent deep-dive + `docs/COMPETITIVE-STEAL-LIST.md`
+- **APK:** ~15KB | **Touch:** `SettingsRepository.kt`, `SecureStore.kt`, `Screens.kt`
+
+### C-024 — Conversation forks (Agora steal)
+- **Status:** Ready
+- **Goal:** Branch conversation at any message. Message tree with branch selection. Forked branches are independent. Useful for "try different model" or "try different prompt."
+- **Source:** Agora subagent deep-dive + `docs/COMPETITIVE-STEAL-LIST.md`
+- **APK:** ~25KB | **Touch:** `Entities.kt`, `ChatRepository.kt`, `Screens.kt`
+
 ### D-004 — Distribution pack
 - **Status:** Ready
 - **Goal:** F-Droid metadata, XDA post template, awesome-byok-apps PR, r/androidafterlife post. Zero code.

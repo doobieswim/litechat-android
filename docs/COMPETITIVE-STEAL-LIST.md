@@ -44,38 +44,64 @@ TypingMind is the BYOK market leader (web, not Android). Key patterns:
 
 ---
 
-## EveryTalk (★176) — already stole height placeholders (C-009)
+## EveryTalk (★176) — SUBAGENT DEEP-DIVE COMPLETE
 
-**Additional patterns to steal:**
+**532 Kotlin files. 12 stealable patterns across 3 tiers.**
 
-| Feature | LiteChat readiness | Steal priority |
-|---------|-------------------|---------------|
-| **Web search citation cards** (from R-009 research) | LiteChat has no web search yet, but C-013 (/browse) is Ready | ⭐⭐⭐ |
-| **Tool call UI** (rendering model tool calls as interactive cards) | Future MCP/agent feature | ⭐⭐ |
-| **Voice input** (Android SpeechRecognizer) | Zero-APK voice input for messages | ⭐⭐⭐ |
-| **Anthropic Messages API direct** | Beyond OpenAI-compatible — full Anthropic SSE | ⭐⭐ |
+### Tier 1 (High Value)
+
+| # | Feature | LiteChat status |
+|---|---------|----------------|
+| 1 | **Citation cards** — PageSourcesButton pill with stacked domain favicons + WebMarkdownSourcesExtractor | → C-013 scope: add citation cards to /browse |
+| 2 | **Incremental Streaming Block Parser** — O(1) tail-only re-parsing, 60ms debounce, 8ms first-flush | → Future: replace current SSE parser |
+| 3 | **Anthropic Direct Client** — Full SSE parser for Messages API, 50-loop tool calling, native context compaction | → Future: Anthropic support |
+| 4 | **Tool Loop Context Guard** — Cross-provider tool output compression, 64K hard cap, oldest-first truncation | → Already C-010 (token compression) |
+| 5 | **Image Gen Model Family Detection** — detectFamily() with per-family aspect ratios, quality tiers | → Already C-011 (/imagine), could enhance |
+
+### Tier 2 (Medium Value)
+
+| 6 | **Streaming Pause/Freeze** — flatMapLatest + emptyFlow() to suspend UI | → Add to C-009 scope |
+| 7 | **Markdown Extension Preprocessor** — <details>, footnotes, emoji shortcodes | → Future markdown enhancement |
+
+### Tier 3 (Nice-to-Have)
+
+Code block card with inline web preview, scroll fade edge gradients, prompt cache policy.
 
 ---
 
-## Kai 9000 (★1200) — thin-client compatible steals?
+## Kai 9000 (★1200) — SUBAGENT DEEP-DIVE COMPLETE
 
-| Feature | Thin-client compatible? | Steal priority |
-|---------|------------------------|----------------|
-| **Heartbeat/periodic checks** | Yes — could be a cron-like "check for updates" in background | ⭐⭐ |
-| **Persistent memory** (hit-count promotion to system prompt) | Yes — pure data model, stored in Room | ⭐⭐⭐⭐ |
-| **Multi-provider failover chain** | Yes — if primary provider fails, try next | ⭐⭐⭐⭐⭐ |
-| **Screen builder** (AI generates interactive UI) | No — requires agent runtime | ❌ |
-| **Linux sandbox on Android** | No — anti-thin client | ❌ |
+**1847 files. Most surprising find: the "honesty rule."**
+
+| # | Feature | Thin-client? | LiteChat status |
+|---|---------|-------------|-----------------|
+| 1 | **Provider failover chain** | ✅ | → Already C-017 |
+| 2 | **Memory system** — KV JSON, 5-hit promotion, append to soul | ✅ | → Already C-020 |
+| 3 | **Heartbeat prompt assembly** — pure-function builder, "HEARTBEAT_OK" sentinel | ⚠️ Pattern only | → Note for future |
+| 4 | **3-trigger task model** — TIME/CRON/HEARTBEAT | ⚠️ Pattern only | → Note for future |
+| 5 | **"Honesty rule"** — single sentence in system prompt that measurably fixes model fabrication: *"Do not fabricate tool outputs, file contents, citations, or completed work."* | ✅ Zero cost | → **ADD TO CHATVIEWMODEL NOW** |
+
+**NOT portable:** Linux sandbox, kai-ui, Android daemon, MCP servers — all bundled-runtime.
 
 ---
 
-## Agora (newo-ether) — pending subagent deep-dive
+## Agora (newo-ether) — SUBAGENT DEEP-DIVE COMPLETE
 
-**Known from F-Droid survey:**
-- 51MB APK (LiteChat targets ~2MB — 25x smaller)
-- Multi-provider with key aliases/rotation
-- Room DB, memory features
-- Agentic workflows
+**274 Kotlin files, ~75,500 LOC, 51MB APK, 100% free (no monetization)**
+
+| # | Feature | APK cost | LiteChat status |
+|---|---------|----------|-----------------|
+| 1 | **Multi-key per provider** — named keys, radio-button selection, masked previews | ~15KB | → NEW TICKET C-023 |
+| 2 | **Arbitrary base URLs** — per-provider URL with debounced save, protocol-aware path resolution | ~8KB | LiteChat already supports custom baseUrl |
+| 3 | **File-based memory system** — active_memory.md + memory_db/, CRUD tools, no vector DB | ~12KB | → Already C-020 (persistent memory) |
+| 4 | **Model aliasing** — custom display names, survives provider renames | ~3KB | → Already C-005 (/models) |
+| 5 | **Per-conversation settings overrides** — merge pattern for context window, temp, tool toggles | ~6KB | → Already C-018 (per-conversation binding) |
+| 6 | **Scheduled tasks** — one-shot + cron, WorkManager, headless generation | ~30KB | → NEW: Scheduled prompts |
+| 7 | **Conversation loops** — periodic auto-injection, revision guards, cycle limits | ~20KB | → Future (agent feature) |
+| 8 | **Conversation forks** — message tree, branch selection, attachment-safe cloning | ~25KB | → NEW TICKET C-024 |
+| 9 | **Web search** — DDG scraper (free, no API key) | ~15KB | → Already C-013 (/browse) |
+| 10 | **MCP integration** — SSE transport, tool discovery, single-server | ~35KB | → Future |
+| — | **Unread indicators, draft persistence, compare-and-set titles, audit trail** | 0 KB | Patterns to adopt in existing code |
 
 ---
 

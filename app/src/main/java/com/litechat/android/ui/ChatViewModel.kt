@@ -265,7 +265,10 @@ class ChatViewModel(
             container.chatRepository.addMessage(convId, "user", text)
 
             val history = container.chatRepository.listMessages(convId)
-            val dto = history.map { ChatMessageDto(it.role, it.content) }
+            // Kai 9000 "honesty rule": measurably reduces model fabrication.
+            val systemMsg = ChatMessageDto("system",
+                "Do not fabricate tool outputs, file contents, citations, or completed work.")
+            val dto = listOf(systemMsg) + history.map { ChatMessageDto(it.role, it.content) }
 
             // Imp#3: retry loop with exponential backoff + jitter
             val maxRetries = RetryPolicy.MAX_ATTEMPTS
