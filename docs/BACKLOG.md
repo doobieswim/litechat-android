@@ -29,7 +29,8 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Out of scope:** height estimation for markdown (plain text only until C-008)
 
 ### C-010 — Token-budget context compression (from ChatPPP pattern)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** ContextTrimmer.kt: 4 chars/token, 24k high-water, 14k low-water. Keeps system prompt, never splits turn pairs. Banner shows truncated count. 0 KB APK, ~70 lines. Static verify: 53/53.
 - **Goal:** Auto-truncate conversation history when token budget exceeded (approx 4 chars ≈ 1 token, default threshold 24k). Show "earlier messages truncated" indicator.
 - **Source:** `NNCVA/ChatPPP` (★2)
 - **Research:** `docs/CONTEXT-WINDOW-MANAGEMENT-C010.md` — full deep-dive with ChatPPP source analysis, code sketch, APK cost (0 KB Tier 1, ~1MB Tier 3 via JTokkit)
