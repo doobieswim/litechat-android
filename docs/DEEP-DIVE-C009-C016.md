@@ -88,22 +88,50 @@ if (text.startsWith("/ocr")) {
 
 ## C-009: Streaming height placeholders
 
-*(Subagent research in progress — Reddit findings below)*
+### EveryTalk's dual-approach (subagent deep-dive)
 
-### Reddit findings
+EveryTalk's `PerformanceConfig.kt` (247 lines analyzed) uses two complementary features:
 
-No specific discussions found about preventing LazyColumn jumps during streaming markdown. This confirms the EveryTalk `ENABLE_STREAMING_HEIGHT_PLACEHOLDER` pattern is genuinely novel — most apps just live with the jump. Key Compose APIs that could help:
+**Feature 1 — Height Placeholder:** Detects pending code blocks/tables in raw streaming text. Injects a `Spacer(height = estimatedDelta)` matching the final rendered component height BEFORE the block closes. So the item's measured height during streaming ≈ its final height — no snap when fence closes.
 
-- `Modifier.animateItemPlacement()` — smooths LazyColumn item repositioning (built into LazyColumn since Compose 1.5+). This prevents the SCROLL jump when an item changes height, but doesn't prevent the visual content jump inside the item itself.
-- `AnimatedContent` with `SizeTransform` — animates size changes of a composable. Could wrap the message bubble and animate its height transition from streaming placeholder to final rendered markdown.
+```
+Streaming: "Here's the code:\n```kotlin\nfun hello()"  → [placeholder height = 28dp toolbar + 4dp padding]
+Completed: "Here's the code:\n```kotlin\nfun hello()\n```" → [real CodeBlockCard = 28dp + 4dp] = same height!
+```
 
-**Recommended approach:** Combine two techniques:
-1. During streaming: render with a `minHeight` placeholder based on streaming text length estimate (~1px per char)
-2. On stream completion: `AnimatedContent` transitions from placeholder height to final rendered height
-3. LazyColumn uses `animateItemPlacement()` for smooth scroll adjustment
+**Feature 2 — Single-Swap Rendering:** Without this, the lifecycle is: streaming markdown → "bare" markdown (blink) → rich segmented render. Steps 2→3 cause a second jump. With single-swap, the system holds the streaming render until the parser emits the final segmented output, then atomically swaps.
 
-**APK cost:** 0 KB (no new deps — `animateItemPlacement` is in `foundation`, `AnimatedContent` is in `animation`)
-**Dev effort:** ~40 lines
+### Code sketch
+
+```kotlin
+// Block detection in raw streaming text
+val hasCodeBlock = text.contains("```") && text.count { it == '`' } % 2 != 0
+val hasTable = text.lines().any { it.contains("|") && it.trimStart().startsWith("|") }
+
+val placeholderHeight = buildList {
+    if (hasCodeBlock) add(28.dp + 4.dp)  // toolbar + padding
+    if (hasTable) add(8.dp)               // vertical margin
+}.sum().takeIf { it > 0.dp }
+
+Column {
+    MarkdownContent(text)
+    if (placeholderHeight != null) Spacer(Modifier.height(placeholderHeight))
+}
+```
+
+### Gotchas (7 identified)
+
+1. **Code fence detection is fragile** — single backticks in prose can look like fence openers. Use regex for triple-backtick patterns only.
+2. **Placeholder height must match real component** — if toolbar height drifts, jump returns. Use shared constants or `onGloballyPositioned` measurement.
+3. **Scroll position preservation** — single-swap must NOT auto-scroll if user is reading history. Check: `isUserAtBottom = visibleItems.lastOrNull()?.index == messages.lastIndex`
+4. **Keyboard narrows viewport** — code blocks wrap differently at keyboard-width. Recalculate placeholder on width change.
+5. **Orientation changes** — Activity recreation loses streaming render state. Streaming text must survive in ViewModel.
+6. **Tables vary by column count** — static 8dp is a rough estimate. Count `|` separators for proportional sizing.
+7. **animateItem() interference** — if used on message items, height change from placeholder removal animates the position → feels like a jump itself. Don't animate the last streaming item.
+
+### Recommendation
+
+Adopt EveryTalk's dual-approach: Layer 1 (Spacer placeholder) for height pre-allocation, Layer 2 (single atomic swap) for clean transition. **0 new dependencies. ~100 lines of Kotlin. ~1 day of engineering.**
 
 ---
 
