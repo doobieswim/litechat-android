@@ -99,6 +99,48 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Touch:** `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`, `Screens.kt`
 - **Out of scope:** on-device OCR (ML Kit), real-time camera, screen recording
 
+### C-017 — Provider failover chain (Kai 9000 steal)
+- **Status:** Ready
+- **Goal:** Ordered provider list. If primary fails (5xx/timeout), auto-try next. Survives single-provider outages.
+- **Source:** Kai 9000 + `docs/COMPETITIVE-STEAL-LIST.md`
+- **APK:** 0 KB | **Touch:** `ChatViewModel.kt`, `SettingsRepository.kt`
+
+### C-018 — Per-conversation model binding (AetherisAI steal)
+- **Status:** Ready
+- **Goal:** Each conversation remembers its model. Returning to old chat auto-switches. Add `model` field to ConversationEntity.
+- **Source:** AetherisAI + `docs/COMPETITIVE-STEAL-LIST.md`
+- **APK:** 0 KB | **Touch:** `Entities.kt`, `ChatRepository.kt`, `ChatViewModel.kt`
+
+### C-019 — Provider connection test button (ChatCat steal)
+- **Status:** Ready
+- **Goal:** "Test Connection" button in Settings → GET /v1/models → success/failure before saving.
+- **Source:** ChatCat + `docs/COMPETITIVE-STEAL-LIST.md`
+- **APK:** 0 KB | **Touch:** `Screens.kt`, `OpenAiCompatibleClient.kt`
+
+### C-020 — Persistent user memory (Kai 9000 steal, Pro-gated)
+- **Status:** Ready
+- **Goal:** Repeated user facts ("I prefer short answers") auto-promoted to system prompt after N repetitions. Stored in Room. Pro-only.
+- **Source:** Kai 9000 + `docs/COMPETITIVE-STEAL-LIST.md`
+- **APK:** 0 KB | **Touch:** New `MemoryManager.kt`, `Entities.kt`, `ChatViewModel.kt`
+
+### C-021 — Voice input via Android SpeechRecognizer (EveryTalk steal)
+- **Status:** Ready
+- **Goal:** Mic button in chat composer → Android built-in SpeechRecognizer → transcribed text. Zero deps, zero APK.
+- **Source:** EveryTalk + `docs/COMPETITIVE-STEAL-LIST.md`
+- **APK:** 0 KB | **Touch:** `Screens.kt`, `ChatViewModel.kt`
+
+### C-022 — Settings export/import (JSON)
+- **Status:** Ready
+- **Goal:** Export provider configs + templates as JSON. Import from file. Reduces multi-device setup friction.
+- **Source:** Agora key rotation pattern + `docs/COMPETITIVE-STEAL-LIST.md`
+- **APK:** 0 KB | **Touch:** `SettingsRepository.kt`, `Screens.kt`
+
+### D-004 — Distribution pack
+- **Status:** Ready
+- **Goal:** F-Droid metadata, XDA post template, awesome-byok-apps PR, r/androidafterlife post. Zero code.
+- **Source:** `docs/X-TWITTER-COMPETITIVE.md`
+- **APK:** 0 KB
+
 
 
 ### C-006 — UI stream paint throttle (if needed)
