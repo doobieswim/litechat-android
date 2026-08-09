@@ -163,7 +163,25 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 
 ### D-004 — Distribution pack
 - **Status:** Done
-- **Notes:** F-Droid metadata + XDA post template + awesome-byok-apps ready.
+- **Notes:** F-Droid metadata YAML + XDA post template + awesome-byok-apps prep.
+
+### C-025 — Wire stubs (C-021/C-022/C-016/C-015)
+- **Status:** Ready
+- **Goal:** Connect mic button to SpeechRecognizer intent, export/import to SAF file picker, attach button to gallery picker, overlay to settings toggle.
+- **Source:** R-010 gap analysis
+- **APK:** 0 KB | **Touch:** `Screens.kt`, `ChatViewModel.kt`, `AndroidManifest.xml`
+
+### C-026 — Add verify_static guards for C-013 through C-024
+- **Status:** Ready
+- **Goal:** Prevent regressions on all batch 1-3 tickets. 12 new guards.
+- **Source:** R-010 gap analysis
+- **APK:** 0 KB | **Touch:** `scripts/verify_static.py`
+
+### D-005 — Complete distribution: Play Store + awesome-byok-apps + README
+- **Status:** Ready
+- **Goal:** Play Store short+full description, README update with all features, awesome-byok-apps PR, r/androidafterlife post.
+- **Source:** R-010 gap analysis
+- **APK:** 0 KB | **Docs only**
 - **Goal:** F-Droid metadata, XDA post template, awesome-byok-apps PR, r/androidafterlife post. Zero code.
 - **Source:** `docs/X-TWITTER-COMPETITIVE.md`
 - **APK:** 0 KB
@@ -227,6 +245,11 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Status:** Done — all four promoted to Ready
 - **Deliverable:** `docs/DEEP-DIVE-C009-C016.md` + `docs/CONTEXT-WINDOW-MANAGEMENT-C010.md` (subagent)
 - **Key findings:** C-009: animateItemPlacement + AnimatedContent (0 KB). C-010: ChatPPP 3-tier, Tier 1 truncation at 24k/14k tokens (0 KB). C-015: SYSTEM_ALERT_WINDOW + Bubbles API future-proofing (0 KB). C-016: image attach + GPT-4V instead of MediaProjection screen capture (0 KB). Reddit-sourced caveats for C-015: Play-only auto-grant, MIUI blocks.
+
+### R-010 — Final gap analysis: everything missed
+- **Status:** Done — C-025/C-026/D-005 Ready
+- **Deliverable:** `docs/GAP-ANALYSIS-R010.md`
+- **Key findings:** 4 stubs need wiring (C-021/022/016/015). No verify guards for batch tickets. Competitor patterns: scheduled tasks, stream block parser, i18n, model caching, stream pause, DDG scraper, draft persistence, backup encryption. Distribution: Play Store listing + awesome-byok-apps PR + README update still needed. Zero tests for new features.
 
 ---
 
