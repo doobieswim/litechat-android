@@ -102,6 +102,12 @@ def main() -> int:
     ok("markdown in MessageBubble", "flowOf(msg.content" in screens
         and "StreamingTypewriter(" in screens)
 
+    # C-009 height placeholder guards.
+    ok("height placeholder in LazyColumn", "isLastStreaming" in screens
+        and "hasOpenBlock" in screens
+        and "hasOpenTable" in screens)
+    ok("Spacer for open code block", "32.dp" in screens and "hasOpenBlock" in screens)
+
     # Kai 9000 honesty rule guard.
     ok("honesty rule in system prompt", '"Do not fabricate tool outputs' in vm
         and 'ChatMessageDto("system"' in vm)

@@ -437,7 +437,23 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(displayMessages, key = { it.id }) { msg ->
+                        // C-009: height placeholder for last streaming message
+                        val isLastStreaming = state.isStreaming &&
+                            msg.id == displayMessages.lastOrNull()?.id &&
+                            msg.role == "assistant"
                         MessageBubble(msg)
+                        if (isLastStreaming) {
+                            val text = msg.content
+                            val hasOpenBlock = text.contains("```") &&
+                                text.count { it == '`' } % 2 != 0
+                            val hasOpenTable = text.lines().any {
+                                it.contains("|") && it.trimStart().startsWith("|")
+                            }
+                            if (hasOpenBlock || hasOpenTable) {
+                                Spacer(Modifier.height(if (hasOpenBlock) 32.dp else 0.dp))
+                                if (hasOpenTable) Spacer(Modifier.height(8.dp))
+                            }
+                        }
                     }
                 }
             }
