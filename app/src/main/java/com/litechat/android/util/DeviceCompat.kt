@@ -97,6 +97,14 @@ object DeviceCompat {
             note = "History lives on disk; UI pages what it needs",
         ),
         MatrixRow(
+            feature = "Image generation + attachments",
+            tight = Verdict.CAUTION,
+            comfortable = Verdict.GO,
+            roomy = Verdict.GO,
+            generous = Verdict.GO,
+            note = "Coil cache clamped: 2/5/10/20MB per band; trim on low memory",
+        ),
+        MatrixRow(
             feature = "LAN Ollama on PC (phone thin client)",
             tight = Verdict.GO,
             comfortable = Verdict.GO,
