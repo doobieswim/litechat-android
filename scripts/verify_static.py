@@ -59,6 +59,17 @@ def main() -> int:
     ok("play/foss productFlavors", "create(\"play\")" in build_kts and "create(\"foss\")" in build_kts)
     ok("GMS deps are play-only", "playImplementation" in build_kts and "implementation(\"com.google.android.gms" not in build_kts)
 
+    # C-006 paint throttle guards.
+    flags_kt = (KT_ROOT / "com/litechat/android/core/flags/FeatureFlags.kt").read_text()
+    ok("throttle constant", "streamThrottleMs" in flags_kt and "250L" in flags_kt)
+    ok("throttle gate in send()", "lastUiUpdate" in vm and "streamThrottleMs" in vm)
+    ok("Done flushes final paint", "StreamEvent.Done" in vm and "acc.toString()" in vm
+        and "streamingText = acc.toString()" in vm)
+    ok("throttle test exists", (ROOT / "app" / "src" / "test" / "java" / "com" / "litechat" /
+        "android" / "ui" / "PaintThrottleTest.kt").is_file())
+    ok("error path unthrottled", "is StreamEvent.Error ->" in vm and "lastUiUpdate" not in
+        vm[vm.find("is StreamEvent.Error"):vm.find("is StreamEvent.Error")+200])
+
     all_kt = "\n".join(p.read_text() for p in KT_ROOT.rglob("*.kt"))
     for bad in ("WebView", "trustAll", "react-native", "io.flutter"):
         ok(f"no {bad}", bad not in all_kt)

@@ -9,16 +9,8 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 
 ## Now / next (coding)
 ### C-007 — Wire privacy link and disclaimer in Settings
-- **Status:** Ready  
-- **Goal:** Add privacy policy link and unofficial BYOK disclaimer to Settings/About so the app is Play Store submission-ready.  
-- **AC:**
-  - [ ] Settings screen has "Privacy Policy" link opening hosted HTML (or bundled HTML as fallback)
-  - [ ] Settings screen shows the BYOK disclaimer text (one paragraph)
-  - [ ] README.md includes the disclaimer wording
-- **Touch:** `Screens.kt` (Settings section), `README.md`  
-- **Research:** `docs/PLAY-LISTING-DRAFT.md` — privacy HTML template + disclaimer text  
-- **Out of scope:** actual Play Store submission, hosting the privacy page
-
+- **Status:** Done
+- **Notes:** Added `app/src/main/assets/privacy.html` (bundled), `privacy.html` (repo root for GitHub Pages), Settings "Privacy Policy" link via `ACTION_VIEW`, upgraded disclaimer to full BYOK wording from research, added Disclaimer section + Privacy Policy link to README.md
 
 ### C-008 — Markdown rendering (post-v1, DEFERRED)
 - **Status:** Idea  
@@ -40,7 +32,8 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 
 
 ### C-006 — UI stream paint throttle (if needed)
-- **Status:** Ready  
+- **Status:** Done
+- **Notes:** Throttle gate in `ChatViewModel.send()`: 250ms `lastUiUpdate` guard on `StreamEvent.Delta`; `StreamEvent.Done` flushes final paint; errors pass through immediately; `FeatureFlags.streamThrottleMs = 250L`; `PaintThrottleTest` with 8 test cases; 5 verify_static guards. Lowered `gradle.properties` JVM heap from 1536m→768m for the 4GB VPS.  
 - **Goal:** Throttle SSE delta UI updates to ≤4 fps (250ms interval) to prevent jank on weak devices. Pattern from numAi-plus `UPDATE_DELAY_MS`.  
 - **AC:**
   - [ ] `ChatViewModel.send()` throttles UI updates to ≤4 fps (250ms via `System.currentTimeMillis()`)

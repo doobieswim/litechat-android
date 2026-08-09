@@ -1,6 +1,8 @@
 package com.litechat.android.ui
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -308,13 +310,41 @@ fun ChatScreen(
                 }
             }
         ) { padding ->
+            Column(Modifier.padding(padding)) {
+                // Imp#2: connectivity lost banner
+                if (state.waitingForConnection) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            "Waiting for connection…",
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    }
+                }
+                // Imp#3: retry progress — show attempt count during backoff
+                state.retryProgress?.let { label ->
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            label,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
+                }
             if (displayMessages.isEmpty()) {
                 val ctx = LocalContext.current
                 val snap = remember(ctx) { DeviceCompat.snapshot(ctx) }
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .padding(padding)
                         .padding(horizontal = 24.dp),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -337,8 +367,7 @@ fun ChatScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                        .fillMaxSize(),
                     contentPadding = PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -347,6 +376,7 @@ fun ChatScreen(
                     }
                 }
             }
+            } // close Column(Modifier.padding(padding)) from Imp#2/#3 banners
         }
     }
 }
@@ -724,10 +754,19 @@ fun SettingsScreen(
             }
             item {
                 Text(
-                    "LiteChat is a local BYOK client. Your key is stored encrypted on device and only sent to the base URL you configure. Not affiliated with OpenAI or any provider.",
+                    "LiteChat is an unofficial, open-source client for OpenAI-compatible APIs (OpenAI, OpenRouter, Groq, Ollama, and others). It is not affiliated with, endorsed by, or connected to OpenAI, Google, Anthropic, or any AI provider. You bring your own API key — LiteChat does not provide, proxy, or resell API access. All chat data travels directly between your device and the API server you configure.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            item {
+                val privacyUrl = "https://flamingspade1995-coder.github.io/litechat-android/privacy.html"
+                TextButton(onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(privacyUrl))
+                    context.startActivity(intent)
+                }) {
+                    Text("Privacy Policy")
+                }
             }
         }
     }

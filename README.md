@@ -14,6 +14,12 @@ HenWorks/Opclaw-style **product packaging** (Play one-tap, guided setup, BYOK, a
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design rationale.
 
+## Disclaimer
+
+LiteChat is an **unofficial, open-source client** for OpenAI-compatible APIs (OpenAI, OpenRouter, Groq, Ollama, and others). It is **not affiliated with, endorsed by, or connected to OpenAI, Google, Anthropic, or any AI provider.** You bring your own API key — LiteChat does not provide, proxy, or resell API access. All chat data travels directly between your device and the API server you configure.
+
+[Privacy Policy](https://flamingspade1995-coder.github.io/litechat-android/privacy.html)
+
 ## Two-agent team (research + coding)
 
 | Doc | Who |

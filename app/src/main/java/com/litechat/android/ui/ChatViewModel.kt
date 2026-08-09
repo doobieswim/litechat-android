@@ -3,13 +3,17 @@ package com.litechat.android.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.litechat.android.core.flags.FeatureFlags
 import com.litechat.android.data.AppContainer
 import com.litechat.android.data.api.ChatMessageDto
+import com.litechat.android.data.api.RetryPolicy
 import com.litechat.android.data.api.StreamEvent
+import com.litechat.android.data.connectivity.ConnectivityObserver
 import com.litechat.android.data.db.ConversationEntity
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.AppSettings
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +31,10 @@ data class ChatUiState(
     val streamingText: String = "",
     val error: String? = null,
     val apiKeyPresent: Boolean = false,
+    /** Imp#2: true when connectivity is lost — UI shows "Waiting for connection…". */
+    val waitingForConnection: Boolean = false,
+    /** Imp#3: retry progress label, e.g. "Retry (2/3)". Null when not retrying. */
+    val retryProgress: String? = null,
 )
 
 class ChatViewModel(
@@ -38,6 +46,7 @@ class ChatViewModel(
 
     private var streamJob: Job? = null
     private var messagesCollectJob: Job? = null
+    private var connectivityJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -48,10 +57,12 @@ class ChatViewModel(
             ) { settings, convos, billingPro ->
                 Triple(settings, convos, billingPro || settings.isPro)
             }.collect { (settings, convos, isPro) ->
+                // Imp#5: single Pro gate through FeatureFlags
+                FeatureFlags.setPro(isPro || settings.isPro)
                 if (isPro && !settings.isPro) {
                     container.settingsRepository.update(isPro = true)
                 }
-                val merged = settings.copy(isPro = isPro)
+                val merged = settings.copy(isPro = FeatureFlags.isPro)
                 _state.update {
                     it.copy(
                         settings = merged,
@@ -64,17 +75,23 @@ class ChatViewModel(
                 }
             }
         }
+
+        // Imp#2: connectivity observer — pause when disconnected
+        connectivityJob = viewModelScope.launch {
+            container.connectivityObserver.state.observeForever { state ->
+                val waiting = state == ConnectivityObserver.State.Disconnected
+                _state.update { it.copy(waitingForConnection = waiting) }
+            }
+        }
+
         container.billingRepository.startConnection()
     }
 
     fun setInput(value: String) {
-        // Cap paste size: Compose Constraints overflow / OOM on huge single-line measure
-        // (see gpt_mobile#226: "Can't represent a width of … height of 369898 in Constraints")
         _state.update { it.copy(input = InputPolicy.cap(value)) }
     }
 
     companion object {
-        /** Delegated to [InputPolicy]; kept as an alias for call sites + verify_static. */
         const val MAX_INPUT_CHARS = InputPolicy.MAX_INPUT_CHARS
     }
 
@@ -121,12 +138,18 @@ class ChatViewModel(
     fun stopStreaming() {
         streamJob?.cancel()
         container.openAiClient.cancel()
-        _state.update { it.copy(isStreaming = false) }
+        _state.update { it.copy(isStreaming = false, retryProgress = null) }
     }
 
     fun send() {
         val text = _state.value.input.trim()
         if (text.isEmpty() || _state.value.isStreaming) return
+
+        // Imp#2: block send when disconnected
+        if (!container.connectivityObserver.isConnected) {
+            _state.update { it.copy(waitingForConnection = true, error = "Waiting for connection…") }
+            return
+        }
 
         val key = container.settingsRepository.getApiKey()
         val settings = _state.value.settings
@@ -155,17 +178,41 @@ class ChatViewModel(
             val history = container.chatRepository.listMessages(convId)
             val dto = history.map { ChatMessageDto(it.role, it.content) }
 
-            val assistant = container.chatRepository.addMessage(convId, "assistant", "")
-            val assistantId = assistant.id
-            val acc = StringBuilder()
+            // Imp#3: retry loop with exponential backoff + jitter
+            val maxRetries = RetryPolicy.MAX_ATTEMPTS
+            var lastError: String? = null
 
-            _state.update { it.copy(isStreaming = true, streamingText = "") }
+            for (attempt in 1..maxRetries) {
+                if (attempt > 1) {
+                    _state.update {
+                        it.copy(retryProgress = "Retry ($attempt/$maxRetries)")
+                    }
+                    delay(RetryPolicy.delayMs(attempt))
+                }
 
-            streamJob?.cancel()
-            streamJob = viewModelScope.launch {
-                try {
-                    // C-004: skip SSE when this baseUrl was recently flagged
-                    // stream-broken (TTL-based, see SettingsRepository).
+                // Imp#2: check connectivity before each attempt
+                if (!container.connectivityObserver.isConnected) {
+                    _state.update {
+                        it.copy(
+                            waitingForConnection = true,
+                            error = "Waiting for connection…",
+                            retryProgress = null,
+                        )
+                    }
+                    return@launch
+                }
+
+                val assistant = container.chatRepository.addMessage(
+                    convId, "assistant",
+                    if (attempt > 1) "Retrying…" else ""
+                )
+                val assistantId = assistant.id
+                val acc = StringBuilder()
+
+                _state.update { it.copy(isStreaming = true, streamingText = "") }
+
+                streamJob?.cancel()
+                val streamResult = try {
                     val preferNonStream =
                         container.settingsRepository.isStreamBrokenNow(settings.baseUrl)
                     container.openAiClient.streamChat(
@@ -179,42 +226,97 @@ class ChatViewModel(
                         when (event) {
                             is StreamEvent.Delta -> {
                                 acc.append(event.text)
-                                _state.update { it.copy(streamingText = acc.toString()) }
+                                // C-006: throttle UI updates via FeatureFlags
+                                val now = System.currentTimeMillis()
+                                if (now - lastUiUpdate >= FeatureFlags.streamThrottleMs) {
+                                    lastUiUpdate = now
+                                    _state.update {
+                                        it.copy(streamingText = acc.toString())
+                                    }
+                                }
                             }
                             is StreamEvent.Error -> {
-                                _state.update { it.copy(error = event.message) }
+                                // Imp#3: errors pass through immediately, no throttle
+                                lastError = event.message
+                                _state.update {
+                                    it.copy(error = event.message)
+                                }
                             }
-                            // Non-stream path delivered content — remember this
-                            // baseUrl prefers non-stream for a while.
                             StreamEvent.FallbackUsed -> {
-                                container.settingsRepository.markStreamBroken(settings.baseUrl)
+                                container.settingsRepository.markStreamBroken(
+                                    settings.baseUrl,
+                                )
                             }
-                            StreamEvent.Done -> Unit
+                            StreamEvent.Done -> {
+                                // C-006: flush final paint so no deltas are lost
+                                _state.update {
+                                    it.copy(streamingText = acc.toString())
+                                }
+                            }
                         }
                     }
-                } finally {
-                    val finalText = acc.toString()
-                    when {
-                        finalText.isNotEmpty() ->
-                            container.chatRepository.updateMessageContent(
-                                assistantId, convId, finalText
-                            )
-                        _state.value.error != null ->
-                            container.chatRepository.updateMessageContent(
-                                assistantId, convId, "Error: ${_state.value.error}"
-                            )
-                        else ->
-                            container.chatRepository.updateMessageContent(
-                                assistantId, convId, "(empty response)"
-                            )
+                    null // success — null means no error to retry
+                } catch (e: Exception) {
+                    // Imp#3: catch stream-level errors for retry
+                    e.message ?: "Stream failed"
+                }
+
+                val finalText = acc.toString()
+                when {
+                    finalText.isNotEmpty() -> {
+                        container.chatRepository.updateMessageContent(
+                            assistantId, convId, finalText
+                        )
+                        _state.update {
+                            it.copy(isStreaming = false, streamingText = "", retryProgress = null)
+                        }
+                        return@launch // success — exit retry loop
                     }
-                    _state.update {
-                        it.copy(isStreaming = false, streamingText = "")
+                    streamResult != null -> {
+                        // Stream had errors and no content — retry with non-stream
+                        lastError = streamResult
+                        container.chatRepository.updateMessageContent(
+                            assistantId, convId, "Error: $streamResult"
+                        )
+                        // Fall through to next attempt
+                    }
+                    _state.value.error != null -> {
+                        container.chatRepository.updateMessageContent(
+                            assistantId, convId, "Error: ${_state.value.error}"
+                        )
+                        if (attempt < maxRetries) continue // retry
+                        _state.update {
+                            it.copy(isStreaming = false, streamingText = "", retryProgress = null)
+                        }
+                        return@launch
+                    }
+                    else -> {
+                        container.chatRepository.updateMessageContent(
+                            assistantId, convId, "(empty response)"
+                        )
+                        if (attempt < maxRetries) continue // retry
+                        _state.update {
+                            it.copy(isStreaming = false, streamingText = "", retryProgress = null)
+                        }
+                        return@launch
                     }
                 }
             }
+
+            // All retries exhausted
+            _state.update {
+                it.copy(
+                    isStreaming = false,
+                    streamingText = "",
+                    error = lastError ?: "Request failed after $maxRetries attempts",
+                    retryProgress = null,
+                )
+            }
         }
     }
+
+    /** C-006: last UI paint timestamp for throttle gate. */
+    private var lastUiUpdate = 0L
 
     fun saveSettings(
         apiKey: String,
@@ -237,7 +339,9 @@ class ChatViewModel(
         }
     }
 
+    // Imp#5: single Pro setter through FeatureFlags
     fun setPro(isPro: Boolean) {
+        FeatureFlags.setPro(isPro)
         viewModelScope.launch {
             container.settingsRepository.update(isPro = isPro)
         }
@@ -256,6 +360,8 @@ class ChatViewModel(
 
     override fun onCleared() {
         stopStreaming()
+        container.connectivityObserver.unregister()
+        connectivityJob?.cancel()
         super.onCleared()
     }
 

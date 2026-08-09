@@ -2,9 +2,12 @@ package com.litechat.android.data.api
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
@@ -18,7 +21,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
-import java.io.BufferedReader
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -93,19 +95,28 @@ class OpenAiCompatibleClient(
                         val err = response.body?.string()?.take(500) ?: response.message
                         streamError = "HTTP ${response.code}: $err"
                     } else {
-                        parseSse(response) { event ->
-                            when (event) {
-                                is StreamEvent.Delta -> {
-                                    if (event.text.isNotEmpty()) gotDelta = true
-                                    trySend(event).isSuccess
+                        val body = response.body
+                        if (body != null) {
+                            StreamParser.parseSSE(body.byteStream())
+                                .buffer(
+                                    capacity = 16,
+                                    onBufferOverflow = BufferOverflow.DROP_OLDEST,
+                                )
+                                .mapNotNull { ChatSseParser.parseEvent(it) }
+                                .collect { event ->
+                                    when (event) {
+                                        is StreamEvent.Delta -> {
+                                            if (event.text.isNotEmpty()) gotDelta = true
+                                            trySend(event).isSuccess
+                                        }
+                                        is StreamEvent.Error -> {
+                                            streamError = event.message
+                                            trySend(event).isSuccess
+                                        }
+                                        StreamEvent.FallbackUsed -> {} // not emitted by parser
+                                        StreamEvent.Done -> {} // not emitted by parser
+                                    }
                                 }
-                                is StreamEvent.Error -> {
-                                    streamError = event.message
-                                    trySend(event).isSuccess
-                                }
-                                StreamEvent.FallbackUsed -> true
-                                StreamEvent.Done -> true
-                            }
                         }
                     }
                 } finally {
@@ -244,20 +255,6 @@ class OpenAiCompatibleClient(
         return if (root.endsWith("/chat/completions")) root else "$root/chat/completions"
     }
 
-    private fun parseSse(response: Response, emit: (StreamEvent) -> Boolean) {
-        val reader: BufferedReader = response.body?.charStream()?.buffered() ?: return
-        reader.use { br ->
-            while (true) {
-                val line = br.readLine() ?: break
-                if (line.isEmpty()) continue
-                when (val event = ChatSseParser.parseEvent(line)) {
-                    null -> Unit // non-data line or malformed payload — skip
-                    StreamEvent.Done -> break
-                    else -> if (!emit(event)) break
-                }
-            }
-        }
-    }
     private fun extractCompleteContent(raw: String): String? {
         return try {
             val root = json.parseToJsonElement(raw).jsonObject
@@ -310,11 +307,14 @@ class OpenAiCompatibleClient(
                 n.contains("network")
         }
 
-        fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(0, TimeUnit.SECONDS) // streaming
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .retryOnConnectionFailure(true)
-            .build()
+        fun defaultClient(vararg interceptors: okhttp3.Interceptor): OkHttpClient {
+            val builder = OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(0, TimeUnit.SECONDS) // streaming
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(false) // Imp#3: our RetryInterceptor handles this
+            interceptors.forEach { builder.addInterceptor(it) }
+            return builder.build()
+        }
     }
 }
