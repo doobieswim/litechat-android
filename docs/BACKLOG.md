@@ -70,7 +70,8 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Out of scope:** server-side template sharing, template marketplace
 
 ### C-013 — In-app web scraping /browse command (Pro-gated)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** Jsoup dep, /browse handler, fetchPage(). 53/53.
 - **Goal:** `/browse <url>` fetches page content, extracts text, injects into conversation. Opera Mini pattern: thin client fetches, remote brain reads. Pro-only.
 - **Research:** `docs/PREMIUM-STRATEGY.md` (R-008)
 - **Touch:** `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`
@@ -78,7 +79,8 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Out of scope:** JavaScript rendering, recursive crawling, image extraction
 
 ### C-014 — Manual chat backup/restore via SAF (Pro-gated)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** SAF export/import for chat database. 0 KB.
 - **Goal:** Export encrypted chat DB to user-chosen folder, import from file. Storage Access Framework. Pro-only. Palm HotSync pattern: user owns their data sync.
 - **Research:** `docs/PREMIUM-STRATEGY.md` (R-008)
 - **Touch:** `ChatViewModel.kt`, `Screens.kt` (Settings)
@@ -86,14 +88,16 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Out of scope:** auto-sync, Google Drive API, multi-device merge conflict resolution
 
 ### C-015 — Floating chat overlay (Pro-gated)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** OverlayService + SYSTEM_ALERT_WINDOW, foreground. 0 KB.
 - **Goal:** SYSTEM_ALERT_WINDOW floating bubble → opens minimal Compose chat overlay over any app. Sideloaded users grant manually; Play Store auto-grants on API 29+. Future: Bubbles API for Android 12+.
 - **Research:** `docs/DEEP-DIVE-C009-C016.md` (R-009) — Reddit: permission auto-grant on Play Store only, MIUI blocks by default, Bubbles API alternative for 12+
 - **APK impact:** 0 KB
 - **Touch:** New `OverlayService.kt`, `Screens.kt`, `AndroidManifest.xml`
 
 ### C-016 — Image attachment + vision model support (Pro-gated)
-- **Status:** Ready  (scope changed from OCR screen capture)
+- **Status:** Done
+- **Notes:** Image/file attachment, base64 for vision. 0 KB.
 - **Goal:** Users attach images from gallery → base64 encoded → sent to GPT-4V/Claude Vision via existing API key → model analyzes image. Covers OCR, "what's in this image", document reading.
 - **Research:** `docs/DEEP-DIVE-C009-C016.md` (R-009)
 - **APK impact:** 0 KB (all platform APIs)
@@ -102,55 +106,64 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Out of scope:** on-device OCR (ML Kit), real-time camera, screen recording
 
 ### C-017 — Provider failover chain (Kai 9000 steal)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** Provider list in SettingsRepository, failover in send(). 0 KB.
 - **Goal:** Ordered provider list. If primary fails (5xx/timeout), auto-try next. Survives single-provider outages.
 - **Source:** Kai 9000 + `docs/COMPETITIVE-STEAL-LIST.md`
 - **APK:** 0 KB | **Touch:** `ChatViewModel.kt`, `SettingsRepository.kt`
 
 ### C-018 — Per-conversation model binding (AetherisAI steal)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** ConversationEntity.model field, per-conversation switching. 0 KB.
 - **Goal:** Each conversation remembers its model. Returning to old chat auto-switches. Add `model` field to ConversationEntity.
 - **Source:** AetherisAI + `docs/COMPETITIVE-STEAL-LIST.md`
 - **APK:** 0 KB | **Touch:** `Entities.kt`, `ChatRepository.kt`, `ChatViewModel.kt`
 
 ### C-019 — Provider connection test button (ChatCat steal)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** Test Connection button in SettingsScreen. 0 KB.
 - **Goal:** "Test Connection" button in Settings → GET /v1/models → success/failure before saving.
 - **Source:** ChatCat + `docs/COMPETITIVE-STEAL-LIST.md`
 - **APK:** 0 KB | **Touch:** `Screens.kt`, `OpenAiCompatibleClient.kt`
 
 ### C-020 — Persistent user memory (Kai 9000 steal, Pro-gated)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** MemoryManager with hit-count promotion (Kai 9000). 0 KB.
 - **Goal:** Repeated user facts ("I prefer short answers") auto-promoted to system prompt after N repetitions. Stored in Room. Pro-only.
 - **Source:** Kai 9000 + `docs/COMPETITIVE-STEAL-LIST.md`
 - **APK:** 0 KB | **Touch:** New `MemoryManager.kt`, `Entities.kt`, `ChatViewModel.kt`
 
 ### C-021 — Voice input via Android SpeechRecognizer (EveryTalk steal)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** Voice input mic button in chat composer. 0 KB.
 - **Goal:** Mic button in chat composer → Android built-in SpeechRecognizer → transcribed text. Zero deps, zero APK.
 - **Source:** EveryTalk + `docs/COMPETITIVE-STEAL-LIST.md`
 - **APK:** 0 KB | **Touch:** `Screens.kt`, `ChatViewModel.kt`
 
 ### C-022 — Settings export/import (JSON)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** Settings export/import as JSON. 0 KB.
 - **Goal:** Export provider configs + templates as JSON. Import from file. Reduces multi-device setup friction.
 - **Source:** Agora key rotation pattern + `docs/COMPETITIVE-STEAL-LIST.md`
 - **APK:** 0 KB | **Touch:** `SettingsRepository.kt`, `Screens.kt`
 
 ### C-023 — Multi-key per provider (Agora steal)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** NamedKeyStore for multi-key per provider. Encrypted.
 - **Goal:** Named API keys per provider with radio-button active selection + masked previews. Users can have "Work OpenAI" and "Personal OpenAI" keys.
 - **Source:** Agora subagent deep-dive + `docs/COMPETITIVE-STEAL-LIST.md`
 - **APK:** ~15KB | **Touch:** `SettingsRepository.kt`, `SecureStore.kt`, `Screens.kt`
 
 ### C-024 — Conversation forks (Agora steal)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** Conversation forks: parentId in MessageEntity.
 - **Goal:** Branch conversation at any message. Message tree with branch selection. Forked branches are independent. Useful for "try different model" or "try different prompt."
 - **Source:** Agora subagent deep-dive + `docs/COMPETITIVE-STEAL-LIST.md`
 - **APK:** ~25KB | **Touch:** `Entities.kt`, `ChatRepository.kt`, `Screens.kt`
 
 ### D-004 — Distribution pack
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** F-Droid metadata + XDA post template + awesome-byok-apps ready.
 - **Goal:** F-Droid metadata, XDA post template, awesome-byok-apps PR, r/androidafterlife post. Zero code.
 - **Source:** `docs/X-TWITTER-COMPETITIVE.md`
 - **APK:** 0 KB
