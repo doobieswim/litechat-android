@@ -32,6 +32,7 @@ def main() -> int:
     screens = (KT_ROOT / "com/litechat/android/ui/Screens.kt").read_text()
     manifest = (APP / "AndroidManifest.xml").read_text()
     vm = (KT_ROOT / "com/litechat/android/ui/ChatViewModel.kt").read_text()
+    settings_repo = (KT_ROOT / "com/litechat/android/data/prefs/SettingsRepository.kt").read_text()
 
     ok("stream fallback API", "allowNonStreamFallback" in cli and "completeChat" in cli)
     ok("stream failure heuristic", "isStreamClassFailure" in cli)
@@ -81,6 +82,18 @@ def main() -> int:
         and "coil3.compose.AsyncImage" in screens)
     ok("image gen loading state", "isGeneratingImage" in vm
         and "Generating image" in screens)
+
+    # C-012 prompt template guards.
+    ok("PromptTemplate data class", "data class PromptTemplate" in
+        (KT_ROOT / "com/litechat/android/data/prefs/SettingsRepository.kt").read_text())
+    ok("template CRUD in repo", "saveTemplate" in settings_repo
+        and "deleteTemplate" in settings_repo
+        and "BUILT_IN_TEMPLATES" in settings_repo)
+    ok("templates in ChatUiState", "templates: List<PromptTemplate>" in vm)
+    ok("insertTemplate in ViewModel", "fun insertTemplate" in vm
+        and "template.render()" in vm)
+    ok("template picker in chat", "onInsertTemplate" in screens
+        and "Pro for more" in screens)
 
     all_kt = "\n".join(p.read_text() for p in KT_ROOT.rglob("*.kt"))
     for bad in ("WebView", "trustAll", "react-native", "io.flutter"):

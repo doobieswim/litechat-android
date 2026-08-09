@@ -13,8 +13,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
+import java.util.UUID
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("litechat_settings")
 
@@ -25,6 +27,23 @@ data class AppSettings(
     val onboardingDone: Boolean = false,
     val isPro: Boolean = false,
 )
+
+/** C-012: prompt template with dynamic [Variable] fields. */
+data class PromptTemplate(
+    val id: String,
+    val name: String,
+    val template: String,
+    val variables: Map<String, String> = emptyMap(),
+) {
+    /** Render template by replacing [Var] with values. */
+    fun render(vars: Map<String, String> = variables): String {
+        var result = template
+        for ((key, value) in vars) {
+            result = result.replace("[$key]", value)
+        }
+        return result
+    }
+}
 
 class SettingsRepository(
     private val context: Context,
@@ -90,6 +109,76 @@ class SettingsRepository(
             map.forEach { (k, v) -> put(k, v) }
         }.toString()
 
+    // ── C-012: Prompt template storage ──────────────────────────────
+
+    private val templateKey = stringPreferencesKey("prompt_templates_json")
+
+    /** Observe all saved templates (reactive). */
+    val templates: Flow<List<PromptTemplate>> = context.dataStore.data.map { p ->
+        decodeTemplates(p[templateKey])
+    }
+
+    /** Read templates once (non-reactive, for send-time). */
+    suspend fun getTemplates(): List<PromptTemplate> =
+        decodeTemplates(context.dataStore.data.first()[templateKey])
+
+    /** Save a template (upsert by id). */
+    suspend fun saveTemplate(template: PromptTemplate) {
+        context.dataStore.edit { p ->
+            val list = decodeTemplates(p[templateKey]).toMutableList()
+            val idx = list.indexOfFirst { it.id == template.id }
+            if (idx >= 0) list[idx] = template else list.add(template)
+            p[templateKey] = encodeTemplates(list)
+        }
+    }
+
+    /** Delete a template by id. */
+    suspend fun deleteTemplate(id: String) {
+        context.dataStore.edit { p ->
+            val list = decodeTemplates(p[templateKey]).filter { it.id != id }
+            p[templateKey] = encodeTemplates(list)
+        }
+    }
+
+    private fun decodeTemplates(raw: String?): List<PromptTemplate> {
+        if (raw.isNullOrBlank()) return BUILT_IN_TEMPLATES.toList()
+        return try {
+            val arr = Json.parseToJsonElement(raw).jsonArray
+            arr.map { el ->
+                val obj = el.jsonObject
+                PromptTemplate(
+                    id = obj["id"]!!.jsonPrimitive.content,
+                    name = obj["name"]!!.jsonPrimitive.content,
+                    template = obj["template"]!!.jsonPrimitive.content,
+                    variables = obj["variables"]?.jsonObject?.mapValues {
+                        it.value.jsonPrimitive.content
+                    } ?: emptyMap(),
+                )
+            }
+        } catch (_: Exception) {
+            BUILT_IN_TEMPLATES.toList()
+        }
+    }
+
+    private fun encodeTemplates(list: List<PromptTemplate>): String =
+        buildJsonObject {
+            // Build a JSON array manually
+        }.let {
+            val sb = StringBuilder("[")
+            list.forEachIndexed { i, t ->
+                if (i > 0) sb.append(",")
+                sb.append("""{"id":"${t.id}","name":"${t.name}","template":"${t.template}",""")
+                sb.append("\"variables\":{")
+                t.variables.entries.forEachIndexed { j, (k, v) ->
+                    if (j > 0) sb.append(",")
+                    sb.append("\"$k\":\"$v\"")
+                }
+                sb.append("}}")
+            }
+            sb.append("]")
+            sb.toString()
+        }
+
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
         AppSettings(
             baseUrl = p[Keys.BASE_URL] ?: "https://api.openai.com/v1",
@@ -133,4 +222,17 @@ class SettingsRepository(
     }
 
     data class Preset(val name: String, val baseUrl: String, val model: String)
-}
+
+            /** C-012: one built-in template available to all users (free tier limit = 1). */
+            val BUILT_IN_TEMPLATES = listOf(
+                PromptTemplate(
+                    id = "builtin_translate",
+                    name = "Translate",
+                    template = "Translate the following text into [Language]:\n\n[Text]",
+                    variables = mapOf("Language" to "Spanish", "Text" to ""),
+                ),
+            )
+
+            /** Free-tier template limit. Pro users have no limit. */
+            const val FREE_TEMPLATE_LIMIT = 1
+        }

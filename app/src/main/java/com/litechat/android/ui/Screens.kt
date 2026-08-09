@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -83,6 +84,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.litechat.android.BuildConfig
 import com.litechat.android.LiteChatApp
 import com.litechat.android.data.db.MessageEntity
+import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.util.DeviceCompat
 import kotlinx.coroutines.launch
 
@@ -129,6 +131,7 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onSend = vm::send,
             onStop = vm::stopStreaming,
             onClearError = vm::clearError,
+            onInsertTemplate = vm::insertTemplate,
         )
     }
 }
@@ -145,6 +148,7 @@ fun ChatScreen(
     onSend: () -> Unit,
     onStop: () -> Unit,
     onClearError: () -> Unit,
+    onInsertTemplate: (PromptTemplate) -> Unit,
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -262,6 +266,38 @@ fun ChatScreen(
                         .navigationBarsPadding()
                         .imePadding()
                 ) {
+                    // C-012: template picker row — Pro-gated beyond free limit.
+                    if (state.templates.isNotEmpty()) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            state.templates.forEach { tpl ->
+                                Surface(
+                                    onClick = { onInsertTemplate(tpl) },
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shape = RoundedCornerShape(8.dp),
+                                ) {
+                                    Text(
+                                        tpl.name,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                }
+                            }
+                            if (!state.settings.isPro) {
+                                Text(
+                                    "Pro for more",
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
                     state.error?.let { err ->
                         Row(
                             Modifier

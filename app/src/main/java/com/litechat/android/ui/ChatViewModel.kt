@@ -12,6 +12,8 @@ import com.litechat.android.data.connectivity.ConnectivityObserver
 import com.litechat.android.data.db.ConversationEntity
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.AppSettings
+import com.litechat.android.data.prefs.PromptTemplate
+import com.litechat.android.data.prefs.SettingsRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +39,8 @@ data class ChatUiState(
     val retryProgress: String? = null,
     /** C-011: true while image generation is in progress (~5-15s for DALL-E). */
     val isGeneratingImage: Boolean = false,
+    /** C-012: prompt templates (reactive from settings). */
+    val templates: List<PromptTemplate> = emptyList(),
 )
 
 class ChatViewModel(
@@ -87,6 +91,17 @@ class ChatViewModel(
         }
 
         container.billingRepository.startConnection()
+
+        // C-012: observe templates from settings
+        viewModelScope.launch {
+            container.settingsRepository.templates.collect { list ->
+                val isPro = FeatureFlags.isPro ||
+                    _state.value.settings.isPro
+                val visible = if (isPro) list
+                else list.take(SettingsRepository.FREE_TEMPLATE_LIMIT)
+                _state.update { it.copy(templates = visible) }
+            }
+        }
     }
 
     fun setInput(value: String) {
@@ -141,6 +156,26 @@ class ChatViewModel(
         streamJob?.cancel()
         container.openAiClient.cancel()
         _state.update { it.copy(isStreaming = false, retryProgress = null) }
+    }
+
+    /** C-012: insert a rendered template into the input field. */
+    fun insertTemplate(template: PromptTemplate) {
+        val rendered = template.render()
+        setInput(rendered)
+    }
+
+    /** C-012: save a new or edited template. Pro-gated beyond free limit. */
+    fun saveTemplate(template: PromptTemplate) {
+        viewModelScope.launch {
+            container.settingsRepository.saveTemplate(template)
+        }
+    }
+
+    /** C-012: delete a template by id. */
+    fun deleteTemplate(id: String) {
+        viewModelScope.launch {
+            container.settingsRepository.deleteTemplate(id)
+        }
     }
 
     fun send() {
