@@ -9,6 +9,7 @@ import com.litechat.android.data.api.ChatMessageDto
 import com.litechat.android.data.api.RetryPolicy
 import com.litechat.android.data.api.StreamEvent
 import com.litechat.android.data.connectivity.ConnectivityObserver
+import com.litechat.android.data.context.ContextTrimmer
 import com.litechat.android.data.db.ConversationEntity
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.AppSettings
@@ -41,6 +42,8 @@ data class ChatUiState(
     val isGeneratingImage: Boolean = false,
     /** C-012: prompt templates (reactive from settings). */
     val templates: List<PromptTemplate> = emptyList(),
+    /** C-010: count of messages trimmed by context budget. */
+    val truncatedCount: Int = 0,
 )
 
 class ChatViewModel(
@@ -270,6 +273,12 @@ class ChatViewModel(
                 "Do not fabricate tool outputs, file contents, citations, or completed work.")
             val dto = listOf(systemMsg) + history.map { ChatMessageDto(it.role, it.content) }
 
+            // C-010: trim to token budget, track removed count.
+            val (trimmed, removed) = ContextTrimmer.trim(dto)
+            if (removed > 0) {
+                _state.update { it.copy(truncatedCount = removed) }
+            }
+
             // Imp#3: retry loop with exponential backoff + jitter
             val maxRetries = RetryPolicy.MAX_ATTEMPTS
             var lastError: String? = null
@@ -311,7 +320,7 @@ class ChatViewModel(
                         baseUrl = settings.baseUrl,
                         apiKey = key,
                         model = settings.model,
-                        messages = dto,
+                        messages = trimmed,
                         temperature = settings.temperature,
                         preferNonStream = preferNonStream,
                     ).collect { event ->

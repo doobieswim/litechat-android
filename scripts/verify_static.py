@@ -108,6 +108,14 @@ def main() -> int:
         and "hasOpenTable" in screens)
     ok("Spacer for open code block", "32.dp" in screens and "hasOpenBlock" in screens)
 
+    # C-010 context compression guards.
+    ok("ContextTrimmer exists", (ROOT / "app" / "src" / "main" / "java" /
+        "com" / "litechat" / "android" / "data" / "context" / "ContextTrimmer.kt").is_file())
+    ok("trim() in ViewModel", "ContextTrimmer.trim" in vm
+        and "truncatedCount" in vm)
+    ok("truncation indicator in UI", "truncatedCount > 0" in screens
+        and "earlier message(s) not included" in screens)
+
     # Kai 9000 honesty rule guard.
     ok("honesty rule in system prompt", '"Do not fabricate tool outputs' in vm
         and 'ChatMessageDto("system"' in vm)

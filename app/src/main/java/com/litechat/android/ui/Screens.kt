@@ -404,6 +404,20 @@ fun ChatScreen(
                         }
                     }
                 }
+            // C-010: context truncation indicator.
+                if (state.truncatedCount > 0) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            "${state.truncatedCount} earlier message(s) not included (token budget)",
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
+                }
             if (displayMessages.isEmpty()) {
                 val ctx = LocalContext.current
                 val snap = remember(ctx) { DeviceCompat.snapshot(ctx) }
