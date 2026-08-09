@@ -95,12 +95,12 @@ def main() -> int:
     ok("template picker in chat", "onInsertTemplate" in screens
         and "Pro for more" in screens)
 
-    # C-008 markdown rendering guards.
-    ok("llm-typewriter dep", "io.github.nadeemiqbal:llm-typewriter" in build_kts)
-    ok("StreamingTypewriter import", "StreamingTypewriter" in screens
-        and "rememberMarkdownTypewriterRenderer" in screens)
-    ok("markdown in MessageBubble", "flowOf(msg.content" in screens
-        and "StreamingTypewriter(" in screens)
+    # C-008 markdown rendering — deferred for v1 (see docs/MARKDOWN-COST.md).
+    # llm-typewriter was tried but has no Android target — reverted.
+    ok("markdown deferred (no llm-typewriter dep)", "io.github.nadeemiqbal:llm-typewriter" not in build_kts)
+    ok("markdown deferred (no StreamingTypewriter import)", "StreamingTypewriter" not in screens
+        and "rememberMarkdownTypewriterRenderer" not in screens)
+    ok("markdown deferred (assistant renders as plain Text)", "assistant messages render as plain text" in screens)
 
     # C-009 height placeholder guards.
     ok("height placeholder in LazyColumn", "isLastStreaming" in screens

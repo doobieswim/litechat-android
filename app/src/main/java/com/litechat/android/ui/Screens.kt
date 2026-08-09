@@ -90,10 +90,7 @@ import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.util.DeviceCompat
 import com.litechat.android.util.LanDetector
-import io.github.nadeemiqbal.llmtypewriter.StreamingTypewriter
-import io.github.nadeemiqbal.llmtypewriter.rememberMarkdownTypewriterRenderer
-import io.github.nadeemiqbal.llmtypewriter.rememberStreamingTypewriterState
-import kotlinx.coroutines.flow.flowOf
+
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -654,21 +651,19 @@ private fun MessageBubble(msg: MessageEntity) {
             ),
             modifier = Modifier.widthIn(max = 520.dp),
         ) {
-            // C-008: render assistant messages with llm-typewriter markdown.
+            // C-008 (deferred): assistant messages render as plain text for v1.
+            // Markdown deferred — see docs/MARKDOWN-COST.md.
             if (!isUser) {
-                val state = rememberStreamingTypewriterState()
-                val renderer = rememberMarkdownTypewriterRenderer()
-                LaunchedEffect(msg.id) {
-                    // Flow-of-String: reveal the entire settled text instantly
-                    // (no progressive reveal for already-completed messages).
-                    state.revealAll()
+                SelectionContainer {
+                    Text(
+                        text = msg.content.ifEmpty { "…" },
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontFamily = if (msg.content.contains("```")) FontFamily.Monospace
+                        else FontFamily.Default,
+                        lineHeight = 22.sp,
+                    )
                 }
-                StreamingTypewriter(
-                    tokens = flowOf(msg.content.ifEmpty { "…" }),
-                    state = state,
-                    renderer = renderer,
-                    modifier = Modifier.padding(12.dp),
-                )
             } else {
                 SelectionContainer {
                     Text(

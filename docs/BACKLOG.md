@@ -12,12 +12,10 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Status:** Done
 - **Notes:** Added `app/src/main/assets/privacy.html` (bundled), `privacy.html` (repo root for GitHub Pages), Settings "Privacy Policy" link via `ACTION_VIEW`, upgraded disclaimer to full BYOK wording from research, added Disclaimer section + Privacy Policy link to README.md
 
-### C-008 — Markdown rendering (re-evaluated post R-006)
-- **Status:** Done
-- **Notes:** llm-typewriter 0.1.1 integrated. Assistant messages render with StreamingTypewriter + markdown (bold, italic, code blocks, headings, lists). flowOf(text) for settled messages. User messages stay plain text. Static verify: 47/47.
-- **R-006 finding:** `NadeemIqbal/llm-typewriter` (Apache 2.0, `io.github.nadeemiqbal:llm-typewriter:0.1.1`) is a drop-in streaming markdown typewriter for Compose. Also found: `xemantic/markanywhere` (semantic event-stream parser, KMP). Both viable.
-- **Depends on:** R-006-1 (APK/RSS measurement) — not yet scheduled
-- **Goal:** Add incremental streaming markdown rendering using llm-typewriter (preferred) or markanywhere. Plain text until measurement confirms APK cost is acceptable.  
+### C-008 — Markdown rendering (post-v1, DEFERRED)
+- **Status:** Idea — **reverted 2026-08-09**
+- **Notes:** C-008 was implemented with llm-typewriter 0.1.1 but CI fails: library has no Android target (desktop/iOS/WASM only in Gradle module metadata — no `androidApiElements` variant). Dependency removed; assistant messages reverted to plain `Text` composable. See `docs/MARKDOWN-COST.md` for full re-evaluation criteria and recommended approach (multiplatform-markdown-renderer, not llm-typewriter).
+- **Goal:** Add incremental streaming markdown rendering using multiplatform-markdown-renderer (maid-native pattern). Plain text for v1.  
 
 ### C-009 — Streaming height placeholders (from EveryTalk pattern)
 - **Status:** Done

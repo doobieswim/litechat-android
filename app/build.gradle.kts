@@ -118,8 +118,8 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-compose:3.5.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.5.0")
 
-    // C-008: streaming markdown typewriter for LLM responses.
-    implementation("io.github.nadeemiqbal:llm-typewriter:0.1.1")
+    // C-008: markdown rendering deferred for v1 (see docs/MARKDOWN-COST.md).
+    // llm-typewriter was tried in C-008 but has no Android target — reverted.
 
     // C-013: Jsoup for HTML extraction in /browse command.
     implementation("org.jsoup:jsoup:1.18.1")
