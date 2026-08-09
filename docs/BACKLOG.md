@@ -14,21 +14,23 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 
 ### C-008 — Markdown rendering (re-evaluated post R-006)
 - **Status:** Idea  (cost equation changed — R-006 found published Maven Central libs)
-- **R-006 finding:** `NadeemIqbal/llm-typewriter` (Apache 2.0, `io.github.nadeemiqbal:llm-typewriter:0.1.1`) is a drop-in streaming markdown typewriter for Compose. Flow<String>, progressive Markdown, syntax-highlighted code blocks, 3 speed curves. Fork `ECSDevs/llm-typewriter` adds LaTeX+O(1) reveal tracking. **Next step: measure APK/RSS impact of llm-typewriter in foss debug build.**
+- **R-006 finding:** `NadeemIqbal/llm-typewriter` (Apache 2.0, `io.github.nadeemiqbal:llm-typewriter:0.1.1`) is a drop-in streaming markdown typewriter for Compose. Also found: `xemantic/markanywhere` (semantic event-stream parser, KMP). Both viable.
 - **Depends on:** R-006-1 (APK/RSS measurement) — not yet scheduled
-- **Goal:** Add incremental streaming markdown rendering using NadeemIqbal/llm-typewriter (preferred) or mikepenz/multiplatform-markdown-renderer. Plain text until measurement confirms APK cost is acceptable.  
-- **AC:**
-  - [ ] APK growth ≤ 500 KB over baseline (measure before/after with `assembleRelease` diff)
-  - [ ] Streaming replies use `StreamingMarkdownState` (O(n) parse, not O(n²))
-  - [ ] Parse cache bounded by character count (512 KB budget ≈ 5 MB retained)
-  - [ ] Markdown state hoisted above LazyColumn in ChatScreen, keyed on streamingId
-  - [ ] Settled messages render from synchronous `parseMarkdown()` with LRU cache
-  - [ ] Toolchain: compileSdk 37+, Kotlin 2.4.x+, AGP 9.x+, Compose BOM 2026.06+
-  - [ ] Tested on 4 GB device: streaming jank ≤ 1 skipped frame per 100 tokens
-  - [ ] Plain-text fallback: if renderer init fails, degrade to BasicText (never crash)
-- **Touch:** `build.gradle.kts`, `libs.versions.toml`, `ui/markdown/Markdown.kt` (new), `ui/chat/ChatScreen.kt`, `ui/chat/MessageItem.kt`, `ChatViewModel.kt`
-- **Research:** `docs/MARKDOWN-COST.md` — APK/RSS library comparison, maid-native integration pattern, streaming parse audit, constrained-device history
-- **Out of scope:** Markdown images (needs Coil), syntax-highlighted code blocks, LaTeX math, HTML rendering, WYSIWYG composer
+- **Goal:** Add incremental streaming markdown rendering using llm-typewriter (preferred) or markanywhere. Plain text until measurement confirms APK cost is acceptable.  
+
+### C-009 — Streaming height placeholders (from EveryTalk pattern)
+- **Status:** Idea
+- **Goal:** Pre-allocate space for streaming assistant messages to prevent LazyColumn layout jumps when markdown/code blocks finish rendering.
+- **Source:** `roseforljh/EveryTalk` `PerformanceConfig.kt`
+- **Touch:** `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** height estimation for markdown (plain text only until C-008)
+
+### C-010 — Token-budget context compression (from ChatPPP pattern)
+- **Status:** Idea
+- **Goal:** Auto-truncate conversation history when token budget exceeded (approx 4 chars ≈ 1 token, default threshold 24k). Show "earlier messages truncated" indicator.
+- **Source:** `NNCVA/ChatPPP` (★2)
+- **Touch:** `ChatViewModel.kt`, `OpenAiCompatibleClient.kt`, `Screens.kt`
+- **Out of scope:** LLM-based summary compression (v2)
 
 
 
@@ -69,6 +71,11 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 ### R-005 — Further lost-repo archaeology
 - **Status:** Done  
 - **Deliverable:** `docs/LOST-REPOS-R005.md` — r/androidafterlife, 4PDA ChatGPT thread, SummaryExpressive noted; no new trench repos found
+
+### R-006 — Lost-repo archaeology II (14 new repos + CMP AI chat starter kit)
+- **Status:** Done
+- **Deliverable:** `docs/LOST-REPOS-R006.md` + `docs/LOST-REPOS-R006-SUPPLEMENT.md`
+- **Key finds:** NadeemIqbal/llm-typewriter (C-008 drop-in path), Messenger (Wear OS BYOK), ChatCat (MCP in thin client), EveryTalk (height placeholders), ChatPPP (token-budget context compression), AetherisAI (dual SSE), AndGPT (33KB Android 4+), markanywhere (KMP streaming markdown parser), Ke-Chat (11 providers + skill system). Subagent supplement: AndGPT01 (4PDA ghost, 33KB), ChatPPP token compression, AetherisAI dual SSE, Kai 9000 agent patterns, F-Droid ecosystem map.
 
 ---
 
