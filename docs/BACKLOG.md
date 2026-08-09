@@ -47,6 +47,44 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Touch:** `build.gradle.kts`, `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`, `Screens.kt`
 - **Out of scope:** image-to-image editing, multi-turn refinement, separate image gallery, SDXL/Flux via separate keys
 
+### C-012 — Prompt template variables (Pro-gated)
+- **Status:** Ready
+- **Goal:** Users create prompt templates with dynamic `[Variable]` fields. Pro users get unlimited; free tier gets 1 built-in. Store in DataStore JSON.
+- **Research:** `docs/PREMIUM-STRATEGY.md` (R-008)
+- **Touch:** `ChatViewModel.kt`, `Screens.kt`, `SettingsRepository.kt`
+- **APK impact:** 0 KB (pure UI + data model)
+- **Out of scope:** server-side template sharing, template marketplace
+
+### C-013 — In-app web scraping /browse command (Pro-gated)
+- **Status:** Ready
+- **Goal:** `/browse <url>` fetches page content, extracts text, injects into conversation. Opera Mini pattern: thin client fetches, remote brain reads. Pro-only.
+- **Research:** `docs/PREMIUM-STRATEGY.md` (R-008)
+- **Touch:** `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`
+- **APK impact:** ~30KB (Jsoup for HTML extraction)
+- **Out of scope:** JavaScript rendering, recursive crawling, image extraction
+
+### C-014 — Manual chat backup/restore via SAF (Pro-gated)
+- **Status:** Ready
+- **Goal:** Export encrypted chat DB to user-chosen folder, import from file. Storage Access Framework. Pro-only. Palm HotSync pattern: user owns their data sync.
+- **Research:** `docs/PREMIUM-STRATEGY.md` (R-008)
+- **Touch:** `ChatViewModel.kt`, `Screens.kt` (Settings)
+- **APK impact:** 0 KB
+- **Out of scope:** auto-sync, Google Drive API, multi-device merge conflict resolution
+
+### C-015 — Floating chat overlay (Pro-gated)
+- **Status:** Idea
+- **Goal:** Floating bubble accessible from any app via SYSTEM_ALERT_WINDOW. Minimal Compose chat overlay.
+- **Research:** `docs/PREMIUM-STRATEGY.md` (R-008)
+- **Touch:** New `OverlayService.kt`, `Screens.kt`, `AndroidManifest.xml`
+- **Out of scope:** resizable overlay, multi-window, overlay theming
+
+### C-016 — Cloud OCR via vision model (Pro-gated)
+- **Status:** Idea
+- **Goal:** Take screenshot → send to GPT-4V/Claude Vision via existing API key → extract text → inject into chat.
+- **Research:** `docs/PREMIUM-STRATEGY.md` (R-008)
+- **Touch:** `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`
+- **Out of scope:** on-device OCR (ML Kit), real-time camera OCR, handwriting recognition
+
 
 
 ### C-006 — UI stream paint throttle (if needed)
@@ -96,6 +134,11 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Status:** Done → C-011 Ready for coding
 - **Deliverable:** `docs/IMAGE-GENERATION-RESEARCH.md`
 - **Key findings:** OpenAI `/v1/images/generations` uses SAME API key as chat (no new auth). Coil 3 adds ~200KB APK. Slash-command `/imagine` pattern recommended for v1 (~80 lines of code). Pollinations AI offers free zero-key fallback for FOSS flavor. EveryTalk and ChatCat already implement image gen but LiteChat's slash-command approach would be novel in the BYOK ecosystem.
+
+### R-008 — Premium tier strategy & feature roadmap
+- **Status:** Done — C-012, C-013, C-014 Ready; C-015, C-016 Ideas
+- **Deliverable:** `docs/PREMIUM-STRATEGY.md`
+- **Key findings:** $4.99 one-time validated as impulse-buy sweet spot (100% margin after 15% Play cut). 4 Pro-gated features evaluated against thin-client constraints: prompt variables (★best ROI), web scraping /browse (Opera Mini pattern), cloud sync via SAF (HotSync pattern), floating overlay + cloud OCR (deferred to Ideas). Priority: C-012 first (zero APK, highest Pro value per dev hour).
 
 ---
 
