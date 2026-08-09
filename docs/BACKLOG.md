@@ -43,6 +43,41 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
   - [ ] Unit tests: `ContextTrimmerTest.kt`
 - **Out of scope:** LLM-based rolling summary (ChatPPP Tier 2 — separate ticket), JTokkit accurate counting (+1MB APK)
 
+### C-028 — Stream video download to disk (RAM safety)
+- **Status:** Idea
+- **Goal:** `pollVideo()` currently loads the entire MP4 into a `ByteArray` in heap before saving to disk. On TIGHT devices (2MB image cache), a 5–20MB video ByteArray risks LMK kill. Stream the download directly to a temp file using OkHttp's `ResponseBody.source()` + `Okio.buffer().readAll(sink)`.
+- **AC:**
+  - [ ] `pollVideo()` writes video bytes to `cacheDir/video_<jobId>.mp4` as they arrive (streaming), never accumulates full ByteArray
+  - [ ] Uses `ResponseBody.source()` + `Okio` sink (already in dep tree via OkHttp)
+  - [ ] Returns `File` instead of `ByteArray`
+  - [ ] Cleanup on failure: delete partial temp file
+- **Touch:** `OpenAiCompatibleClient.kt` (pollVideo), `ChatViewModel.kt` (caller)
+- **APK cost:** 0 KB
+- **Out of scope:** progress UI during download, resumable downloads
+
+### C-029 — Generated media disk cap (storage safety)
+- **Status:** Idea
+- **Goal:** Each `/imagine` and `/video` generation writes a file to disk that lives forever. On a TIGHT device with 50MB disk cache, 3 video generations could fill it. Add a FIFO cap on the generated media directory: when total size exceeds a band-tuned limit, evict oldest files.
+- **AC:**
+  - [ ] New `MediaCleanup.kt` util: scans `cacheDir/generated/`, sums sizes, deletes oldest until under cap
+  - [ ] Cap tuned by band: TIGHT=20MB, COMFORTABLE=50MB, ROOMY=100MB, GENEROUS=250MB
+  - [ ] Called after each successful `/imagine` and `/video` generation
+  - [ ] Never touches chat DB, message history, settings, or Coil disk cache
+- **Touch:** new `util/MediaCleanup.kt`, `ChatViewModel.kt` (call after generation)
+- **APK cost:** 0 KB (stdlib file ops)
+- **Out of scope:** LRU/more sophisticated eviction, per-conversation quotas
+
+### C-030 — Image display size uses band-tuned config
+- **Status:** Idea
+- **Goal:** `Screens.kt` hardcodes `.size(540, 540)` on Coil ImageRequests, but `ImageCacheConfig.displaySize()` already has band-tuned dimensions (360/480/720). Use the band-tuned size so TIGHT devices decode 360×360 instead of 540×540 — saving 56% of bitmap memory per image.
+- **AC:**
+  - [ ] Image bubble Coil request reads size from `ImageCacheConfig.displaySize(band)` instead of hardcoded 540
+  - [ ] VideoView fallback dimensions also band-respected (not changed now — VideoView is heavyweight already, C-028TBD)
+  - [ ] `band` is plumbed into `MessageBubble` or read from `LocalContext` via `LiteChatApp.imageLoader`
+- **Touch:** `Screens.kt` (MessageBubble image path)
+- **APK cost:** 0 KB
+- **Relevant commit:** `0182ebc` — Image pipeline: RGB_565, downscale, size hints for 4GB (introduced ImageCacheConfig.displaySize but didn't wire it to Coil requests)
+
 ### C-011 — Image generation via /imagine slash command
 - **Status:** Done
 - **Notes:** Coil 3 deps (~200KB), generateImage() in client (POST /v1/images/generations), /imagine handler in ViewModel, [IMAGE:path] message convention, AsyncImage bubble, generating banner. Static verify: 39/39.
