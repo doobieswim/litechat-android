@@ -86,6 +86,10 @@ import com.litechat.android.LiteChatApp
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.util.DeviceCompat
+import io.github.nadeemiqbal.llmtypewriter.StreamingTypewriter
+import io.github.nadeemiqbal.llmtypewriter.rememberMarkdownTypewriterRenderer
+import io.github.nadeemiqbal.llmtypewriter.rememberStreamingTypewriterState
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -491,15 +495,32 @@ private fun MessageBubble(msg: MessageEntity) {
             ),
             modifier = Modifier.widthIn(max = 520.dp),
         ) {
-            SelectionContainer {
-                Text(
-                    text = msg.content.ifEmpty { "…" },
+            // C-008: render assistant messages with llm-typewriter markdown.
+            if (!isUser) {
+                val state = rememberStreamingTypewriterState()
+                val renderer = rememberMarkdownTypewriterRenderer()
+                LaunchedEffect(msg.id) {
+                    // Flow-of-String: reveal the entire settled text instantly
+                    // (no progressive reveal for already-completed messages).
+                    state.revealAll()
+                }
+                StreamingTypewriter(
+                    tokens = flowOf(msg.content.ifEmpty { "…" }),
+                    state = state,
+                    renderer = renderer,
                     modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontFamily = if (msg.content.contains("```")) FontFamily.Monospace
-                    else FontFamily.Default,
-                    lineHeight = 22.sp,
                 )
+            } else {
+                SelectionContainer {
+                    Text(
+                        text = msg.content.ifEmpty { "…" },
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontFamily = if (msg.content.contains("```")) FontFamily.Monospace
+                        else FontFamily.Default,
+                        lineHeight = 22.sp,
+                    )
+                }
             }
         }
     }

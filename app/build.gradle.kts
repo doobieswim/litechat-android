@@ -118,6 +118,9 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-compose:3.5.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.5.0")
 
+    // C-008: streaming markdown typewriter for LLM responses.
+    implementation("io.github.nadeemiqbal:llm-typewriter:0.1.1")
+
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 

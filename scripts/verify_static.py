@@ -95,6 +95,13 @@ def main() -> int:
     ok("template picker in chat", "onInsertTemplate" in screens
         and "Pro for more" in screens)
 
+    # C-008 markdown rendering guards.
+    ok("llm-typewriter dep", "io.github.nadeemiqbal:llm-typewriter" in build_kts)
+    ok("StreamingTypewriter import", "StreamingTypewriter" in screens
+        and "rememberMarkdownTypewriterRenderer" in screens)
+    ok("markdown in MessageBubble", "flowOf(msg.content" in screens
+        and "StreamingTypewriter(" in screens)
+
     all_kt = "\n".join(p.read_text() for p in KT_ROOT.rglob("*.kt"))
     for bad in ("WebView", "trustAll", "react-native", "io.flutter"):
         ok(f"no {bad}", bad not in all_kt)
