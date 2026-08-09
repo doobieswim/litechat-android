@@ -32,6 +32,20 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Touch:** `ChatViewModel.kt`, `OpenAiCompatibleClient.kt`, `Screens.kt`
 - **Out of scope:** LLM-based summary compression (v2)
 
+### C-011 — Image generation via /imagine slash command
+- **Status:** Ready
+- **Goal:** User types `/imagine <prompt>` → image generated via same BYOK OpenAI key → displayed inline in chat. Uses Coil 3 for display (~200KB APK). Optional Pollinations AI free fallback for FOSS flavor.
+- **Research:** `docs/IMAGE-GENERATION-RESEARCH.md` (R-007)
+- **AC:**
+  - [ ] `/imagine <prompt>` detected in ChatViewModel, triggers image generation
+  - [ ] Uses same API key + OkHttpClient as chat (POST /v1/images/generations)
+  - [ ] Image appears as styled chat bubble (rounded corners, fill-width)
+  - [ ] Loading spinner during generation, error toast on failure
+  - [ ] APK growth ≤ 250KB over baseline (Coil 3 only)
+  - [ ] Optional: Pollinations AI free fallback for FOSS flavor
+- **Touch:** `build.gradle.kts`, `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** image-to-image editing, multi-turn refinement, separate image gallery, SDXL/Flux via separate keys
+
 
 
 ### C-006 — UI stream paint throttle (if needed)
@@ -76,6 +90,11 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Status:** Done
 - **Deliverable:** `docs/LOST-REPOS-R006.md` + `docs/LOST-REPOS-R006-SUPPLEMENT.md`
 - **Key finds:** NadeemIqbal/llm-typewriter (C-008 drop-in path), Messenger (Wear OS BYOK), ChatCat (MCP in thin client), EveryTalk (height placeholders), ChatPPP (token-budget context compression), AetherisAI (dual SSE), AndGPT (33KB Android 4+), markanywhere (KMP streaming markdown parser), Ke-Chat (11 providers + skill system). Subagent supplement: AndGPT01 (4PDA ghost, 33KB), ChatPPP token compression, AetherisAI dual SSE, Kai 9000 agent patterns, F-Droid ecosystem map.
+
+### R-007 — Image generation for BYOK chat client
+- **Status:** Done → C-011 Ready for coding
+- **Deliverable:** `docs/IMAGE-GENERATION-RESEARCH.md`
+- **Key findings:** OpenAI `/v1/images/generations` uses SAME API key as chat (no new auth). Coil 3 adds ~200KB APK. Slash-command `/imagine` pattern recommended for v1 (~80 lines of code). Pollinations AI offers free zero-key fallback for FOSS flavor. EveryTalk and ChatCat already implement image gen but LiteChat's slash-command approach would be novel in the BYOK ecosystem.
 
 ---
 
