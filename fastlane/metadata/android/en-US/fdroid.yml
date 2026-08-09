@@ -1,0 +1,50 @@
+# LiteChat F-Droid metadata
+
+Categories:
+  - Internet
+  - AI Chat
+License: MIT
+AuthorName: LiteChat
+AuthorEmail: litechat@proton.me
+WebSite: https://github.com/flamingspade1995-coder/litechat-android
+SourceCode: https://github.com/flamingspade1995-coder/litechat-android
+IssueTracker: https://github.com/flamingspade1995-coder/litechat-android/issues
+Changelog: https://github.com/flamingspade1995-coder/litechat-android/releases
+
+AutoName: LiteChat
+Summary: Thin BYOK AI chat client for Android. Bring your own OpenAI-compatible key.
+Description: |
+  LiteChat is a lightweight, open-source AI chat client for Android.
+  
+  Features:
+  - BYOK (Bring Your Own Key) — use OpenAI, OpenRouter, Groq, Ollama, or any OpenAI-compatible API
+  - Streaming responses with markdown rendering
+  - Image generation via /imagine command
+  - Web browsing via /browse command
+  - Prompt templates with variables
+  - Honest compatibility matrix — shows if your phone can run it
+  - Works on 4GB phones
+  - One-time $4.99 Pro removes ads and unlocks premium features
+  - FOSS flavor available (no Google Play Services)
+  
+  No accounts, no subscriptions, no data collection. Your API key, your endpoint, your device.
+
+RepoType: git
+Repo: https://github.com/flamingspade1995-coder/litechat-android
+
+Builds:
+  - versionName: '1.0.0'
+    versionCode: 1
+    commit: main
+    subdir: app
+    gradle:
+      - foss
+
+AntiFeatures:
+  - NonFreeNet (Play flavor uses Google Play Services for billing)
+  
+ArchivePolicy: 0
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 1.0.0
+CurrentVersionCode: 1

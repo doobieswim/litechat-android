@@ -26,6 +26,8 @@ data class MessageEntity(
     val conversationId: String,
     val role: String, // user | assistant | system
     val content: String,
+    /** C-024: parent message id for conversation forks. */
+    val parentId: String? = null,
     val createdAt: Long,
 )
 
