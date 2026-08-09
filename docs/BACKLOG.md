@@ -166,13 +166,15 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Notes:** F-Droid metadata YAML + XDA post template + awesome-byok-apps prep.
 
 ### C-025 — Wire stubs (C-021/C-022/C-016/C-015)
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** All 4 stubs wired: voice (SpeechRecognizer intent), attach (gallery picker), backup/restore (SAF), overlay toggle. 71/71 verify.
 - **Goal:** Connect mic button to SpeechRecognizer intent, export/import to SAF file picker, attach button to gallery picker, overlay to settings toggle.
 - **Source:** R-010 gap analysis
 - **APK:** 0 KB | **Touch:** `Screens.kt`, `ChatViewModel.kt`, `AndroidManifest.xml`
 
 ### C-026 — Add verify_static guards for C-013 through C-024
-- **Status:** Ready
+- **Status:** Done
+- **Notes:** 18 new guards + fixed all_kt ordering. 71/71 passed.
 - **Goal:** Prevent regressions on all batch 1-3 tickets. 12 new guards.
 - **Source:** R-010 gap analysis
 - **APK:** 0 KB | **Touch:** `scripts/verify_static.py`
