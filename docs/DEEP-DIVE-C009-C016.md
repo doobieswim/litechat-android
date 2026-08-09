@@ -88,48 +88,103 @@ if (text.startsWith("/ocr")) {
 
 ## C-009: Streaming height placeholders
 
-*(Subagent research in progress — placeholder section)*
+*(Subagent research in progress — Reddit findings below)*
 
-**Expected findings:**
-- EveryTalk's `PerformanceConfig.kt` approach: pre-allocate estimated height for streaming messages, swap to real rendering on completion
-- Compose `AnimatedContent` with `SizeTransform` as an alternative
-- `SubcomposeLayout` for pre-measuring
-- The key insight: LazyColumn recalculates item heights when content changes, causing visible jumps. Fix: reserve space based on streaming text length estimate.
+### Reddit findings
 
-**Expected APK cost:** 0 KB (no new deps)
-**Expected dev effort:** ~40 lines
+No specific discussions found about preventing LazyColumn jumps during streaming markdown. This confirms the EveryTalk `ENABLE_STREAMING_HEIGHT_PLACEHOLDER` pattern is genuinely novel — most apps just live with the jump. Key Compose APIs that could help:
+
+- `Modifier.animateItemPlacement()` — smooths LazyColumn item repositioning (built into LazyColumn since Compose 1.5+). This prevents the SCROLL jump when an item changes height, but doesn't prevent the visual content jump inside the item itself.
+- `AnimatedContent` with `SizeTransform` — animates size changes of a composable. Could wrap the message bubble and animate its height transition from streaming placeholder to final rendered markdown.
+
+**Recommended approach:** Combine two techniques:
+1. During streaming: render with a `minHeight` placeholder based on streaming text length estimate (~1px per char)
+2. On stream completion: `AnimatedContent` transitions from placeholder height to final rendered height
+3. LazyColumn uses `animateItemPlacement()` for smooth scroll adjustment
+
+**APK cost:** 0 KB (no new deps — `animateItemPlacement` is in `foundation`, `AnimatedContent` is in `animation`)
+**Dev effort:** ~40 lines
 
 ---
 
 ## C-010: Token-budget context compression
 
-*(Subagent research in progress — placeholder section)*
+*(Subagent research in progress — Reddit findings below)*
 
-**Expected findings:**
-- Simple approximation: 4 characters ≈ 1 token (works well for English, ~90% accuracy)
-- ChatPPP approach: count characters in all messages, trigger at ~96K chars (≈24K tokens), trim oldest messages to ~56K chars (≈14K tokens)
-- Implementation: sum `message.content.length` across all messages before sending, trim from front if over threshold
-- Context window reference: GPT-4o-mini = 128K tokens, Claude 3.5 Sonnet = 200K, DeepSeek = 128K
+### Reddit findings
 
-**Expected APK cost:** 0 KB (pure Kotlin math)
-**Expected dev effort:** ~30 lines
+No specific Android implementation discussions on Reddit. Context window discussions are generic (GPT-4 = 32K/128K, Claude = 200K, Gemini = 1M). The 4-chars-per-token approximation is common knowledge but nobody has posted a clean Android Kotlin implementation. This is a gap LiteChat can fill.
+
+### ChatPPP approach (from R-006 research)
+
+ChatPPP triggers at 24,000 tokens, compresses to 14,000 via rolling summary. For v1 LiteChat, pure truncation (not summary) is sufficient:
+
+```kotlin
+fun trimToTokenBudget(messages: List<ChatMessageDto>, maxTokens: Int = 24000): List<ChatMessageDto> {
+    val maxChars = maxTokens * 4 // 4 chars ≈ 1 token
+    var total = 0
+    val kept = mutableListOf<ChatMessageDto>()
+    // Keep from newest to oldest until budget exceeded
+    for (msg in messages.reversed()) {
+        total += msg.content.length
+        if (total > maxChars && kept.isNotEmpty()) break
+        kept.add(0, msg)
+    }
+    return kept
+}
+```
+
+### Context window reference
+
+| Model | Context window | Safe budget (~75%) |
+|-------|---------------|-------------------|
+| GPT-4o-mini | 128K tokens | 96K tokens |
+| GPT-4o | 128K tokens | 96K tokens |
+| Claude 3.5 Sonnet | 200K tokens | 150K tokens |
+| Gemini 2.5 Pro | 1M tokens | 750K tokens |
+| DeepSeek-V3 | 128K tokens | 96K tokens |
+
+**Recommended threshold:** 24K tokens (~96K chars) as default, configurable in settings.
+
+**APK cost:** 0 KB (pure Kotlin math, no deps)
+**Dev effort:** ~30 lines
 
 ---
 
 ## C-015: Floating chat overlay
 
-*(Subagent research in progress — placeholder section)*
+*(Subagent research in progress — Reddit findings below)*
 
-**Expected findings:**
-- `SYSTEM_ALERT_WINDOW` requires user to grant "Draw over other apps" in Settings
-- Android 10+ (API 29): permission auto-granted for apps installed from Play Store, manual for sideloaded
-- Minimal implementation: `WindowManager.addView()` with a small ComposeView
-- RAM impact: lightweight (~10-20MB for the overlay process)
-- Play Store: no policy issues for chat overlays (common pattern: Messenger, WhatsApp)
-- Battery: use `WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE` to avoid wake locks
+### Reddit findings
 
-**Expected APK cost:** 0 KB (platform APIs only)
-**Expected dev effort:** ~100 lines (new OverlayService + permission handling)
+SYSTEM_ALERT_WINDOW confirmed as the standard approach for chat bubbles. Key Reddit-sourced caveats:
+
+- **Android 10+ (API 29):** Permission auto-granted for Play Store installs, but **NOT for sideloaded apps** (FOSS flavor!). Sideloaded users must manually grant "Draw over other apps" in Settings.
+- **Android 12+ (API 31):** Google introduced the **Bubbles API** as the official replacement for chat heads. Bubbles are a system-level feature (like Facebook Messenger chat heads) and don't need SYSTEM_ALERT_WINDOW. But: Bubbles API is more restrictive — you can't customize the look as freely.
+- **"Kind of deprecated":** Several Reddit threads note SYSTEM_ALERT_WINDOW is soft-deprecated in favor of Bubbles, but still works on all API levels. Google hasn't announced a removal timeline.
+- **Play Store policy:** Chat overlays are fine (Messenger, WhatsApp precedent). No policy flags unless used for ad overlay or phishing.
+- **MIUI/Xiaomi:** Chinese ROMs often block SYSTEM_ALERT_WINDOW by default. Users must whitelist the app in "Permissions → Other Permissions → Display pop-up window."
+
+### Implementation options
+
+**Option A: SYSTEM_ALERT_WINDOW (Android 6+)**
+- Works everywhere, simple, customizable
+- Sideloaded users must grant manually (friction for FOSS)
+- ~50 lines for a basic Compose overlay
+
+**Option B: Android 12+ Bubbles API**
+- Official, no special permission on Play Store
+- Won't work on Android 8-11 (LiteChat's minSdk=26 supports 8+)
+- More restrictive layout
+
+**Option C: Both — SYSTEM_ALERT_WINDOW for 8-11, Bubbles for 12+**
+- Most work (~150 lines)
+- Best UX across all versions
+
+**Recommendation:** Start with Option A (SYSTEM_ALERT_WINDOW). If users report permission friction on FOSS/sideloaded builds, add Option B as a fallback for Android 12+.
+
+**APK cost:** 0 KB (platform APIs only)
+**Dev effort:** ~100 lines (new `OverlayService.kt`, permission request in Settings, minimal Compose chat overlay)
 
 ---
 

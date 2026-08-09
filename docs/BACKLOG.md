@@ -20,18 +20,28 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Goal:** Add incremental streaming markdown rendering using llm-typewriter (preferred) or markanywhere. Plain text until measurement confirms APK cost is acceptable.  
 
 ### C-009 — Streaming height placeholders (from EveryTalk pattern)
-- **Status:** Idea
-- **Goal:** Pre-allocate space for streaming assistant messages to prevent LazyColumn layout jumps when markdown/code blocks finish rendering.
-- **Source:** `roseforljh/EveryTalk` `PerformanceConfig.kt`
-- **Touch:** `ChatViewModel.kt`, `Screens.kt`
+- **Status:** Ready
+- **Goal:** Combine `animateItemPlacement()` + `AnimatedContent(SizeTransform)` to prevent LazyColumn jumps when streaming markdown finishes. No new deps.
+- **Source:** `roseforljh/EveryTalk` `PerformanceConfig.kt` + Reddit research
+- **Touch:** `Screens.kt` (ChatScreen, MessageBubble)
+- **APK cost:** 0 KB
 - **Out of scope:** height estimation for markdown (plain text only until C-008)
 
 ### C-010 — Token-budget context compression (from ChatPPP pattern)
-- **Status:** Idea
+- **Status:** Ready
 - **Goal:** Auto-truncate conversation history when token budget exceeded (approx 4 chars ≈ 1 token, default threshold 24k). Show "earlier messages truncated" indicator.
 - **Source:** `NNCVA/ChatPPP` (★2)
-- **Touch:** `ChatViewModel.kt`, `OpenAiCompatibleClient.kt`, `Screens.kt`
-- **Out of scope:** LLM-based summary compression (v2)
+- **Research:** `docs/CONTEXT-WINDOW-MANAGEMENT-C010.md` — full deep-dive with ChatPPP source analysis, code sketch, APK cost (0 KB Tier 1, ~1MB Tier 3 via JTokkit)
+- **Touch:** `ChatViewModel.kt`, `OpenAiCompatibleClient.kt`, `Screens.kt` + new `data/context/ContextTrimmer.kt`
+- **APK cost:** 0 KB (Tier 1 — pure stdlib approximation)
+- **Dev effort:** ~3-4 hours
+- **Tier 1 scope:**
+  - [ ] New: `ContextTrimmer.kt` — approximate token counting (4 chars ≈ 1 token) + truncation to low watermark
+  - [ ] Integration in `ChatViewModel.send()` — trim before API call, keep system prompt, never split turn pairs
+  - [ ] UI: `TruncationBanner` composable — "N earlier messages not included" above message list
+  - [ ] Settings: configurable token threshold (default 24,000) in DataStore
+  - [ ] Unit tests: `ContextTrimmerTest.kt`
+- **Out of scope:** LLM-based rolling summary (ChatPPP Tier 2 — separate ticket), JTokkit accurate counting (+1MB APK)
 
 ### C-011 — Image generation via /imagine slash command
 - **Status:** Done
@@ -74,11 +84,11 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Out of scope:** auto-sync, Google Drive API, multi-device merge conflict resolution
 
 ### C-015 — Floating chat overlay (Pro-gated)
-- **Status:** Idea
-- **Goal:** Floating bubble accessible from any app via SYSTEM_ALERT_WINDOW. Minimal Compose chat overlay.
-- **Research:** `docs/PREMIUM-STRATEGY.md` (R-008)
+- **Status:** Ready
+- **Goal:** SYSTEM_ALERT_WINDOW floating bubble → opens minimal Compose chat overlay over any app. Sideloaded users grant manually; Play Store auto-grants on API 29+. Future: Bubbles API for Android 12+.
+- **Research:** `docs/DEEP-DIVE-C009-C016.md` (R-009) — Reddit: permission auto-grant on Play Store only, MIUI blocks by default, Bubbles API alternative for 12+
+- **APK impact:** 0 KB
 - **Touch:** New `OverlayService.kt`, `Screens.kt`, `AndroidManifest.xml`
-- **Out of scope:** resizable overlay, multi-window, overlay theming
 
 ### C-016 — Image attachment + vision model support (Pro-gated)
 - **Status:** Ready  (scope changed from OCR screen capture)
@@ -145,9 +155,9 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Key findings:** $4.99 one-time validated as impulse-buy sweet spot (100% margin after 15% Play cut). 4 Pro-gated features evaluated against thin-client constraints: prompt variables (★best ROI), web scraping /browse (Opera Mini pattern), cloud sync via SAF (HotSync pattern), floating overlay + cloud OCR (deferred to Ideas). Priority: C-012 first (zero APK, highest Pro value per dev hour).
 
 ### R-009 — Deep-dive: C-009/C-010/C-015/C-016
-- **Status:** In progress (subagents running) — C-016 Ready, others pending
-- **Deliverable:** `docs/DEEP-DIVE-C009-C016.md`
-- **C-016 key finding:** MediaProjection screen capture is overkill. Better approach: image attachment + GPT-4V/Claude Vision via existing API key. Zero APK cost, zero new permissions. Scope changed from "OCR via screen capture" to "image attachment with vision model support."
+- **Status:** Done — all four promoted to Ready
+- **Deliverable:** `docs/DEEP-DIVE-C009-C016.md` + `docs/CONTEXT-WINDOW-MANAGEMENT-C010.md` (subagent)
+- **Key findings:** C-009: animateItemPlacement + AnimatedContent (0 KB). C-010: ChatPPP 3-tier, Tier 1 truncation at 24k/14k tokens (0 KB). C-015: SYSTEM_ALERT_WINDOW + Bubbles API future-proofing (0 KB). C-016: image attach + GPT-4V instead of MediaProjection screen capture (0 KB). Reddit-sourced caveats for C-015: Play-only auto-grant, MIUI blocks.
 
 ---
 
