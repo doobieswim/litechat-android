@@ -12,10 +12,11 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Status:** Done
 - **Notes:** Added `app/src/main/assets/privacy.html` (bundled), `privacy.html` (repo root for GitHub Pages), Settings "Privacy Policy" link via `ACTION_VIEW`, upgraded disclaimer to full BYOK wording from research, added Disclaimer section + Privacy Policy link to README.md
 
-### C-008 — Markdown rendering (post-v1, DEFERRED)
-- **Status:** Idea  
-- **Depends on:** User demand data from v1 (Play reviews, feedback channels)  
-- **Goal:** Add incremental streaming markdown rendering using `com.mikepenz:multiplatform-markdown-renderer-m3` v0.43+ with `StreamingMarkdownState`, following the maid-native integration pattern.  
+### C-008 — Markdown rendering (re-evaluated post R-006)
+- **Status:** Idea  (cost equation changed — R-006 found published Maven Central libs)
+- **R-006 finding:** `NadeemIqbal/llm-typewriter` (Apache 2.0, `io.github.nadeemiqbal:llm-typewriter:0.1.1`) is a drop-in streaming markdown typewriter for Compose. Flow<String>, progressive Markdown, syntax-highlighted code blocks, 3 speed curves. Fork `ECSDevs/llm-typewriter` adds LaTeX+O(1) reveal tracking. **Next step: measure APK/RSS impact of llm-typewriter in foss debug build.**
+- **Depends on:** R-006-1 (APK/RSS measurement) — not yet scheduled
+- **Goal:** Add incremental streaming markdown rendering using NadeemIqbal/llm-typewriter (preferred) or mikepenz/multiplatform-markdown-renderer. Plain text until measurement confirms APK cost is acceptable.  
 - **AC:**
   - [ ] APK growth ≤ 500 KB over baseline (measure before/after with `assembleRelease` diff)
   - [ ] Streaming replies use `StreamingMarkdownState` (O(n) parse, not O(n²))
