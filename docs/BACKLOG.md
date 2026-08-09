@@ -80,12 +80,14 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Touch:** New `OverlayService.kt`, `Screens.kt`, `AndroidManifest.xml`
 - **Out of scope:** resizable overlay, multi-window, overlay theming
 
-### C-016 — Cloud OCR via vision model (Pro-gated)
-- **Status:** Idea
-- **Goal:** Take screenshot → send to GPT-4V/Claude Vision via existing API key → extract text → inject into chat.
-- **Research:** `docs/PREMIUM-STRATEGY.md` (R-008)
-- **Touch:** `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`
-- **Out of scope:** on-device OCR (ML Kit), real-time camera OCR, handwriting recognition
+### C-016 — Image attachment + vision model support (Pro-gated)
+- **Status:** Ready  (scope changed from OCR screen capture)
+- **Goal:** Users attach images from gallery → base64 encoded → sent to GPT-4V/Claude Vision via existing API key → model analyzes image. Covers OCR, "what's in this image", document reading.
+- **Research:** `docs/DEEP-DIVE-C009-C016.md` (R-009)
+- **APK impact:** 0 KB (all platform APIs)
+- **Why no screen capture:** MediaProjection needs system dialog every time. Gallery attach is zero-permission, zero-friction, more generally useful.
+- **Touch:** `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** on-device OCR (ML Kit), real-time camera, screen recording
 
 
 
@@ -141,6 +143,11 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Status:** Done — C-012, C-013, C-014 Ready; C-015, C-016 Ideas
 - **Deliverable:** `docs/PREMIUM-STRATEGY.md`
 - **Key findings:** $4.99 one-time validated as impulse-buy sweet spot (100% margin after 15% Play cut). 4 Pro-gated features evaluated against thin-client constraints: prompt variables (★best ROI), web scraping /browse (Opera Mini pattern), cloud sync via SAF (HotSync pattern), floating overlay + cloud OCR (deferred to Ideas). Priority: C-012 first (zero APK, highest Pro value per dev hour).
+
+### R-009 — Deep-dive: C-009/C-010/C-015/C-016
+- **Status:** In progress (subagents running) — C-016 Ready, others pending
+- **Deliverable:** `docs/DEEP-DIVE-C009-C016.md`
+- **C-016 key finding:** MediaProjection screen capture is overkill. Better approach: image attachment + GPT-4V/Claude Vision via existing API key. Zero APK cost, zero new permissions. Scope changed from "OCR via screen capture" to "image attachment with vision model support."
 
 ---
 
