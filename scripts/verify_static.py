@@ -102,6 +102,10 @@ def main() -> int:
     ok("markdown in MessageBubble", "flowOf(msg.content" in screens
         and "StreamingTypewriter(" in screens)
 
+    # Kai 9000 honesty rule guard.
+    ok("honesty rule in system prompt", '"Do not fabricate tool outputs' in vm
+        and 'ChatMessageDto("system"' in vm)
+
     all_kt = "\n".join(p.read_text() for p in KT_ROOT.rglob("*.kt"))
     for bad in ("WebView", "trustAll", "react-native", "io.flutter"):
         ok(f"no {bad}", bad not in all_kt)
