@@ -121,6 +121,9 @@ dependencies {
     // C-008: streaming markdown typewriter for LLM responses.
     implementation("io.github.nadeemiqbal:llm-typewriter:0.1.1")
 
+    // C-013: Jsoup for HTML extraction in /browse command.
+    implementation("org.jsoup:jsoup:1.18.1")
+
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 

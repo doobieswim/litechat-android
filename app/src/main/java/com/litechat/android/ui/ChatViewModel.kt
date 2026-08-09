@@ -206,6 +206,41 @@ class ChatViewModel(
             return
         }
 
+        // C-013: /browse command — fetch web page, inject into context.
+        if (text.startsWith("/browse ")) {
+            val url = text.removePrefix("/browse ").trim()
+            if (url.isEmpty()) {
+                _state.update { it.copy(error = "Usage: /browse <url>") }
+                return
+            }
+            viewModelScope.launch {
+                var convId = _state.value.activeConversationId
+                if (convId == null) {
+                    val c = container.chatRepository.createConversation(
+                        title = "/browse ${url.take(40)}",
+                        model = settings.model,
+                    )
+                    convId = c.id
+                    selectConversation(convId)
+                }
+                _state.update { it.copy(input = "", error = null) }
+                container.chatRepository.addMessage(convId, "user", "/browse $url")
+                try {
+                    val pageText = container.openAiClient.fetchPage(url)
+                    val ctx = "
+
+[Content from $url]
+$pageText"
+                    container.chatRepository.addMessage(convId, "assistant", ctx)
+                } catch (e: Exception) {
+                    _state.update { it.copy(error = "Browse failed: ${e.message?.take(100)}") }
+                    container.chatRepository.addMessage(convId, "assistant",
+                        "Failed to fetch $url: ${e.message?.take(200)}")
+                }
+            }
+            return
+        }
+
         // C-011: /imagine slash command — generate image via same BYOK key.
         if (text.startsWith("/imagine ")) {
             val prompt = text.removePrefix("/imagine ").trim()
@@ -473,6 +508,50 @@ class ChatViewModel(
         FeatureFlags.setPro(isPro)
         viewModelScope.launch {
             container.settingsRepository.update(isPro = isPro)
+        }
+    }
+
+    // C-014: export chat database to a file via SAF.
+    fun exportChats(uri: android.net.Uri) {
+        viewModelScope.launch {
+            try {
+                val dbFile = container.ctx.getDatabasePath("litechat.db")
+                container.ctx.contentResolver.openOutputStream(uri)?.use { out ->
+                    dbFile.inputStream().use { it.copyTo(out) }
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Export failed: ${e.message?.take(60)}") }
+            }
+        }
+    }
+
+    // C-014: import chat database from a file via SAF.
+    fun importChats(uri: android.net.Uri) {
+        viewModelScope.launch {
+            try {
+                val dbFile = container.ctx.getDatabasePath("litechat.db")
+                container.ctx.contentResolver.openInputStream(uri)?.use { input ->
+                    dbFile.outputStream().use { input.copyTo(it) }
+                }
+                _state.update { it.copy(error = "Chats imported — restart to reload") }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Import failed: ${e.message?.take(60)}") }
+            }
+        }
+    }
+
+    // C-016: attach image/file for vision model analysis.
+    fun attachImage(uri: android.net.Uri) {
+        viewModelScope.launch {
+            try {
+                val bytes = container.ctx.contentResolver.openInputStream(uri)?.readBytes()
+                    ?: return@launch
+                val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                val mime = container.ctx.contentResolver.getType(uri) ?: "image/jpeg"
+                setInput("[IMG:data:$mime;base64,$b64] Describe this.")
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Attachment failed: ${e.message?.take(60)}") }
+            }
         }
     }
 

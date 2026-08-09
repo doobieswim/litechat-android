@@ -227,6 +227,22 @@ class OpenAiCompatibleClient(
      * Uses the same API key + OkHttpClient as chat. Returns raw PNG/JPEG bytes.
      * Throws IOException on failure.
      */
+        /**
+     * C-013: fetch and extract text from a web page via Jsoup.
+     * Returns plain text, truncated to ~8K chars (≈2K tokens).
+     */
+    fun fetchPage(url: String): String {
+        val doc = org.jsoup.Jsoup.connect(url)
+            .userAgent("LiteChat/0.1 (Android; BYOK)")
+            .timeout(15_000)
+            .get()
+        return doc.body().text().take(8_192)
+    }
+
+    /**
+     * C-013: fetch and extract text from a web page via Jsoup.
+     * Returns plain text, truncated to ~8K chars (≈2K tokens).
+     */
     fun generateImage(
         baseUrl: String,
         apiKey: String,
