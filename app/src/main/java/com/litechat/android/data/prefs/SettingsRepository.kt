@@ -179,6 +179,38 @@ class SettingsRepository(
             sb.toString()
         }
 
+    // ── C-017: Provider failover list ─────────────────────────────
+
+    private val providerListKey = stringPreferencesKey("provider_list_json")
+
+    /** Extra providers for failover (does not include primary). */
+    data class ProviderEntry(val baseUrl: String, val apiKey: String = "", val model: String = "")
+
+    suspend fun getProviderList(): List<ProviderEntry> {
+        val raw = context.dataStore.data.first()[providerListKey] ?: return emptyList()
+        return try {
+            val arr = Json.parseToJsonElement(raw).jsonArray
+            arr.map { el ->
+                val obj = el.jsonObject
+                ProviderEntry(
+                    baseUrl = obj["baseUrl"]!!.jsonPrimitive.content,
+                    apiKey = obj["apiKey"]?.jsonPrimitive?.content ?: "",
+                    model = obj["model"]?.jsonPrimitive?.content ?: "",
+                )
+            }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    suspend fun saveProviderList(list: List<ProviderEntry>) {
+        val sb = StringBuilder("[")
+        list.forEachIndexed { i, p ->
+            if (i > 0) sb.append(",")
+            sb.append("""{"baseUrl":"${p.baseUrl}","apiKey":"${p.apiKey}","model":"${p.model}"}""")
+        }
+        sb.append("]")
+        context.dataStore.edit { p -> p[providerListKey] = sb.toString() }
+    }
+
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
         AppSettings(
             baseUrl = p[Keys.BASE_URL] ?: "https://api.openai.com/v1",

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 data class ConversationEntity(
     @PrimaryKey val id: String,
     val title: String,
+    val model: String = "",  // C-018: per-conversation model binding
     val createdAt: Long,
     val updatedAt: Long,
 )

@@ -15,11 +15,12 @@ class ChatRepository(
     suspend fun listMessages(conversationId: String): List<MessageEntity> =
         messageDao.listForConversation(conversationId)
 
-    suspend fun createConversation(title: String = "New chat"): ConversationEntity {
+    suspend fun createConversation(title: String = "New chat", model: String = ""): ConversationEntity {
         val now = System.currentTimeMillis()
         val entity = ConversationEntity(
             id = UUID.randomUUID().toString(),
             title = title,
+            model = model,
             createdAt = now,
             updatedAt = now,
         )

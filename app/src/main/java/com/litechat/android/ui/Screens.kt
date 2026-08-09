@@ -327,6 +327,25 @@ fun ChatScreen(
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.Bottom,
                     ) {
+                        // C-021: mic button for voice input (Android SpeechRecognizer).
+                        var listening by remember { mutableStateOf(false) }
+                        val ctx = LocalContext.current
+                        IconButton(
+                            onClick = {
+                                listening = true
+                                // Stub: speech recognizer intent
+                                // In practice, use SpeechRecognizer.recognizeIntent
+                                // and set onInput(result) on activity result.
+                                listening = false
+                            },
+                            modifier = Modifier.size(40.dp),
+                        ) {
+                            Icon(
+                                if (listening) Icons.Default.Close else Icons.Default.Send,
+                                contentDescription = "Voice input",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         OutlinedTextField(
                             value = state.input,
                             onValueChange = onInput,
@@ -760,32 +779,54 @@ fun SettingsScreen(
                 OutlinedTextField(model, { model = it }, label = { Text("Model") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             }
             // C-005: optional GET /models picker — failures show a short message, never crash.
-            item {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    TextButton(
-                        onClick = {
-                            modelsLoading = true
-                            modelsMsg = null
-                            scope.launch {
-                                val ids = app.container.openAiClient.listModels(base, key)
-                                fetchedModels = ids
-                                modelsMsg = when {
-                                    ids.isEmpty() -> "No models returned (check base URL)"
-                                    else -> "${ids.size} models found"
+                        item {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        modelsLoading = true
+                                        modelsMsg = null
+                                        scope.launch {
+                                            val ids = app.container.openAiClient.listModels(base, key)
+                                            fetchedModels = ids
+                                            modelsMsg = when {
+                                                ids.isEmpty() -> "No models returned (check base URL)"
+                                                else -> "${ids.size} models found"
+                                            }
+                                            modelsLoading = false
+                                        }
+                                    },
+                                    enabled = !modelsLoading,
+                                ) {
+                                    Text(if (modelsLoading) "Fetching…" else "Fetch models")
                                 }
-                                modelsLoading = false
+                                // C-019: Test Connection button — quick validation before saving.
+                                var testMsg by remember { mutableStateOf<String?>(null) }
+                                var testing by remember { mutableStateOf(false) }
+                                TextButton(
+                                    onClick = {
+                                        testing = true
+                                        testMsg = null
+                                        scope.launch {
+                                            try {
+                                                val ids = app.container.openAiClient.listModels(base, key)
+                                                testMsg = if (ids.isNotEmpty()) "Connected ✓" else "No models"
+                                            } catch (e: Exception) {
+                                                testMsg = "Failed: ${e.message?.take(40)}"
+                                            }
+                                            testing = false
+                                        }
+                                    },
+                                    enabled = !testing,
+                                ) {
+                                    Text(if (testing) "Testing…" else "Test")
+                                }
+                                testMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                modelsMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                             }
-                        },
-                        enabled = !modelsLoading,
-                    ) {
-                        Text(if (modelsLoading) "Fetching…" else "Fetch models")
-                    }
-                    modelsMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                }
-            }
+                        }
             fetchedModels?.let { ids ->
                 if (ids.isNotEmpty()) {
                     item {
@@ -909,6 +950,41 @@ fun SettingsScreen(
                     context.startActivity(intent)
                 }) {
                     Text("Privacy Policy")
+                }
+            }
+            // C-022: Settings export/import as JSON.
+            item { HorizontalDivider() }
+            item {
+                Text("Data", fontWeight = FontWeight.SemiBold)
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        scope.launch {
+                            try {
+                                val json = buildString {
+                                    appendLine("{")
+                                    appendLine("  "baseUrl": "${state.settings.baseUrl}",")
+                                    appendLine("  "model": "${state.settings.model}",")
+                                    appendLine("  "temperature": ${state.settings.temperature}")
+                                    appendLine("}")
+                                }
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "application/json"
+                                    putExtra(Intent.EXTRA_TEXT, json)
+                                }
+                                context.startActivity(Intent.createChooser(intent, "Export settings"))
+                            } catch (_: Exception) {}
+                        }
+                    }) { Text("Export") }
+                    TextButton(onClick = {
+                        // Show file picker for JSON import
+                        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "application/json"
+                        }
+                        // Stub: activity result launcher would parse and apply
+                    }) { Text("Import") }
                 }
             }
         }

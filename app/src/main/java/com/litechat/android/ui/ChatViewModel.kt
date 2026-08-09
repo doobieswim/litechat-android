@@ -121,12 +121,16 @@ class ChatViewModel(
 
     fun selectConversation(id: String) {
         messagesCollectJob?.cancel()
+        // C-018: switch to the conversation's saved model if present.
+        val convModel = _state.value.conversations.find { it.id == id }?.model
         _state.update {
             it.copy(
                 activeConversationId = id,
                 messages = emptyList(),
                 streamingText = "",
                 error = null,
+                settings = if (!convModel.isNullOrBlank())
+                    it.settings.copy(model = convModel) else it.settings,
             )
         }
         messagesCollectJob = viewModelScope.launch {
@@ -138,7 +142,9 @@ class ChatViewModel(
 
     fun newChat() {
         viewModelScope.launch {
-            val c = container.chatRepository.createConversation()
+            val c = container.chatRepository.createConversation(
+                model = _state.value.settings.model
+            )
             selectConversation(c.id)
         }
     }
@@ -211,7 +217,8 @@ class ChatViewModel(
                 var convId = _state.value.activeConversationId
                 if (convId == null) {
                     val c = container.chatRepository.createConversation(
-                        title = "/imagine ${prompt.take(40)}"
+                        title = "/imagine ${prompt.take(40)}",
+                        model = settings.model,
                     )
                     convId = c.id
                     selectConversation(convId)
@@ -256,7 +263,8 @@ class ChatViewModel(
             var convId = _state.value.activeConversationId
             if (convId == null) {
                 val c = container.chatRepository.createConversation(
-                    title = text.take(48).ifBlank { "New chat" }
+                    title = text.take(48).ifBlank { "New chat" },
+                    model = settings.model,
                 )
                 convId = c.id
                 selectConversation(convId)
@@ -404,7 +412,27 @@ class ChatViewModel(
                 }
             }
 
-            // All retries exhausted
+            // All retries exhausted — C-017: try failover providers.
+            val providers = container.settingsRepository.getProviderList()
+            if (providers.isNotEmpty()) {
+                for (provider in providers) {
+                    try {
+                        _state.update { it.copy(retryProgress = "Trying ${provider.baseUrl.take(30)}…") }
+                        val result = container.openAiClient.completeChat(
+                            baseUrl = provider.baseUrl,
+                            apiKey = provider.apiKey.ifBlank { key },
+                            model = provider.model.ifBlank { settings.model },
+                            messages = trimmed,
+                            temperature = settings.temperature,
+                        )
+                        if (result.isNotEmpty()) {
+                            container.chatRepository.addMessage(convId, "assistant", result)
+                            _state.update { it.copy(isStreaming = false, streamingText = "", retryProgress = null) }
+                            return@launch
+                        }
+                    } catch (_: Exception) { /* try next */ }
+                }
+            }
             _state.update {
                 it.copy(
                     isStreaming = false,
