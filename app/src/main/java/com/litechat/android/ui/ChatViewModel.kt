@@ -246,6 +246,53 @@ $pageText"
             return
         }
 
+        // C-027: /video command — generate video via Sora-compatible API.
+        if (text.startsWith("/video ")) {
+            val prompt = text.removePrefix("/video ").trim()
+            if (prompt.isEmpty()) {
+                _state.update { it.copy(error = "Usage: /video <prompt>") }
+                return
+            }
+            viewModelScope.launch {
+                var convId = _state.value.activeConversationId
+                if (convId == null) {
+                    val c = container.chatRepository.createConversation(
+                        title = "/video ${prompt.take(40)}",
+                        model = settings.model,
+                    )
+                    convId = c.id
+                    selectConversation(convId)
+                }
+                _state.update { it.copy(input = "", error = null, isGeneratingImage = true) }
+                container.chatRepository.addMessage(convId, "user", "/video $prompt")
+                try {
+                    val jobId = container.openAiClient.createVideo(
+                        baseUrl = settings.baseUrl,
+                        apiKey = key,
+                        prompt = prompt,
+                    )
+                    // Poll with progress
+                    val videoBytes = container.openAiClient.pollVideo(
+                        baseUrl = settings.baseUrl,
+                        apiKey = key,
+                        jobId = jobId,
+                    )
+                    val file = java.io.File(container.ctx.cacheDir,
+                        "vid_${System.currentTimeMillis()}.mp4")
+                    file.writeBytes(videoBytes)
+                    container.chatRepository.addMessage(convId, "assistant",
+                        "[VIDEO:${file.absolutePath}]")
+                } catch (e: Exception) {
+                    _state.update { it.copy(error = "Video failed: ${e.message?.take(120)}") }
+                    container.chatRepository.addMessage(convId, "assistant",
+                        "Video generation failed: ${e.message?.take(200) ?: "Unknown error"}")
+                } finally {
+                    _state.update { it.copy(isGeneratingImage = false) }
+                }
+            }
+            return
+        }
+
         // C-011: /imagine slash command — generate image via same BYOK key.
         if (text.startsWith("/imagine ")) {
             val prompt = text.removePrefix("/imagine ").trim()

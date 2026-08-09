@@ -163,6 +163,12 @@ def main() -> int:
     ok("ImageCacheConfig file", (KT_ROOT / "com/litechat/android/util/ImageCacheConfig.kt").is_file())
     ok("Coil SingletonImageLoader", "SingletonImageLoader" in all_kt and "ImageCacheConfig" in all_kt)
 
+    # C-027 video generation guards.
+    ok("createVideo in client", "createVideo" in api and "v1/videos" in api)
+    ok("pollVideo in client", "pollVideo" in api and "job id" in api.lower())
+    ok("/video handler in VM", "/video " in vm and "createVideo" in vm)
+    ok("VideoView in Screens", "[VIDEO:" in screens and "VideoView" in screens)
+
     # Kai 9000 honesty rule guard.
     ok("honesty rule in system prompt", '"Do not fabricate tool outputs' in vm
         and 'ChatMessageDto("system"' in vm)

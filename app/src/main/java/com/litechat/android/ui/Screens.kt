@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -614,6 +615,28 @@ private fun MessageBubble(msg: MessageEntity) {
             return
         }
         // File not found — fall through to text rendering.
+    }
+
+    // C-027: render video messages with built-in VideoView.
+    if (!isUser && msg.content.startsWith("[VIDEO:")) {
+        val path = msg.content.removePrefix("[VIDEO:").removeSuffix("]")
+        val file = File(path)
+        if (file.exists()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.widthIn(max = 520.dp)) {
+                    AndroidView(
+                        factory = { android.widget.VideoView(it).apply {
+                            setVideoPath(path)
+                            setOnPreparedListener { start() }
+                        }},
+                        modifier = Modifier.fillMaxWidth().height(300.dp).padding(8.dp)
+                    )
+                }
+            }
+            return
+        }
     }
 
     Row(

@@ -285,6 +285,77 @@ class OpenAiCompatibleClient(
         }
     }
 
+    /**
+     * C-027: Create a video generation job via Sora-compatible API.
+     * Returns the job id for polling.
+     */
+    fun createVideo(
+        baseUrl: String,
+        apiKey: String,
+        prompt: String,
+        seconds: Int = 8,
+        size: String = "1280x720",
+    ): String {
+        val root = baseUrl.trim().trimEnd('/')
+        val url = if (root.contains("/v1/videos")) root else "$root/v1/videos"
+        val body = buildJsonObject {
+            put("model", "sora-2")
+            put("prompt", prompt)
+            put("seconds", seconds)
+            put("size", size)
+        }
+        val builder = Request.Builder()
+            .url(url)
+            .post(body.toString().toRequestBody(JSON))
+            .header("Content-Type", "application/json")
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+        val call = client.newCall(builder.build())
+        activeCall = call
+        call.execute().use { response ->
+            if (!response.isSuccessful)
+                throw IOException("HTTP ${response.code}: ${response.body?.string()?.take(200)}")
+            val raw = response.body?.string().orEmpty()
+            val obj = json.parseToJsonElement(raw).jsonObject
+            return obj["id"]?.jsonPrimitive?.content
+                ?: throw IOException("No job id in video response")
+        }
+    }
+
+    /**
+     * C-027: Poll a video job. Returns MP4 bytes when complete.
+     * Throws if job failed or not found.
+     */
+    fun pollVideo(baseUrl: String, apiKey: String, jobId: String, timeout: Long = 300_000): ByteArray {
+        val root = baseUrl.trim().trimEnd('/')
+        val start = System.currentTimeMillis()
+        while (System.currentTimeMillis() - start < timeout) {
+            val url = "$root/v1/videos/$jobId"
+            val builder = Request.Builder().url(url).get()
+            if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+            val call = client.newCall(builder.build())
+            activeCall = call
+            val response = call.execute()
+            val raw = response.body?.string().orEmpty()
+            response.close()
+            val obj = json.parseToJsonElement(raw).jsonObject
+            val status = obj["status"]?.jsonPrimitive?.content ?: "unknown"
+            when (status) {
+                "completed" -> {
+                    // Download MP4 content
+                    val dlUrl = "$root/v1/videos/$jobId/content?variant=video"
+                    val dlBuilder = Request.Builder().url(dlUrl).get()
+                    if (apiKey.isNotBlank()) dlBuilder.header("Authorization", "Bearer $apiKey")
+                    val dlCall = client.newCall(dlBuilder.build())
+                    return dlCall.execute().use { it.body?.bytes() ?: ByteArray(0) }
+                }
+                "failed" -> throw IOException("Video generation failed")
+                "queued", "in_progress" -> Thread.sleep(2_000) // poll
+                else -> throw IOException("Unknown video status: $status")
+            }
+        }
+        throw IOException("Video generation timed out")
+    }
+
     private fun executeChat(
         url: String,
         apiKey: String,
