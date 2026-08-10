@@ -1,6 +1,8 @@
 package com.litechat.android
 
 import android.app.Application
+import coil3.ImageLoader
+import coil3.ImageLoaderFactory
 import coil3.SingletonImageLoader
 import coil3.annotation.ExperimentalCoilApi
 import com.litechat.android.data.AppContainer
@@ -8,7 +10,7 @@ import com.litechat.android.util.DeviceCompat
 import com.litechat.android.util.ImageCacheConfig
 
 @OptIn(ExperimentalCoilApi::class)
-class LiteChatApp : Application(), SingletonImageLoader.Factory {
+class LiteChatApp : Application(), ImageLoaderFactory {
     lateinit var container: AppContainer
         private set
 
@@ -16,13 +18,14 @@ class LiteChatApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         instance = this
         container = AppContainer(this)
-        // C-001: AdMob SDK init is lazy — triggered only when a banner first
-        // shows (i.e. non-Pro users). Pro users pay no ads-init RAM tax at cold start.
+
+        // Coil 3 singleton wired to band-tuned loader (TIGHT=2MB/RGB_565)
+        SingletonImageLoader.setSafe { newImageLoader() }
     }
 
-    override fun newImageLoader(): coil3.ImageLoader {
+    override fun newImageLoader(): ImageLoader {
         val snap = DeviceCompat.snapshot(this)
-        return ImageCacheConfig.createImageLoader(snap.band)
+        return ImageCacheConfig.createImageLoader(snap.band, this)
     }
 
     companion object {
