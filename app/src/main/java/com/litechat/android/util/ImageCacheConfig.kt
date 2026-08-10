@@ -44,7 +44,7 @@ object ImageCacheConfig {
     }
 
     /** Tuned ImageLoader that should be installed as the Coil singleton. */
-    fun createImageLoader(band: DeviceCompat.Band): ImageLoader = ImageLoader.Builder(LiteChatApp.instance)
+    fun createImageLoader(context: android.content.Context, band: DeviceCompat.Band): ImageLoader = ImageLoader.Builder(context)
             .memoryCache {
                 MemoryCache.Builder()
                     .maxSizeBytes(cacheSizeBytes(band))
@@ -56,7 +56,7 @@ object ImageCacheConfig {
                     else -> 250 * 1024 * 1024L
                 }
                 coil3.disk.DiskCache.Builder()
-                    .directory(LiteChatApp.instance.cacheDir.resolve("coil_disk"))
+                    .directory(context.cacheDir.resolve("coil_disk"))
                     .maxSizeBytes(diskSize)
                     .build()
             }

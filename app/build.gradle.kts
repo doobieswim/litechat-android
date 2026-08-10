@@ -115,8 +115,9 @@ dependencies {
 
     // C-011: Coil 3 for image display (generated images, future vision input).
     // coil-network-okhttp reuses LiteChat existing OkHttpClient.
-    implementation("io.coil-kt.coil3:coil-compose:3.5.0")
-    implementation("io.coil-kt.coil3:coil-network-okhttp:3.5.0")
+    implementation("io.coil-kt.coil3:coil-compose:3.1.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.1.0")
+    implementation("io.coil-kt.coil3:coil-core:3.1.0")
 
     // C-008: markdown rendering deferred for v1 (see docs/MARKDOWN-COST.md).
     // llm-typewriter was tried in C-008 but has no Android target — reverted.

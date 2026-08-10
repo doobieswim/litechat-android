@@ -232,10 +232,7 @@ class ChatViewModel(
                 container.chatRepository.addMessage(convId, "user", "/browse $url")
                 try {
                     val pageText = container.openAiClient.fetchPage(url)
-                    val ctx = "
-
-[Content from $url]
-$pageText"
+                    val ctx = "[Content from $url]\n$pageText"
                     container.chatRepository.addMessage(convId, "assistant", ctx)
                 } catch (e: Exception) {
                     _state.update { it.copy(error = "Browse failed: ${e.message?.take(100)}") }
