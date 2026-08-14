@@ -25,7 +25,7 @@ class LiteChatApp : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader {
         val snap = DeviceCompat.snapshot(this)
-        return ImageCacheConfig.createImageLoader(snap.band, this)
+        return ImageCacheConfig.createImageLoader(this, snap.band)
     }
 
     companion object {
