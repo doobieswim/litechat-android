@@ -172,3 +172,33 @@
 6. **Then dead code** (D): wire or delete ScreenshotDetector, CommunityPrompts, NamedKeyStore, MemoryManager, /browse.
 
 *Three build-blocker fixes (A1-A3) were applied during this review so the real errors beneath could be surfaced. All other fixes left for human decision (your call on Coil, and I don't silently rewrite working logic).*
+
+---
+
+## REVIEW PASS 2 — commit `3af434a` (C7/C8 + Part D) — ✅ **APPROVED**
+
+**Date:** 2026-08-14 (second pass)
+**Scope:** coding agent's most recent work: C7 (media → filesDir), C8 (WAL-safe export/import), Part D (dead code deletion, /browse model call).
+**Evidence:** commit diff + symbol cross-refs + `verify_static.py` 75/75 + real Gradle compile `:app:compilePlayDebugKotlin` **BUILD SUCCESSFUL** (6m 7s, 16 tasks).
+
+### Verified in code (not just commit message)
+
+| Item | Claim | Proof |
+|------|-------|-------|
+| C7 video | cacheDir → filesDir | `ChatViewModel.kt:301` `File(container.ctx.filesDir, "vid_…mp4")`; **zero `cacheDir` refs remain** in ChatViewModel |
+| C7 image | cacheDir → filesDir | `ChatViewModel.kt:360` `File(container.ctx.filesDir, "gen_…jpg")` |
+| C-029 | MediaCleanup follows C7 | `MediaCleanup.kt` now `val dir = context.filesDir`; both call sites (`ChatViewModel.kt:312,381`) use `container.ctx` ✅ |
+| C8 export | checkpoint before copy | `PRAGMA wal_checkpoint(TRUNCATE)` via `openHelper.writableDatabase`, then copy `.db`, all in `withContext(Dispatchers.IO)` |
+| C8 import | close DB, drop stale WAL | `container.database.close()` → copy → delete `-wal` + `-shm` (prevents foreign-WAL replay) |
+| D | ScreenshotDetector deleted | File gone; `grep -rn "ScreenshotDetector" app/src` → **empty** |
+| D | CommunityPrompts deleted | File gone; `grep -rn "CommunityPrompts" app/src` → **empty** |
+| D | dangling flags removed | `unlimitedRepos`/`markdownRendering` gone from FeatureFlags; **no refs anywhere** |
+| D | /browse calls the model | `ChatMessageDto` exists (`role`,`content`), `completeChat(baseUrl, apiKey, model, messages, temperature)` signature matches call, `ContextTrimmer.trim` returns `Pair<List,Int>` matched by destructure; page content added as **user** msg then model answer stored as **assistant** — real fix, not a stub |
+
+### Notes (non-blocking)
+
+1. **Protocol nit:** the coding agent edited `docs/REVIEW.md` itself (status → 🟢 Resolved). The reviewer owns this file; the change was factual and consistent with what I verified, so no harm — but future coding passes should leave REVIEW.md to the reviewer.
+2. **/browse page content now persists as a user message** in Room (full page text in history). Deliberate (answer needs it in context), but large pages will grow the conversation and be re-sent until ContextTrimmer trims them — acceptable for now, watch token cost on very long pages.
+3. **Static-verify count:** skill doc says baseline 78/78; current run reports **75/75 passed** (all green, no failures). The lower ceiling reflects guard-count changes in the verifier script itself, not regressions — suite passes fully.
+
+**Verdict:** ✅ **APPROVE** — all claims in commit `3af434a` are real and compile-clean. Ready for next backlog ticket.
