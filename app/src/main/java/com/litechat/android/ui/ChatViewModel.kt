@@ -452,7 +452,8 @@ class ChatViewModel(
 
                 _state.update { it.copy(isStreaming = true, streamingText = "") }
 
-                streamJob?.cancel()
+                // NOTE: no streamJob?.cancel() here — streamJob now points at THIS
+                // coroutine (fixed C3), so calling cancel() would abort the send itself.
                 val streamResult = try {
                     val preferNonStream =
                         container.settingsRepository.isStreamBrokenNow(settings.baseUrl)
