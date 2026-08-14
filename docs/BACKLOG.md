@@ -81,7 +81,7 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 
 ### C-013 — In-app web scraping /browse command (Pro-gated)
 - **Status:** Done
-- **Notes:** Jsoup dep, /browse handler, fetchPage(). 53/53.
+- **Notes:** Jsoup dep, /browse handler, fetchPage(). 53/53. 2026-08-14: REVIEW Part D fix — page content now fed to the model via completeChat (previously stored as assistant text, model never called → no answer).
 - **Goal:** `/browse <url>` fetches page content, extracts text, injects into conversation. Opera Mini pattern: thin client fetches, remote brain reads. Pro-only.
 - **Research:** `docs/PREMIUM-STRATEGY.md` (R-008)
 - **Touch:** `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`
