@@ -3,7 +3,7 @@
 **Date:** 2026-08-14
 **Method:** 3 parallel read-only review subagents (UI / data-network-db / prefs-util-media-gradle) + real Gradle build (`:app:compilePlayDebugKotlin`, JDK 17, SDK 36) + git history analysis.
 **Reviewer codeword:** `LITECHAT-REVIEW`
-**Status:** 🔴 **Project does not compile** — 41 verified compile errors + 2 build-config blockers + multiple runtime/security bugs.
+**Status:** 🟡 **Mostly resolved** — all build blockers (A1-A6) + security B1 + runtime C1-C3/C5/C6/C9 applied and compiling locally (2026-08-14). Remaining: C7 (media in evictable cacheDir), C8 (WAL backup), dead-code items in Part D.
 
 ---
 
@@ -147,18 +147,18 @@
 
 | # | Severity | Finding | Status |
 |---|----------|---------|--------|
-| A1 | 🔴 Build | AGP 2.1.2 → 8.7.3 | ✅ Applied |
-| A2 | 🔴 Build | Room 2.6.1 → 2.7.1 (KSP2) | ✅ Applied |
-| A3 | 🔴 Build | LiteChatApp reversed args | ✅ Applied |
-| A4 | 🔴 Build | Coil 3.1.0 API mismatch | ⚠️ Decision needed |
-| A5 | 🔴 Build | Missing imports (combine, json.*, FREE_TEMPLATE_LIMIT, const) | ⚠️ Open |
-| A6 | 🔴 Build | Screens RecognizerIntent misuse | ⚠️ Open |
-| B1 | 🟠 Security | Provider keys in plaintext | ⚠️ Open |
-| C1 | 🟠 Memory | C-028 video heap (fix never implemented) | ⚠️ Open |
-| C2 | 🟠 Runtime | Main-thread blocking / ANR | ⚠️ Open |
-| C3 | 🟠 Runtime | Stop doesn't stop (retries) | ⚠️ Open |
-| C4-C9 | 🟡 | Overlay stub, attachImage truncation, cacheDir media, DB backup, banner/retry UX | ⚠️ Open |
-| D | ⚠️ | 7 dead/unwired items + NPE/stub risks | ⚠️ Open |
+| A1 | 🔴 Build | AGP 2.1.2 → 8.7.3 | ✅ Applied (commit eb96cfc) |
+| A2 | 🔴 Build | Room 2.6.1 → 2.7.1 (KSP2) | ✅ Applied (commit eb96cfc) |
+| A3 | 🔴 Build | LiteChatApp reversed args | ✅ Applied (commit eb96cfc) |
+| A4 | 🔴 Build | Coil 3.1.0 API mismatch | ✅ Applied (commit 7ab0003 — kept 3.1.0, fixed 3 call sites per DO-NOT) |
+| A5 | 🔴 Build | Missing imports (combine, json.*, FREE_TEMPLATE_LIMIT, const) | ✅ Applied (commit 7ab0003) |
+| A6 | 🔴 Build | Screens RecognizerIntent misuse | ✅ Applied (commit 7ab0003) |
+| B1 | 🟠 Security | Provider keys in plaintext | ✅ Applied (keys → SecureStore, DataStore stores id only) |
+| C1 | 🟠 Memory | C-028 video heap (fix never implemented) | ✅ Applied (pollVideo streams to File) |
+| C2 | 🟠 Runtime | Main-thread blocking / ANR | ✅ Applied (withContext(IO) on all blocking client calls) |
+| C3 | 🟠 Runtime | Stop doesn't stop (retries) | ✅ Applied (streamJob assigned + stopRequested + rethrow CancellationException) |
+| C4-C9 | 🟡 | Overlay stub, attachImage truncation, cacheDir media, DB backup, banner/retry UX | C5 overlay (PendingIntent→MainActivity, real channel, canDrawOverlays) ✅ · C6 attachImage downscale ✅ · C9 no ghost rows + stale-state reset ✅ · C7/C8 (cacheDir media, DB WAL backup) ⚠️ Open |
+| D | ⚠️ | 7 dead/unwired items + NPE/stub risks | NamedKeyStore/MemoryManager JSON escaping ✅; ScreenshotDetector/CommunityPrompts/FeatureFlags dangle + /browse still ⚠️ Open |
 
 ---
 

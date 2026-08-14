@@ -89,6 +89,7 @@ import com.litechat.android.LiteChatApp
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.util.DeviceCompat
+import com.litechat.android.util.ImageCacheConfig
 import com.litechat.android.util.LanDetector
 
 import kotlinx.coroutines.launch
@@ -103,6 +104,8 @@ fun LiteChatRoot(vm: ChatViewModel) {
     }
     val context = LocalContext.current
     val activity = context as? Activity
+    // C-028: scope for the share handler (getCurrentChatText is suspending now).
+    val shareScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // C-021: voice input launcher.
     val voiceLauncher = rememberLauncherForActivityResult(
@@ -159,11 +162,23 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onImport = { importLauncher.launch(arrayOf("*/*")) },
             overlayOn = overlayOn,
             onToggleOverlay = { enabled ->
-                overlayOn = enabled
                 if (enabled) {
-                    val svc = Intent(context, OverlayService::class.java)
-                    context.startForegroundService(svc)
+                    // C-015 (REVIEW C5): check SYSTEM_ALERT_WINDOW first to avoid
+                    // BadTokenException on addView.
+                    if (android.provider.Settings.canDrawOverlays(context)) {
+                        overlayOn = true
+                        val svc = Intent(context, OverlayService::class.java)
+                        context.startForegroundService(svc)
+                    } else {
+                        overlayOn = false
+                        val overlayIntent = Intent(
+                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:${context.packageName}")
+                        )
+                        context.startActivity(overlayIntent)
+                    }
                 } else {
+                    overlayOn = false
                     context.stopService(Intent(context, OverlayService::class.java))
                 }
             },
@@ -188,7 +203,8 @@ fun LiteChatRoot(vm: ChatViewModel) {
                             voiceLauncher.launch(intent)
                         },
                         onShare = {
-                            if (state.activeConversationId != null) {
+                            shareScope.launch {
+                                // C-028: getCurrentChatText is now suspending (Room on IO).
                                 val text = vm.getCurrentChatText() ?: "No messages yet"
                                 val intent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
@@ -598,7 +614,11 @@ private fun MessageBubble(msg: MessageEntity) {
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(file)
                             .crossfade(true)
-                            .size(540, 540)  // never decode larger than display
+                            // C-030: band-tuned decode size — never decode larger than the
+                            // device's free-RAM band needs (was a hardcoded 540x540).
+                            .size(ImageCacheConfig.displaySize(
+                                DeviceCompat.snapshot(LocalContext.current).band
+                            ))
                             .build(),
                         contentDescription = "Generated image",
                         modifier = Modifier

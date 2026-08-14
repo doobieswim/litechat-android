@@ -59,8 +59,10 @@ class OpenAiCompatibleClient(
     }
 
     private var activeCall: Call? = null
+    private var userCancelled = false
 
     fun cancel() {
+        userCancelled = true
         activeCall?.cancel()
         activeCall = null
     }
@@ -84,6 +86,7 @@ class OpenAiCompatibleClient(
         preferNonStream: Boolean = false,
     ): Flow<StreamEvent> = callbackFlow {
         cancel()
+        userCancelled = false // fresh send — caller (send()) cleared stopRequested first
 
         val url = completionsUrl(baseUrl)
         var gotDelta = false
@@ -125,8 +128,10 @@ class OpenAiCompatibleClient(
                 } finally {
                     response.close()
                 }
+            } catch (e: java.util.concurrent.CancellationException) {
+                throw e // never swallow user Stop as a retryable error
             } catch (e: IOException) {
-                if (activeCall?.isCanceled() == true) {
+                if (userCancelled || activeCall?.isCanceled() == true) {
                     canceled = true
                 } else {
                     streamError = e.message ?: "Network error"
@@ -322,10 +327,18 @@ class OpenAiCompatibleClient(
     }
 
     /**
-     * C-027: Poll a video job. Returns MP4 bytes when complete.
-     * Throws if job failed or not found.
+     * C-027/C-028: Poll a video job, streaming the finished MP4 to [destFile]
+     * instead of loading it into heap (C-028: the old path did
+     * `body.bytes()` — a full 5-20MB ByteArray). Streams with Okio/byteStream
+     * and returns the file. Throws if job failed, not found, or timed out.
      */
-    fun pollVideo(baseUrl: String, apiKey: String, jobId: String, timeout: Long = 300_000): ByteArray {
+    fun pollVideo(
+        baseUrl: String,
+        apiKey: String,
+        jobId: String,
+        destFile: java.io.File,
+        timeout: Long = 300_000,
+    ): java.io.File {
         val root = baseUrl.trim().trimEnd('/')
         val start = System.currentTimeMillis()
         while (System.currentTimeMillis() - start < timeout) {
@@ -341,12 +354,29 @@ class OpenAiCompatibleClient(
             val status = obj["status"]?.jsonPrimitive?.content ?: "unknown"
             when (status) {
                 "completed" -> {
-                    // Download MP4 content
+                    // Stream MP4 to disk — never materialize the whole file in heap.
                     val dlUrl = "$root/v1/videos/$jobId/content?variant=video"
                     val dlBuilder = Request.Builder().url(dlUrl).get()
                     if (apiKey.isNotBlank()) dlBuilder.header("Authorization", "Bearer $apiKey")
                     val dlCall = client.newCall(dlBuilder.build())
-                    return dlCall.execute().use { it.body?.bytes() ?: ByteArray(0) }
+                    activeCall = dlCall
+                    try {
+                        dlCall.execute().use { r ->
+                            if (!r.isSuccessful) {
+                                throw IOException(
+                                    "HTTP ${r.code}: ${r.body?.string()?.take(200)}"
+                                )
+                            }
+                            val body = r.body ?: throw IOException("Empty video body")
+                            java.io.FileOutputStream(destFile).use { out ->
+                                body.byteStream().use { `in` -> `in`.copyTo(out) }
+                            }
+                        }
+                        return destFile
+                    } catch (e: Exception) {
+                        destFile.delete() // never leave a partial MP4 behind
+                        throw e
+                    }
                 }
                 "failed" -> throw IOException("Video generation failed")
                 "queued", "in_progress" -> Thread.sleep(2_000) // poll

@@ -24,8 +24,10 @@ jobs:
     needs: static-verify
     env:
       # CI runners have 7GB; bump heap beyond the VPS-tuned 768m default.
-      # play-services-ads R8 alone can need 1GB+; dual-flavor release needs headroom.
-      ORG_GRADLE_PROJECT_org.gradle.jvmargs: "-Xmx1536m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8"
+      # play-services-ads R8 alone can need 1GB+; the daemon also holds compile +
+      # KSP + the earlier foss R8 pass before play R8 runs, so give it headroom.
+      # 1536m OOM'd on :app:minifyPlayReleaseWithR8 (confirmed 2026-08-14).
+      ORG_GRADLE_PROJECT_org.gradle.jvmargs: "-Xmx2560m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -67,7 +69,7 @@ jobs:
     permissions:
       contents: write
     env:
-      ORG_GRADLE_PROJECT_org.gradle.jvmargs: "-Xmx1536m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8"
+      ORG_GRADLE_PROJECT_org.gradle.jvmargs: "-Xmx2560m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

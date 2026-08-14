@@ -29,8 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
-import com.litechat.android.LiteChatApp
-import kotlinx.coroutines.launch
 
 /**
  * C-015: Floating chat overlay via SYSTEM_ALERT_WINDOW.
@@ -50,9 +48,11 @@ class OverlayService : Service() {
             .setContentTitle("LiteChat Overlay")
             .setContentText("Tap to chat with AI from any app")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
+            // C-015 (REVIEW C5): the PendingIntent must open MainActivity, not
+            // point at the Service class.
             .setContentIntent(PendingIntent.getActivity(
                 this, 0,
-                Intent(this, com.litechat.android.ui.OverlayService::class.java).apply {
+                Intent(this, com.litechat.android.MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 },
                 PendingIntent.FLAG_IMMUTABLE
@@ -62,8 +62,6 @@ class OverlayService : Service() {
 
     fun showOverlay() {
         if (overlayView != null) return
-        val app = applicationContext as? LiteChatApp ?: return
-        val vm = app.container.let { ChatViewModel(it) }
 
         overlayView = ComposeView(this).apply {
             setContent {
@@ -115,8 +113,17 @@ class OverlayService : Service() {
 
     companion object {
         const val CHANNEL_ID = "litechat_overlay"
-        private fun createNotificationChannel() {
-            // Called from onCreate — channel creation is no-op if exists
-        }
+    }
+
+    private fun createNotificationChannel() {
+        // C-015 (REVIEW C5): the channel was an empty stub — without a real
+        // channel the foreground notification won't show on API 26+.
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "LiteChat Overlay",
+            NotificationManager.IMPORTANCE_LOW
+        )
+        manager.createNotificationChannel(channel)
     }
 }

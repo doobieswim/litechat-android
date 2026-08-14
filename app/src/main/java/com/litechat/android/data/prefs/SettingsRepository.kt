@@ -188,9 +188,12 @@ class SettingsRepository(
             val arr = Json.parseToJsonElement(raw).jsonArray
             arr.map { el ->
                 val obj = el.jsonObject
+                val id = obj["baseUrl"]!!.jsonPrimitive.content
                 ProviderEntry(
-                    baseUrl = obj["baseUrl"]!!.jsonPrimitive.content,
-                    apiKey = obj["apiKey"]?.jsonPrimitive?.content ?: "",
+                    baseUrl = id,
+                    // C-017 (REVIEW B1): the key is stored encrypted in SecureStore,
+                    // never in the unencrypted DataStore JSON. Decode it at read time.
+                    apiKey = secureStore.getProviderKey(id),
                     model = obj["model"]?.jsonPrimitive?.content ?: "",
                 )
             }
@@ -198,14 +201,23 @@ class SettingsRepository(
     }
 
     suspend fun saveProviderList(list: List<ProviderEntry>) {
-        val sb = StringBuilder("[")
-        list.forEachIndexed { i, p ->
-            if (i > 0) sb.append(",")
-            sb.append("""{"baseUrl":"${p.baseUrl}","apiKey":"${p.apiKey}","model":"${p.model}"}""")
+        // B1: keys go to SecureStore; DataStore JSON stores only an id (baseUrl).
+        list.forEach { p ->
+            if (p.apiKey.isNotBlank()) {
+                secureStore.setProviderKey(p.baseUrl, p.apiKey)
+            } else {
+                secureStore.removeProviderKey(p.baseUrl)
+            }
         }
-        sb.append("]")
-        context.dataStore.edit { p -> p[providerListKey] = sb.toString() }
+        val encoded = kotlinx.serialization.json.Json.encodeToString(
+            kotlinx.serialization.builtins.ListSerializer(ProviderEntryDto.serializer()),
+            list.map { ProviderEntryDto(it.baseUrl, it.model) }
+        )
+        context.dataStore.edit { p -> p[providerListKey] = encoded }
     }
+
+    @kotlinx.serialization.Serializable
+    private data class ProviderEntryDto(val baseUrl: String, val model: String)
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
         AppSettings(

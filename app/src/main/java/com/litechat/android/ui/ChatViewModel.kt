@@ -17,6 +17,8 @@ import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.data.prefs.SettingsRepository
 import com.litechat.android.util.DeviceCompat
 import com.litechat.android.util.ImageCacheConfig
+import com.litechat.android.util.MediaCleanup
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +28,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 data class ChatUiState(
     val settings: AppSettings = AppSettings(),
@@ -62,6 +64,7 @@ class ChatViewModel(
     private var streamJob: Job? = null
     private var messagesCollectJob: Job? = null
     private var connectivityJob: Job? = null
+    private var stopRequested = false
 
     init {
         viewModelScope.launch {
@@ -168,6 +171,7 @@ class ChatViewModel(
     }
 
     fun stopStreaming() {
+        stopRequested = true
         streamJob?.cancel()
         container.openAiClient.cancel()
         _state.update { it.copy(isStreaming = false, retryProgress = null) }
@@ -232,7 +236,10 @@ class ChatViewModel(
                 _state.update { it.copy(input = "", error = null) }
                 container.chatRepository.addMessage(convId, "user", "/browse $url")
                 try {
-                    val pageText = container.openAiClient.fetchPage(url)
+                    // C-028: Jsoup fetch is blocking (15s) — never on Main.
+                    val pageText = withContext(Dispatchers.IO) {
+                        container.openAiClient.fetchPage(url)
+                    }
                     val ctx = "[Content from $url]\n$pageText"
                     container.chatRepository.addMessage(convId, "assistant", ctx)
                 } catch (e: Exception) {
@@ -264,20 +271,26 @@ class ChatViewModel(
                 _state.update { it.copy(input = "", error = null, isGeneratingImage = true) }
                 container.chatRepository.addMessage(convId, "user", "/video $prompt")
                 try {
-                    val jobId = container.openAiClient.createVideo(
-                        baseUrl = settings.baseUrl,
-                        apiKey = key,
-                        prompt = prompt,
-                    )
-                    // Poll with progress
-                    val videoBytes = container.openAiClient.pollVideo(
-                        baseUrl = settings.baseUrl,
-                        apiKey = key,
-                        jobId = jobId,
-                    )
+                    // C-028: create + poll + stream-to-disk all on IO; never on Main.
+                    val jobId = withContext(Dispatchers.IO) {
+                        container.openAiClient.createVideo(
+                            baseUrl = settings.baseUrl,
+                            apiKey = key,
+                            prompt = prompt,
+                        )
+                    }
                     val file = java.io.File(container.ctx.cacheDir,
                         "vid_${System.currentTimeMillis()}.mp4")
-                    file.writeBytes(videoBytes)
+                    withContext(Dispatchers.IO) {
+                        container.openAiClient.pollVideo(
+                            baseUrl = settings.baseUrl,
+                            apiKey = key,
+                            jobId = jobId,
+                            destFile = file,
+                        )
+                    }
+                    // C-029: run FIFO media cleanup after every successful generation.
+                    MediaCleanup.run(container.ctx)
                     container.chatRepository.addMessage(convId, "assistant",
                         "[VIDEO:${file.absolutePath}]")
                 } catch (e: Exception) {
@@ -312,34 +325,41 @@ class ChatViewModel(
                 // Insert user's prompt as a regular message.
                 container.chatRepository.addMessage(convId, "user", "/imagine $prompt")
                 try {
-                    val imageBytes = container.openAiClient.generateImage(
-                        baseUrl = settings.baseUrl,
-                        apiKey = key,
-                        prompt = prompt,
-                    )
+                    // C-028: network + decode + compress all on IO, never Main.
+                    val imageBytes = withContext(Dispatchers.IO) {
+                        container.openAiClient.generateImage(
+                            baseUrl = settings.baseUrl,
+                            apiKey = key,
+                            prompt = prompt,
+                        )
+                    }
                     // Save to cache dir, downscaled for weak devices.
                     val maxDim = ImageCacheConfig.maxSaveDimension(
                         DeviceCompat.snapshot(container.ctx).band
                     )
-                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-                    val scaled = if (bitmap != null && (bitmap.width > maxDim || bitmap.height > maxDim)) {
-                        val ratio = maxDim.toFloat() / maxOf(bitmap.width, bitmap.height)
-                        android.graphics.Bitmap.createScaledBitmap(
-                            bitmap,
-                            (bitmap.width * ratio).toInt(),
-                            (bitmap.height * ratio).toInt(),
-                            true
-                        )
-                    } else bitmap
-                    val outStream = java.io.ByteArrayOutputStream()
-                    scaled?.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, outStream)
                     val file = java.io.File(
                         container.ctx.cacheDir,
                         "gen_${System.currentTimeMillis()}.jpg"
                     )
-                    file.writeBytes(outStream.toByteArray())
-                    scaled?.recycle()
-                    bitmap?.recycle()
+                    withContext(Dispatchers.IO) {
+                        val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                        val scaled = if (bitmap != null && (bitmap.width > maxDim || bitmap.height > maxDim)) {
+                            val ratio = maxDim.toFloat() / maxOf(bitmap.width, bitmap.height)
+                            android.graphics.Bitmap.createScaledBitmap(
+                                bitmap,
+                                (bitmap.width * ratio).toInt(),
+                                (bitmap.height * ratio).toInt(),
+                                true
+                            )
+                        } else bitmap
+                        val outStream = java.io.ByteArrayOutputStream()
+                        scaled?.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, outStream)
+                        file.writeBytes(outStream.toByteArray())
+                        scaled?.recycle()
+                        bitmap?.recycle()
+                    }
+                    // C-029: FIFO cleanup after every successful generation.
+                    MediaCleanup.run(container.ctx)
                     container.chatRepository.addMessage(
                         convId, "assistant",
                         "[IMAGE:${file.absolutePath}]"
@@ -361,7 +381,11 @@ class ChatViewModel(
             return
         }
 
-        viewModelScope.launch {
+        stopRequested = false
+        streamJob = viewModelScope.launch {
+            // C-028: reset stale per-send state so a new send doesn't inherit the
+            // previous attempt's truncation count or error banner (REVIEW finding C9).
+            _state.update { it.copy(truncatedCount = 0, error = null, lastCost = null) }
             var convId = _state.value.activeConversationId
             if (convId == null) {
                 val c = container.chatRepository.createConversation(
@@ -393,12 +417,20 @@ class ChatViewModel(
             val maxRetries = RetryPolicy.MAX_ATTEMPTS
             var lastError: String? = null
 
+            // C-028: create ONE assistant row up-front and reuse it across retries so
+            // failed attempts don't leave duplicate "Retrying…"/"Error:" ghost rows
+            // (REVIEW finding C9).
+            val assistant = container.chatRepository.addMessage(convId, "assistant", "")
+            val assistantId = assistant.id
+
             for (attempt in 1..maxRetries) {
+                if (stopRequested) { stopStreaming(); return@launch }
                 if (attempt > 1) {
                     _state.update {
                         it.copy(retryProgress = "Retry ($attempt/$maxRetries)")
                     }
                     delay(RetryPolicy.delayMs(attempt))
+                    if (stopRequested) { stopStreaming(); return@launch }
                 }
 
                 // Imp#2: check connectivity before each attempt
@@ -413,11 +445,9 @@ class ChatViewModel(
                     return@launch
                 }
 
-                val assistant = container.chatRepository.addMessage(
-                    convId, "assistant",
-                    if (attempt > 1) "Retrying…" else ""
-                )
-                val assistantId = assistant.id
+                if (attempt > 1) {
+                    container.chatRepository.updateMessageContent(assistantId, convId, "Retrying…")
+                }
                 val acc = StringBuilder()
 
                 _state.update { it.copy(isStreaming = true, streamingText = "") }
@@ -467,6 +497,8 @@ class ChatViewModel(
                         }
                     }
                     null // success — null means no error to retry
+                } catch (e: java.util.concurrent.CancellationException) {
+                    throw e // user hit Stop — do not treat as retryable error
                 } catch (e: Exception) {
                     // Imp#3: catch stream-level errors for retry
                     e.message ?: "Stream failed"
@@ -499,7 +531,10 @@ class ChatViewModel(
                         container.chatRepository.updateMessageContent(
                             assistantId, convId, "Error: ${_state.value.error}"
                         )
-                        if (attempt < maxRetries) continue // retry
+                        if (attempt < maxRetries) {
+                            if (stopRequested) { stopStreaming(); return@launch }
+                            continue // retry
+                        }
                         _state.update {
                             it.copy(isStreaming = false, streamingText = "", retryProgress = null)
                         }
@@ -509,7 +544,10 @@ class ChatViewModel(
                         container.chatRepository.updateMessageContent(
                             assistantId, convId, "(empty response)"
                         )
-                        if (attempt < maxRetries) continue // retry
+                        if (attempt < maxRetries) {
+                            if (stopRequested) { stopStreaming(); return@launch }
+                            continue // retry
+                        }
                         _state.update {
                             it.copy(isStreaming = false, streamingText = "", retryProgress = null)
                         }
@@ -522,15 +560,19 @@ class ChatViewModel(
             val providers = container.settingsRepository.getProviderList()
             if (providers.isNotEmpty()) {
                 for (provider in providers) {
+                    if (stopRequested) { stopStreaming(); return@launch }
                     try {
                         _state.update { it.copy(retryProgress = "Trying ${provider.baseUrl.take(30)}…") }
-                        val result = container.openAiClient.completeChat(
-                            baseUrl = provider.baseUrl,
-                            apiKey = provider.apiKey.ifBlank { key },
-                            model = provider.model.ifBlank { settings.model },
-                            messages = trimmed,
-                            temperature = settings.temperature,
-                        )
+                        // C-028: completeChat is blocking — never on Main.
+                        val result = withContext(Dispatchers.IO) {
+                            container.openAiClient.completeChat(
+                                baseUrl = provider.baseUrl,
+                                apiKey = provider.apiKey.ifBlank { key },
+                                model = provider.model.ifBlank { settings.model },
+                                messages = trimmed,
+                                temperature = settings.temperature,
+                            )
+                        }
                         if (result.isNotEmpty()) {
                             container.chatRepository.addMessage(convId, "assistant", result)
                             _state.update { it.copy(isStreaming = false, streamingText = "", retryProgress = null) }
@@ -615,9 +657,33 @@ class ChatViewModel(
     fun attachImage(uri: android.net.Uri) {
         viewModelScope.launch {
             try {
-                val bytes = container.ctx.contentResolver.openInputStream(uri)?.readBytes()
-                    ?: return@launch
-                val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                // C-028: decode + downscale on IO (Bitmap decode is expensive).
+                val b64 = withContext(Dispatchers.IO) {
+                    val bytes = container.ctx.contentResolver.openInputStream(uri)?.readBytes()
+                        ?: return@withContext ""
+                    // C-006: downscale before base64 so a large photo doesn't blow the
+                    // 32k input cap and silently truncate the image (REVIEW finding C6).
+                    val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+                    val maxDim = ImageCacheConfig.maxSaveDimension(
+                        DeviceCompat.snapshot(container.ctx).band
+                    )
+                    var sample = 1
+                    while (opts.outWidth / sample > maxDim || opts.outHeight / sample > maxDim) {
+                        sample *= 2
+                    }
+                    val decodeOpts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOpts)
+                        ?: return@withContext ""
+                    val out = java.io.ByteArrayOutputStream()
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, out)
+                    bitmap.recycle()
+                    android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                }
+                if (b64.isBlank()) {
+                    _state.update { it.copy(error = "Attachment could not be read") }
+                    return@launch
+                }
                 val mime = container.ctx.contentResolver.getType(uri) ?: "image/jpeg"
                 setInput("[IMG:data:$mime;base64,$b64] Describe this.")
             } catch (e: Exception) {
@@ -636,9 +702,10 @@ class ChatViewModel(
         }
     }
 
-    fun getCurrentChatText(): String? {
+    suspend fun getCurrentChatText(): String? {
         val id = _state.value.activeConversationId ?: return null
-        return runBlocking { container.chatRepository.exportAsText(id) }
+        // C-028: Room read is suspending — never wrapped in runBlocking on Main.
+        return withContext(Dispatchers.IO) { container.chatRepository.exportAsText(id) }
     }
 
     fun clearHistory() {

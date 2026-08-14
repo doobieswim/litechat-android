@@ -27,7 +27,20 @@ class SecureStore(context: Context) {
         prefs.edit().putString(KEY_API, value.trim()).apply()
     }
 
+    /** C-017: failover provider keys, stored encrypted (REVIEW finding B1). */
+    fun getProviderKey(providerId: String): String =
+        prefs.getString(providerKey(providerId), "") ?: ""
+
+    fun setProviderKey(providerId: String, value: String) {
+        prefs.edit().putString(providerKey(providerId), value.trim()).apply()
+    }
+
+    fun removeProviderKey(providerId: String) {
+        prefs.edit().remove(providerKey(providerId)).apply()
+    }
+
     companion object {
         private const val KEY_API = "api_key"
+        private fun providerKey(id: String) = "provider_key_$id"
     }
 }
