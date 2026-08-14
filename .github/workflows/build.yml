@@ -26,7 +26,9 @@ jobs:
       # CI runners have 7GB; bump heap beyond the VPS-tuned 768m default.
       # play-services-ads R8 alone can need 1GB+; the daemon also holds compile +
       # KSP + the earlier foss R8 pass before play R8 runs, so give it headroom.
-      # 1536m OOM'd on :app:minifyPlayReleaseWithR8 (confirmed 2026-08-14).
+      # NOTE: org.gradle.jvmargs in gradle.properties (768m, VPS-tuned) WINS over the
+      # ORG_GRADLE_PROJECT_ env var, so we rewrite the line below instead. 1536m OOM'd
+      # on :app:minifyPlayReleaseWithR8 (confirmed 2026-08-14).
       ORG_GRADLE_PROJECT_org.gradle.jvmargs: "-Xmx2560m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8"
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +40,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
       - name: Grant execute
         run: chmod +x gradlew || true
+      - name: Tune heap for CI (rewrite VPS-tuned jvmargs)
+        run: |
+          sed -i 's|^org\.gradle\.jvmargs=.*|org.gradle.jvmargs=-Xmx2560m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8|' gradle.properties
+          grep '^org.gradle.jvmargs' gradle.properties
       - name: Assemble foss release
         run: ./gradlew assembleFossRelease --stacktrace
       - name: Assemble play release
