@@ -1,6 +1,7 @@
 package com.litechat.android.data.context
 
 import android.content.Context
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -14,6 +15,7 @@ import kotlinx.serialization.json.jsonPrimitive
 class MemoryManager(private val context: Context) {
     private val prefs = context.getSharedPreferences("litechat_memory", Context.MODE_PRIVATE)
 
+    @kotlinx.serialization.Serializable
     data class MemoryEntry(val fact: String, val hitCount: Int = 1)
 
     fun record(fact: String) {
@@ -50,12 +52,9 @@ class MemoryManager(private val context: Context) {
     }
 
     private fun saveAll(list: List<MemoryEntry>) {
-        val sb = StringBuilder("[")
-        list.forEachIndexed { i, m ->
-            if (i > 0) sb.append(",")
-            sb.append("{\"fact\":\"${m.fact}\",\"hitCount\":${m.hitCount}}")
-        }
-        sb.append("]")
-        prefs.edit().putString("memories", sb.toString()).apply()
+        // kotlinx.serialization handles escaping — a fact containing `"` or `\`
+        // can no longer corrupt the whole JSON document (REVIEW finding 7).
+        val encoded = Json.encodeToString(ListSerializer(MemoryEntry.serializer()), list)
+        prefs.edit().putString("memories", encoded).apply()
     }
 }

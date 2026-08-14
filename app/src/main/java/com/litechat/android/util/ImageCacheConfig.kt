@@ -5,6 +5,7 @@ import coil3.memory.MemoryCache
 import coil3.request.CachePolicy
 import coil3.size.Size
 import android.graphics.Bitmap
+import okio.Path.Companion.toOkioPath
 
 /**
  * Per-band Coil image cache tuning for 4GB-first devices.
@@ -56,10 +57,9 @@ object ImageCacheConfig {
                     else -> 250 * 1024 * 1024L
                 }
                 coil3.disk.DiskCache.Builder()
-                    .directory(context.cacheDir.resolve("coil_disk"))
+                    .directory(context.cacheDir.resolve("coil_disk").toOkioPath())
                     .maxSizeBytes(diskSize)
                     .build()
             }
-            .bitmapConfig(bitmapConfig(band))
             .build()
     }

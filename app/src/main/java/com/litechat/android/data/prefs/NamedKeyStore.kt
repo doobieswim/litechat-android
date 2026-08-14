@@ -4,6 +4,11 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * C-023: Multi-key per provider support.
@@ -24,12 +29,13 @@ class NamedKeyStore(context: Context) {
         )
     }
 
+    @kotlinx.serialization.Serializable
     data class NamedKey(val name: String, val key: String, val isActive: Boolean = false)
 
     fun getAll(): List<NamedKey> {
         val json = prefs.getString("keys", "[]") ?: "[]"
         return try {
-            val arr = kotlinx.serialization.json.Json.parseToJsonElement(json).jsonArray
+            val arr = Json.parseToJsonElement(json).jsonArray
             arr.map { el ->
                 val obj = el.jsonObject
                 NamedKey(
@@ -61,12 +67,9 @@ class NamedKeyStore(context: Context) {
     }
 
     private fun persist(list: List<NamedKey>) {
-        val sb = StringBuilder("[")
-        list.forEachIndexed { i, k ->
-            if (i > 0) sb.append(",")
-            sb.append("""{"name":"${k.name}","key":"${k.key}","isActive":${k.isActive}}""")
-        }
-        sb.append("]")
-        prefs.edit().putString("keys", sb.toString()).apply()
+        // kotlinx.serialization handles escaping — a key containing `"` or `\`
+        // can no longer corrupt the whole JSON document (REVIEW finding 7).
+        val encoded = Json.encodeToString(ListSerializer(NamedKey.serializer()), list)
+        prefs.edit().putString("keys", encoded).apply()
     }
 }

@@ -181,7 +181,7 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onInsertTemplate = vm::insertTemplate,
                         onAttachImage = { imagePicker.launch("image/*") },
                         onVoiceInput = {
-                            val intent = android.speech.RecognizerIntent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                                 putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                                     android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                             }

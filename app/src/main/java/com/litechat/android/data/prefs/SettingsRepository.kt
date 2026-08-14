@@ -15,6 +15,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.util.UUID
 
@@ -161,23 +162,18 @@ class SettingsRepository(
     }
 
     private fun encodeTemplates(list: List<PromptTemplate>): String =
-        buildJsonObject {
-            // Build a JSON array manually
-        }.let {
-            val sb = StringBuilder("[")
-            list.forEachIndexed { i, t ->
-                if (i > 0) sb.append(",")
-                sb.append("""{"id":"${t.id}","name":"${t.name}","template":"${t.template}",""")
-                sb.append("\"variables\":{")
-                t.variables.entries.forEachIndexed { j, (k, v) ->
-                    if (j > 0) sb.append(",")
-                    sb.append("\"$k\":\"$v\"")
-                }
-                sb.append("}}")
-            }
-            sb.append("]")
-            sb.toString()
-        }
+        kotlinx.serialization.json.Json.encodeToString(
+            kotlinx.serialization.builtins.ListSerializer(TemplateDto.serializer()),
+            list.map { TemplateDto(it.id, it.name, it.template, it.variables) }
+        )
+
+    @kotlinx.serialization.Serializable
+    private data class TemplateDto(
+        val id: String,
+        val name: String,
+        val template: String,
+        val variables: Map<String, String>,
+    )
 
     // ── C-017: Provider failover list ─────────────────────────────
 
@@ -251,20 +247,20 @@ class SettingsRepository(
             Preset("Ollama (local)", "http://127.0.0.1:11434/v1", "llama3.2"),
             Preset("Custom", "https://", "your-model-id"),
         )
+
+        /** C-012: one built-in template available to all users (free tier limit = 1). */
+        val BUILT_IN_TEMPLATES = listOf(
+            PromptTemplate(
+                id = "builtin_translate",
+                name = "Translate",
+                template = "Translate the following text into [Language]:\n\n[Text]",
+                variables = mapOf("Language" to "Spanish", "Text" to ""),
+            ),
+        )
+
+        /** Free-tier template limit. Pro users have no limit. */
+        const val FREE_TEMPLATE_LIMIT = 1
     }
 
     data class Preset(val name: String, val baseUrl: String, val model: String)
-
-            /** C-012: one built-in template available to all users (free tier limit = 1). */
-            val BUILT_IN_TEMPLATES = listOf(
-                PromptTemplate(
-                    id = "builtin_translate",
-                    name = "Translate",
-                    template = "Translate the following text into [Language]:\n\n[Text]",
-                    variables = mapOf("Language" to "Spanish", "Text" to ""),
-                ),
-            )
-
-            /** Free-tier template limit. Pro users have no limit. */
-            const val FREE_TEMPLATE_LIMIT = 1
-        }
+}
