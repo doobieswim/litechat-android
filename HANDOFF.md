@@ -12,7 +12,7 @@ If the human says that word (alone or in a sentence), you are the **coding agent
 | GitHub | **public**: `github.com/flamingspade1995-coder/litechat-android` (CI: `.github/workflows/build.yml` — static-verify + assembleRelease + 20MB APK gate) |
 | Package | `com.litechat.android` |
 | Skill (patterns) | Hermes skill `android-byok-chat-apps` |
-| Sister role | **Research agent** owns digs, history, competitor/OSS notes → writes `docs/` + backlog items. **You** implement tickets. |
+| Sister role | **Research agent** owns digs, history, competitor/OSS notes → writes `docs/` + backlog items. **Review agent** (`LITECHAT-REVIEW`) reviews your work read-only and writes `docs/REVIEW.md`. **You** implement tickets and fix review issues. |
 | Team protocol | [`docs/TEAM.md`](./docs/TEAM.md) |
 | Ticket queue | [`docs/BACKLOG.md`](./docs/BACKLOG.md) |
 | Architecture | [`ARCHITECTURE.md`](./ARCHITECTURE.md) · research notes [`RESEARCH.md`](./RESEARCH.md) |
@@ -204,6 +204,19 @@ Do NOT implement app features unless asked — write docs and Ready tickets
 with acceptance criteria for the coding agent.
 Topic: <TOPIC>
 Prefer extreme-depth when constraints are weak-RAM/packaging (history + modern).
+```
+
+---
+
+## Prompt paste for review session (human → review agent)
+
+```
+LITECHAT-REVIEW
+Repo: /opt/data/workspace/byok-chat-android
+Read docs/REVIEW.md + docs/TEAM.md + docs/BACKLOG.md.
+Review ticket <ID> (or most recent Done).
+You are READ-ONLY: do not edit app/** or any source file.
+Write your verdict (Approve / Issues) to docs/REVIEW.md.
 ```
 
 ---
