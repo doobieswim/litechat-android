@@ -20,12 +20,6 @@ object FeatureFlags {
         isPro = value
     }
 
-    /** Number of user-owned repos in Pro mode; bounded in free tier by repoLimit(). */
-    const val unlimitedRepos = false // gated by isPro; always false literal here
-
-    /** Deferred (R-002): markdown rendering not in v1. */
-    const val markdownRendering = false
-
     /** C-006: min ms between UI delta updates (numAi-plus pattern). */
     const val streamThrottleMs = 250L
 }

@@ -240,8 +240,27 @@ class ChatViewModel(
                     val pageText = withContext(Dispatchers.IO) {
                         container.openAiClient.fetchPage(url)
                     }
-                    val ctx = "[Content from $url]\n$pageText"
-                    container.chatRepository.addMessage(convId, "assistant", ctx)
+                    // C-013 fix (REVIEW Part D): the page content must reach the MODEL —
+                    // previously it was stored as an "assistant" message and the model
+                    // was never called, so /browse produced no answer.
+                    container.chatRepository.addMessage(convId, "user",
+                        "[Content from $url]\n$pageText")
+                    val history = container.chatRepository.listMessages(convId)
+                    val systemMsg = ChatMessageDto("system",
+                        "Do not fabricate tool outputs, file contents, citations, or completed work.")
+                    val dto = listOf(systemMsg) + history.map { ChatMessageDto(it.role, it.content) }
+                    val (trimmed, _) = ContextTrimmer.trim(dto)
+                    val answer = withContext(Dispatchers.IO) {
+                        container.openAiClient.completeChat(
+                            baseUrl = settings.baseUrl,
+                            apiKey = key,
+                            model = settings.model,
+                            messages = trimmed,
+                            temperature = settings.temperature,
+                        )
+                    }
+                    container.chatRepository.addMessage(convId, "assistant",
+                        answer.ifBlank { "No answer from model." })
                 } catch (e: Exception) {
                     _state.update { it.copy(error = "Browse failed: ${e.message?.take(100)}") }
                     container.chatRepository.addMessage(convId, "assistant",
@@ -279,7 +298,7 @@ class ChatViewModel(
                             prompt = prompt,
                         )
                     }
-                    val file = java.io.File(container.ctx.cacheDir,
+                    val file = java.io.File(container.ctx.filesDir,
                         "vid_${System.currentTimeMillis()}.mp4")
                     withContext(Dispatchers.IO) {
                         container.openAiClient.pollVideo(
@@ -338,7 +357,7 @@ class ChatViewModel(
                         DeviceCompat.snapshot(container.ctx).band
                     )
                     val file = java.io.File(
-                        container.ctx.cacheDir,
+                        container.ctx.filesDir,
                         "gen_${System.currentTimeMillis()}.jpg"
                     )
                     withContext(Dispatchers.IO) {
@@ -629,9 +648,18 @@ class ChatViewModel(
     fun exportChats(uri: android.net.Uri) {
         viewModelScope.launch {
             try {
-                val dbFile = container.ctx.getDatabasePath("litechat.db")
-                container.ctx.contentResolver.openOutputStream(uri)?.use { out ->
-                    dbFile.inputStream().use { it.copyTo(out) }
+                // C8: Room runs in WAL mode — copying the .db file alone while the
+                // WAL holds uncheckpointed pages yields a corrupt/truncated backup.
+                // Checkpoint (TRUNCATE) first so the main file is self-consistent
+                // and the WAL shrinks to 0 bytes, then copy just the .db off Main.
+                withContext(Dispatchers.IO) {
+                    val dbFile = container.ctx.getDatabasePath("litechat.db")
+                    container.database.openHelper.writableDatabase
+                        .query("PRAGMA wal_checkpoint(TRUNCATE)")
+                        .use { it.moveToFirst() }
+                    container.ctx.contentResolver.openOutputStream(uri)?.use { out ->
+                        dbFile.inputStream().use { input -> input.copyTo(out) }
+                    }
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(error = "Export failed: ${e.message?.take(60)}") }
@@ -643,9 +671,16 @@ class ChatViewModel(
     fun importChats(uri: android.net.Uri) {
         viewModelScope.launch {
             try {
-                val dbFile = container.ctx.getDatabasePath("litechat.db")
-                container.ctx.contentResolver.openInputStream(uri)?.use { input ->
-                    dbFile.outputStream().use { input.copyTo(it) }
+                // C8: close Room before replacing the file, then drop stale
+                // -wal/-shm so the restored DB can't be replayed from a foreign WAL.
+                withContext(Dispatchers.IO) {
+                    container.database.close()
+                    val dbFile = container.ctx.getDatabasePath("litechat.db")
+                    container.ctx.contentResolver.openInputStream(uri)?.use { input ->
+                        dbFile.outputStream().use { input.copyTo(it) }
+                    }
+                    java.io.File("${dbFile.path}-wal").delete()
+                    java.io.File("${dbFile.path}-shm").delete()
                 }
                 _state.update { it.copy(error = "Chats imported — restart to reload") }
             } catch (e: Exception) {

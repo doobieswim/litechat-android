@@ -3,7 +3,7 @@
 **Date:** 2026-08-14
 **Method:** 3 parallel read-only review subagents (UI / data-network-db / prefs-util-media-gradle) + real Gradle build (`:app:compilePlayDebugKotlin`, JDK 17, SDK 36) + git history analysis.
 **Reviewer codeword:** `LITECHAT-REVIEW`
-**Status:** 🟡 **Mostly resolved** — all build blockers (A1-A6) + security B1 + runtime C1-C3/C5/C6/C9 applied and compiling locally (2026-08-14). Remaining: C7 (media in evictable cacheDir), C8 (WAL backup), dead-code items in Part D.
+**Status:** 🟢 **Resolved** — all build blockers (A1-A6) + security B1 + runtime C1-C3/C5-C9 applied and compiling locally (2026-08-14); Part D dead code removed or wired (2026-08-14).
 
 ---
 
@@ -116,13 +116,13 @@
 
 | Item | File | Status |
 |------|------|--------|
-| `ScreenshotDetector` | `util/ScreenshotDetector.kt` | Dead stub, **also NPE-risk** (`getExternalStoragePublicDirectory` null on API 29+), undeclared `READ_MEDIA_IMAGES` |
-| `CommunityPrompts` | `data/community/CommunityPrompts.kt` | Dead; hardcodes wrong owner `flamingspade1995-coder/...`; `URL.readText()` no timeout |
-| `NamedKeyStore` (C-023) | `data/prefs/NamedKeyStore.kt` | Entire class unwired; manual-JSON-no-escaping bug (key with `"` wipes all) |
-| `MemoryManager` (C-020) | `data/context/MemoryManager.kt` | Unwired; same manual-JSON-no-escaping bug (fact with `"` drops all memories) |
-| `FeatureFlags.unlimitedRepos` | `core/flags/FeatureFlags.kt:24` | Dangling (never referenced) |
-| `FeatureFlags.markdownRendering` | `core/flags/FeatureFlags.kt:27` | Dangling |
-| `/browse` (C-013) | `ChatViewModel.kt:215-244` | Fetches page but **never calls the model** → no AI answer produced |
+| `ScreenshotDetector` | `util/ScreenshotDetector.kt` | ✅ **DELETED** (2026-08-14) — dead stub, NPE risk on API 29+, undeclared `READ_MEDIA_IMAGES`; unreferenced |
+| `CommunityPrompts` | `data/community/CommunityPrompts.kt` | ✅ **DELETED** (2026-08-14) — dead, wrong owner, `URL.readText()` no timeout; unreferenced |
+| `NamedKeyStore` (C-023) | `data/prefs/NamedKeyStore.kt` | ✅ JSON escaping fixed (kotlinx.serialization) — commit `ac13a95` |
+| `MemoryManager` (C-020) | `data/context/MemoryManager.kt` | ✅ JSON escaping fixed (kotlinx.serialization) — commit `ac13a95` |
+| `FeatureFlags.unlimitedRepos` | `core/flags/FeatureFlags.kt` | ✅ **REMOVED** (2026-08-14) — dangling const |
+| `FeatureFlags.markdownRendering` | `core/flags/FeatureFlags.kt` | ✅ **REMOVED** (2026-08-14) — dangling const |
+| `/browse` (C-013) | `ChatViewModel.kt` | ✅ **FIXED** (2026-08-14) — page content now fed to the model via `completeChat`, answer stored as assistant message |
 
 ---
 
@@ -157,8 +157,8 @@
 | C1 | 🟠 Memory | C-028 video heap (fix never implemented) | ✅ Applied (pollVideo streams to File) |
 | C2 | 🟠 Runtime | Main-thread blocking / ANR | ✅ Applied (withContext(IO) on all blocking client calls) |
 | C3 | 🟠 Runtime | Stop doesn't stop (retries) | ✅ Applied (streamJob assigned + stopRequested + rethrow CancellationException) |
-| C4-C9 | 🟡 | Overlay stub, attachImage truncation, cacheDir media, DB backup, banner/retry UX | C5 overlay (PendingIntent→MainActivity, real channel, canDrawOverlays) ✅ · C6 attachImage downscale ✅ · C9 no ghost rows + stale-state reset ✅ · C7/C8 (cacheDir media, DB WAL backup) ⚠️ Open |
-| D | ⚠️ | 7 dead/unwired items + NPE/stub risks | NamedKeyStore/MemoryManager JSON escaping ✅; ScreenshotDetector/CommunityPrompts/FeatureFlags dangle + /browse still ⚠️ Open |
+| C4-C9 | 🟡 | Overlay stub, attachImage truncation, cacheDir media, DB backup, banner/retry UX | C5 overlay (PendingIntent→MainActivity, real channel, canDrawOverlays) ✅ · C6 attachImage downscale ✅ · C9 no ghost rows + stale-state reset ✅ · C7 media → filesDir ✅ (commit pending) · C8 WAL-safe export/import ✅ (commit pending) |
+| D | ⚠️ | 7 dead/unwired items + NPE/stub risks | NamedKeyStore/MemoryManager JSON escaping ✅; ScreenshotDetector + CommunityPrompts deleted, FeatureFlags dangling consts removed, /browse now calls the model ✅ (commit pending) |
 
 ---
 

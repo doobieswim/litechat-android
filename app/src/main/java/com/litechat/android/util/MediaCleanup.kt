@@ -6,10 +6,11 @@ import java.io.File
 /**
  * C-029: FIFO disk cap for generated media (images/videos).
  *
- * Generated files live in cacheDir and are not covered by Coil's cache or the
- * chat DB. Without a cap they accumulate forever on weak devices. This walks
- * only the generated-media prefix (`gen_*.jpg`, `vid_*.mp4`) and evicts oldest
- * files first once total bytes exceed a band-tuned ceiling.
+ * Generated files live in filesDir (C7: app-private, NOT OS-evictable cacheDir)
+ * and are not covered by Coil's cache or the chat DB. Without a cap they
+ * accumulate forever on weak devices. This walks only the generated-media
+ * prefix (`gen_*.jpg`, `vid_*.mp4`) and evicts oldest files first once total
+ * bytes exceed a band-tuned ceiling.
  *
  * Band-tuned caps (mirror ImageCacheConfig): TIGHT=20MB, COMFORTABLE=50MB,
  * ROOMY/GENEROUS=150MB. Never touches the Coil disk cache or chat DB.
@@ -31,7 +32,7 @@ object MediaCleanup {
      */
     fun run(context: Context) {
         val band = DeviceCompat.snapshot(context).band
-        val dir = context.cacheDir
+        val dir = context.filesDir
         val media = dir.listFiles { f -> isGeneratedMedia(f) } ?: return
         if (media.isEmpty()) return
 
