@@ -100,3 +100,14 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
   - **D) B now, C later** — extract once, ship top markets first, let community drive the long tail.
 - **Recommendation:** **D** (A is included free anyway). Research C runs before this is built.
 - **Decision:** **Languages are free, always** (human 2026-08-15). UI i18n AND language output control are free — never gated. Voice mode is Pro; language is NOT. Long tail community-driven (option D); Research C names the first markets.
+
+### H-010 — Per-country Pro pricing (Research C addendum)
+- **From:** research (C — global markets, `docs/GLOBAL-MARKETS-RESEARCH.md` §7)
+- **Decision needed:** Keep Pro at a flat $4.99 everywhere, or set per-country price overrides in Play Console (US stays $4.99)?
+- **Facts:** Play supports arbitrary local-currency IAP prices per country, with auto-conversion + manual overrides (Google codelab; pricepush). Auto-conversion of $4.99 lands ~₹450+ in India, but PPP-adjusted and practical indie pricing there is ₹199-299 (~$2.3-3.5); pure PPP would be $0.65 (India) to $1.43 (Mexico) — too low to signal "pay once". World Bank GDP/capita PPP 2025: India $11.7k, Indonesia $17.7k, Brazil $23.4k, Nigeria $9.5k, US $90k. RU users can't buy on Play at all (billing blocked) — Russia stays FOSS-channel only.
+- **Options:**
+  - **A) Flat $4.99 everywhere** — simplest; auto-conversion only. ~5-8x "expensive" in PPP terms for India/Indonesia/Nigeria; converts mostly in US/EU/LATAM.
+  - **B) Per-country overrides (~30-60% of US)** — India ₹199, Indonesia Rp49k, Brazil R$14.90, Mexico MX$69, Philippines ₱199, Vietnam ₫49k, Nigeria ₦3.5k, Egypt EGP 99, Kenya KES 250, Pakistan PKR 450, Bangladesh ৳199; US/EU unchanged at $4.99. Play Console only, ~10-12 clicks, no SKU/code change (`BYO_pro` intact).
+  - **C) Flat $2.99** — one global price, simpler than B, still above PPP for the poorest markets.
+- **Recommendation:** **B** — honest per-market "one small ask"; theme-compliant (H-004 promise "built for a $30 phone" implies a price a $30-phone owner can pay). Add as a Play-launch checklist item.
+- **Decision:** _(human fills)_
