@@ -237,6 +237,38 @@ def main() -> int:
     overlay_kt = (KT_ROOT / "com/litechat/android/ui/OverlayService.kt").read_text()
     ok("C-031 overlay no LiteChat", "LiteChat Overlay" not in overlay_kt)
 
+    # Fastlane metadata is part of the build: F-Droid/Play read these files.
+    # No Ruby gem. CI static-verify fails the job if listing copy is wrong.
+    fl = ROOT / "fastlane" / "metadata" / "android" / "en-US"
+    title_p = fl / "title.txt"
+    short_p = fl / "short_description.txt"
+    full_p = fl / "full_description.txt"
+    title = title_p.read_text() if title_p.is_file() else ""
+    short = short_p.read_text() if short_p.is_file() else ""
+    full = full_p.read_text() if full_p.is_file() else ""
+    locked = "Chat with your own key. Works on 4GB phones. No monthly bill."
+    vc = "1"
+    for line in build_kts.splitlines():
+        if "versionCode" in line and "=" in line:
+            digits = "".join(c for c in line.split("=", 1)[1] if c.isdigit())
+            if digits:
+                vc = digits
+                break
+    changelog = fl / "changelogs" / f"{vc}.txt"
+    ok("fastlane title present", title_p.is_file())
+    ok("fastlane title BYO AI", title.strip() == "BYO AI")
+    ok("fastlane title ≤30", len(title.strip()) <= 30)
+    ok("fastlane short present", short_p.is_file())
+    ok("fastlane short == locked line", short.strip() == locked)
+    ok("fastlane short ≤80", len(short.strip()) <= 80)
+    ok("fastlane full present", full_p.is_file())
+    ok("fastlane full ≤4000", len(full) <= 4000)
+    ok("fastlane full measured 1.6 MB", "1.6 MB" in full)
+    ok("fastlane full no size guess", "~2 MB" not in full)
+    ok("fastlane full foss no billing", "no billing" in full.lower())
+    ok("fastlane changelog for versionCode", changelog.is_file())
+    ok("fastlane fdroid.yml present", (fl / "fdroid.yml").is_file())
+
     failed = 0
     print("=== LiteChat verify_static ===")
     for name, passed, detail in checks:

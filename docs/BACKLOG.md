@@ -232,7 +232,9 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **APK:** 0 KB | **Docs only**
 - **Remaining (human):** post r/androidafterlife + XDA/4PDA threads, pay $25 + upload to Play, tag v1.0.0 + create GitHub Release, submit fdroiddata MR.
 
-
+### D-006 — Wire Fastlane listing files into the build
+- **Status:** Done — WIRE 2026-08-15. Metadata-only (no Ruby gem, no Play upload, **$0**). Added `title.txt` + `changelogs/1.txt` + `fastlane/README.md`. 13 guards in `verify_static.py` so CI `static-verify` fails if listing copy is wrong (title, locked short line, 80/4000 limits, measured 1.6 MB, foss "no billing", changelog matches `versionCode`). Suite: **105/105**.
+- **Out of scope:** installing the Fastlane Ruby gem; Play `supply` upload (needs the **$25** account + service-account JSON — ask first).
 
 ### C-006 — UI stream paint throttle (if needed)
 - **Status:** Done
