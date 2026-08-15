@@ -12,6 +12,17 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 
 ## Now / next (coding)
 
+### C-032 — Play compliance: in-app AI-content reporting + acceptable-use (policy-mandated)
+- **Status:** Ready — mandated by `docs/PLAY-POLICY-AUDIT.md` (Research B, 2026-08-15). Not a product choice: Play rejects apps that generate AI content without in-app reporting. Independent of H-008.
+- **AC:**
+  - [ ] Long-press → **Report** on every message bubble (text, /imagine, /video results)
+  - [ ] In-app report flow: reason picker → opens dev contact (mailto or GitHub issue URL) — **no server** (zero-server law)
+  - [ ] One-time **acceptable-use acceptance** screen on first launch (CSAM/sexual/violence/deception prohibited; note that the user's model provider applies its own safety filters)
+  - [ ] Ads never run in the overlay service (already true — add guard/comment)
+  - [ ] EEA/UK: UMP consent or serve non-personalized ads only (ties to real AdMob IDs)
+  - [ ] Static verify green; CI green
+- **Out of scope:** real AdMob IDs (human needs an AdMob account), Play Console Data Safety form answers (human, per audit §2), $25 Play fee.
+
 ### C-031 — Rebrand user-facing name to BYO AI
 - **Status:** Done — WIRE 2026-08-15. REVIEW Issues 1–6 fixed (user-facing LiteChat copy). Static verify after fix.
 - **Touched:** `strings.xml`, `app/build.gradle.kts`, `README.md`, `privacy.html`, `app/src/main/assets/privacy.html`, `docs/PLAY-LISTING-DRAFT.md` (created), `scripts/verify_static.py` (6 C-031 guards)
