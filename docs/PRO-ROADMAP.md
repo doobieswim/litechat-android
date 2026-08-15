@@ -32,7 +32,7 @@ The one-liner the app can truthfully own by 2027 (from trends §8):
 | 6 | **Quiet + registration**: lifetime "Registered — BYO AI · date · no renewal, ever" screen; paid users never see a sale again | Latent P-001/P-006 (WinAmp; anti-enshittification) | Billing | Pro |
 | 7 | **Web search**: /browse + DDG search-then-answer | Scan #2 (web search paid in Chatbox & UnboundChat); TypingMind gates at $79 | C-013 /browse (done, Pro) | Pro |
 | 8 | **Chat folders** (organize by topic/project) | TypingMind Premium; Latent #7 (organization = Pro layer) | Room `folderId` | Pro |
-| 9 | **Language output control** ("reply in Spanish") | TypingMind free-tier feature; pairs with i18n/global markets | System prompt | **Free** |
+| 9 | **Language output control** ("reply in Spanish") | TypingMind free-tier feature; pairs with i18n/global markets | System prompt | **Free** (H-009 human lock: languages free, always — never gate) |
 | 10 | **Model knobs**: top_p, presence/frequency penalty, max tokens, **prompt caching toggle** | TypingMind free-tier params; caching SAVES user money | Client params | **Free** (honesty brand) |
 | 11 | **Pin chats + save draft** | TypingMind chat mgmt | Room/DataStore | **Free** (tiny) |
 | 12 | **Image editing** (gpt-image-1 edit variant) | TypingMind Extended $79; Chatbox gates image quotas | /imagine (C-011) | Pro |

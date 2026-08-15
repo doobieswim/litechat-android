@@ -97,4 +97,4 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
   - **C) All languages, machine-translated** — extract strings + ~100 machine-translated locales. Technically possible, but broken translations hurt the honest brand and Play reviews.
   - **D) B now, C later** — extract once, ship top markets first, let community drive the long tail.
 - **Recommendation:** **D** (A is included free anyway). Research C runs before this is built.
-- **Decision:** _(human fills)_
+- **Decision:** **Languages are free, always** (human 2026-08-15). UI i18n AND language output control are free — never gated. Voice mode is Pro; language is NOT. Long tail community-driven (option D); Research C names the first markets.
