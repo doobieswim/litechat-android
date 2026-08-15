@@ -11,7 +11,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.litechat.android"
+        applicationId = "com.byoai.chat"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -54,7 +54,7 @@ android {
     productFlavors {
         create("play") {
             dimension = "store"
-            // Default applicationId (com.litechat.android); GMS deps via playImplementation.
+            // Default applicationId (com.byoai.chat); GMS deps via playImplementation.
         }
         create("foss") {
             dimension = "store"

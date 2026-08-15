@@ -45,7 +45,7 @@ class OverlayService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
         startForeground(1, NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("LiteChat Overlay")
+            .setContentTitle("Chat overlay")
             .setContentText("Tap to chat with AI from any app")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             // C-015 (REVIEW C5): the PendingIntent must open MainActivity, not
@@ -121,7 +121,7 @@ class OverlayService : Service() {
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "LiteChat Overlay",
+            "Chat overlay",
             NotificationManager.IMPORTANCE_LOW
         )
         manager.createNotificationChannel(channel)

@@ -1,37 +1,30 @@
-# LiteChat three-agent team
+# LiteChat four-agent team
 
-Human owns product calls. Three Hermes roles share one repo.
+Human owns product calls. Four Hermes roles share one repo.
 
 | Codeword | Role |
 |----------|------|
 | **`LITECHAT-WIRE`** | Coding agent — implement Ready backlog tickets |
-| **`LITECHAT-DIG`** | Research agent — docs + Ready tickets only, no app feature coding |
-| **`LITECHAT-REVIEW`** | Review agent — read-only code review, writes report, does NOT edit `app/**` |
+| **`LITECHAT-DIG`** | Research agent — docs + tickets, no app feature coding. Does **not** flip Research → Ready until PROOF Approves |
+| **`LITECHAT-PROOF`** | Research reviewer — grades DIG docs/tickets, writes `docs/RESEARCH-REVIEW.md` only |
+| **`LITECHAT-REVIEW`** | Code reviewer — read-only code review, writes `docs/REVIEW.md`, does NOT edit `app/**` |
 
 Repo path: `/opt/data/workspace/byok-chat-android`
 
 ```
-┌──────────────┐     docs/BACKLOG.md      ┌──────────────┐
-│   RESEARCH   │ ───────────────────────► │    CODING    │
-│    AGENT     │   Ready tickets + AC     │    AGENT     │
-│              │ ◄─────────────────────── │              │
-└──────────────┘  QUESTIONS-FOR-RESEARCH  └──────────────┘
-        │                                         │
-        ▼                                         ▼
-   docs/*.md                              app/**/*.kt
-   RESEARCH.md                            gradle, CI
-   dig clones                             verify build
-                                                 │
-                                  code + ticket Done
-                                                 ▼
-                                        ┌──────────────┐
-                                        │    REVIEW    │
-                                        │    AGENT     │
-                                        └──────────────┘
-                                              │ read-only
-                                              ▼
-                                      docs/REVIEW.md
-                                      + issues → coding
+DIG writes docs + ticket stays Research
+        │
+        ▼
+PROOF  →  docs/RESEARCH-REVIEW.md
+        │
+        ├── Approve  → DIG/human may set Ready
+        └── Issues   → DIG fixes → PROOF again
+                │
+                ▼
+         WIRE takes Ready only
+                │
+                ▼
+         REVIEW grades code → docs/REVIEW.md
 ```
 
 ## Roles
@@ -42,8 +35,9 @@ Repo path: `/opt/data/workspace/byok-chat-android`
 - Competitor / lost-repo / forum archaeology  
 - Weak-RAM and packaging theory → product rules  
 - Play policy, monetization, distribution channel notes  
-- Turning findings into **Ready** backlog tickets with acceptance criteria  
+- Turning findings into backlog tickets with acceptance criteria (**status stays `Research` until `LITECHAT-PROOF` Approves**)
 - Updating `RESEARCH.md`, `docs/LOST-REPOS.md`, `docs/DIG-FINDINGS.md`, etc.
+
 
 **Must not**
 - Large drive-by refactors of working app code  
@@ -52,8 +46,26 @@ Repo path: `/opt/data/workspace/byok-chat-android`
 
 **Output contract**
 1. Short finding summary in the right `docs/` file  
-2. Zero or more backlog rows moved to **Ready** with AC  
+2. Zero or more backlog rows left **Research** with AC — Ready only after PROOF Approve  
 3. Optional `docs/QUESTIONS-FOR-HUMAN.md` if product decision needed  
+
+### Proof agent (hand off via `docs/RESEARCH-REVIEW.md`)
+
+**Trigger:** codeword `LITECHAT-PROOF`.
+
+**Owns**
+- Read-only grade of DIG docs + `R-` tickets
+- Checklist: scope, grounding, product laws, cost flags, theme (`THEME-SHOW-DONT-TELL.md`), ticket AC, usefulness
+- Writing findings to `docs/RESEARCH-REVIEW.md` only
+
+**Must not**
+- Edit `app/**`, gradle, or DIG essays
+- Mark tickets Ready/Done
+- Start a new research epic or run Gradle
+
+**Output contract**
+1. `docs/RESEARCH-REVIEW.md` verdict: **Approve** / **Issues**
+2. Issues go back to DIG. Every research ticket needs Approve before Ready (human may override in BACKLOG in one line).
 
 ### Coding agent (hand off via `HANDOFF.md`)
 
@@ -94,13 +106,15 @@ Repo path: `/opt/data/workspace/byok-chat-android`
 2. Fix list handed back to coding agent (coding fixes them, then re-reviews if human asks)
 3. Never touches BACKLOG status except adding `Reviewing` note when human requests
 
-### How a ticket flows through all three (suggested)
+### How a ticket flows through all four
 
-1. Human: "Research X" → research agent → Ready ticket with AC
-2. Human: paste coding prompt → coding agent implements → ticket `Done`
-3. Human: "Review C-00X" → review agent → `docs/REVIEW.md` verdict
-4. If issues → coding agent fixes → (repeat 3)
-5. Human: spot-check on device / Play
+1. Human: "Research X" → DIG → ticket stays **Research** with AC  
+2. Human: `LITECHAT-PROOF` → `docs/RESEARCH-REVIEW.md` verdict  
+3. If Issues → DIG fixes → (repeat 2). If Approve → DIG/human sets **Ready**  
+4. Human: paste WIRE prompt → coding implements → **Done**  
+5. Human: `LITECHAT-REVIEW` → `docs/REVIEW.md`  
+6. If code issues → WIRE fixes → (repeat 5)  
+7. Human: spot-check on device / Play  
 
 ## Shared laws
 
@@ -116,21 +130,24 @@ Repo path: `/opt/data/workspace/byok-chat-android`
 |------|---------|-----------|
 | `app/**` | Coding | Research (read), Review (read) |
 | `*.gradle*` | Coding | Research (size/deps advice), Review (read) |
-| `docs/**` | Research | Coding (ticket status, QUESTIONS), Review (REVIEW.md only) |
+| `docs/**` | Research | Coding (ticket status, QUESTIONS), Proof (`RESEARCH-REVIEW.md` only), Review (`REVIEW.md` only) |
 | `HANDOFF.md` | Human / either (careful) | Keep stable |
 | `README.md` | Either | User-facing accuracy |
 | `RESEARCH.md` | Research | Coding reads only |
 | `docs/REVIEW.md` | Review | Coding (fix list) |
+| `docs/RESEARCH-REVIEW.md` | Proof | DIG reads Issues and fixes *other* docs |
 | `/opt/data/workspace/{numAi,numAi-plus,ReOldAi}` | Research clones | Coding read-only steals |
 
 ## Cadence (suggested)
 
-1. Human: “Research X” → research agent → Ready tickets
-2. Human: paste coding prompt from HANDOFF → coding agent drains Ready
-3. Human: “Review C-00X” → review agent → `docs/REVIEW.md` verdict; issues → coding agent fixes
-4. Human: spot-check on device / Play
+1. Human: “Research X” → DIG → ticket stays Research  
+2. Human: `LITECHAT-PROOF` → `docs/RESEARCH-REVIEW.md`  
+3. Approve → Ready. Issues → DIG fixes  
+4. Human: paste WIRE prompt from HANDOFF → drain Ready  
+5. Human: `LITECHAT-REVIEW` → `docs/REVIEW.md`; issues → WIRE fixes  
+6. Human: spot-check on device / Play
 
-Parallel OK if tickets don’t touch the same files; if conflict, coding wins on `app/**`, research wins on `docs/**` narrative (except BACKLOG status lines). Review agent is always read-only on `app/**` so it never conflicts — it only writes `docs/REVIEW.md`.
+Parallel OK if tickets don’t touch the same files; if conflict, coding wins on `app/**`, research wins on `docs/**` narrative (except BACKLOG status lines). Review is always read-only on `app/**`. Proof is always read-only on DIG essays.
 
 ## Status vocabulary (BACKLOG)
 
@@ -147,6 +164,8 @@ Parallel OK if tickets don’t touch the same files; if conflict, coding wins on
 
 - Both agents rewriting `OpenAiCompatibleClient` the same day without a ticket
 - Review agent editing source files (it must stay read-only on `app/**`)
+- Proof agent rewriting DIG docs or marking Ready
+- DIG marking Ready without a PROOF Approve
 - Coding “fixing” a review issue without acknowledging it in REVIEW.md
 - Research pasting 2k-line historical essays into Kotlin comments
 - Coding “improving” copy that is legally sensitive (privacy policy) without Ready source text

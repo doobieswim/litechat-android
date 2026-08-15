@@ -193,6 +193,21 @@ def main() -> int:
     ok("backlog present", (ROOT / "docs" / "BACKLOG.md").is_file())
     ok("team doc present", (ROOT / "docs" / "TEAM.md").is_file())
 
+    # C-031: user-facing brand is BYO AI; package path stays LiteChat.
+    strings_xml = (APP / "res" / "values" / "strings.xml").read_text()
+    build_kts = (ROOT / "app" / "build.gradle.kts").read_text()
+    listing = ROOT / "docs" / "PLAY-LISTING-DRAFT.md"
+    listing_txt = listing.read_text() if listing.is_file() else ""
+    ok("C-031 app_name BYO AI", ">BYO AI<" in strings_xml)
+    ok("C-031 applicationId com.byoai.chat", "applicationId = \"com.byoai.chat\"" in build_kts)
+    ok("C-031 namespace stays litechat", "namespace = \"com.litechat.android\"" in build_kts)
+    ok("C-031 play listing draft", listing.is_file())
+    ok("C-031 listing short line", "Works on 4GB phones" in listing_txt)
+    ok("C-031 no SoftRAM claim", "real model on 4GB" not in listing_txt.lower())
+    ok("C-031 no Text LiteChat title", 'Text("LiteChat"' not in screens)
+    overlay_kt = (KT_ROOT / "com/litechat/android/ui/OverlayService.kt").read_text()
+    ok("C-031 overlay no LiteChat", "LiteChat Overlay" not in overlay_kt)
+
     failed = 0
     print("=== LiteChat verify_static ===")
     for name, passed, detail in checks:

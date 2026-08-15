@@ -12,7 +12,7 @@ If the human says that word (alone or in a sentence), you are the **coding agent
 | GitHub | **public**: `github.com/flamingspade1995-coder/litechat-android` (CI: `.github/workflows/build.yml` — static-verify + assembleRelease + 20MB APK gate) |
 | Package | `com.litechat.android` |
 | Skill (patterns) | Hermes skill `android-byok-chat-apps` |
-| Sister role | **Research agent** owns digs, history, competitor/OSS notes → writes `docs/` + backlog items. **Review agent** (`LITECHAT-REVIEW`) reviews your work read-only and writes `docs/REVIEW.md`. **You** implement tickets and fix review issues. |
+| Sister role | **DIG** writes `docs/` + Research tickets. **PROOF** (`LITECHAT-PROOF`) grades those docs → `docs/RESEARCH-REVIEW.md`; Ready only after Approve. **REVIEW** (`LITECHAT-REVIEW`) grades your code → `docs/REVIEW.md`. **You** implement Ready tickets and fix code-review issues. |
 | Team protocol | [`docs/TEAM.md`](./docs/TEAM.md) |
 | Ticket queue | [`docs/BACKLOG.md`](./docs/BACKLOG.md) |
 | Architecture | [`ARCHITECTURE.md`](./ARCHITECTURE.md) · research notes [`RESEARCH.md`](./RESEARCH.md) |
@@ -199,11 +199,25 @@ Mark ticket Done; list files changed.
 ```
 LITECHAT-DIG
 Repo: /opt/data/workspace/byok-chat-android
-Read docs/TEAM.md + docs/BACKLOG.md + HANDOFF.md.
-Do NOT implement app features unless asked — write docs and Ready tickets
-with acceptance criteria for the coding agent.
+Read docs/TEAM.md + docs/BACKLOG.md + HANDOFF.md + docs/THEME-SHOW-DONT-TELL.md.
+Do NOT implement app features unless asked — write docs and Research tickets
+with acceptance criteria. Do NOT mark Ready until LITECHAT-PROOF Approves.
 Topic: <TOPIC>
 Prefer extreme-depth when constraints are weak-RAM/packaging (history + modern).
+```
+
+---
+
+## Prompt paste for research-review session (human → proof agent)
+
+```
+LITECHAT-PROOF
+Repo: /opt/data/workspace/byok-chat-android
+Read docs/RESEARCH-REVIEW.md + docs/TEAM.md + docs/BACKLOG.md + docs/THEME-SHOW-DONT-TELL.md.
+You are READ-ONLY except docs/RESEARCH-REVIEW.md.
+Grade ticket <R-ID> (or the latest DIG drop).
+Do not edit DIG docs. Do not edit app/**. Do not run gradle.
+Write Approve / Issues to docs/RESEARCH-REVIEW.md.
 ```
 
 ---

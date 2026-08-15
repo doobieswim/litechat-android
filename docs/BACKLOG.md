@@ -1,13 +1,37 @@
 # LiteChat backlog
 
-Single task queue for the two-agent team.  
+Single task queue for the four-agent team.  
 Statuses: `Idea` · `Research` · `Ready` · `Doing` · `Done` · `Blocked`
+
+Flow: **DIG (Research) → PROOF Approve → Ready → WIRE → Done → REVIEW**  
+Every research ticket needs `LITECHAT-PROOF` Approve before Ready (human may override in one written line).
 
 Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finish with `Done`.
 
 ---
 
 ## Now / next (coding)
+
+### C-031 — Rebrand user-facing name to BYO AI
+- **Status:** Done — WIRE 2026-08-15. REVIEW Issues 1–6 fixed (user-facing LiteChat copy). Static verify after fix.
+- **Touched:** `strings.xml`, `app/build.gradle.kts`, `README.md`, `privacy.html`, `app/src/main/assets/privacy.html`, `docs/PLAY-LISTING-DRAFT.md` (created), `scripts/verify_static.py` (6 C-031 guards)
+- **Goal:** Users see **BYO AI**. App id becomes `com.byoai.chat` before first Play upload. Code package stays LiteChat.
+- **Research:** `docs/APP-NAMING-RESEARCH.md` · H-001 · `docs/THEME-SHOW-DONT-TELL.md` · `docs/GREY-SALES-GOOD-TWINS.md`
+- **Locked copy (everyday only):**
+  - Name: **BYO AI** (no “4GB” in the title)
+  - Short description (80 max): *Chat with your own key. Works on 4GB phones. No monthly bill.*
+  - Banned: fight words, “LiteChat” on the icon/store, “BYOK” as the title, “runs a real model on 4GB”
+- **AC (for WIRE after PROOF Approve):**
+  - [x] `strings.xml` `app_name` → `BYO AI`
+  - [x] `applicationId` in `app/build.gradle.kts` → `com.byoai.chat`; **namespace + Kotlin package stay `com.litechat.android`**
+  - [x] README title/tagline; note “internal codename LiteChat” once
+  - [x] `docs/PLAY-LISTING-DRAFT.md` name + subtitle (everyday words only)
+  - [x] `privacy.html` (assets + repo root) brand text
+  - [x] `verify_static.py` user-facing “LiteChat” guards updated if any
+  - [x] Static verify green (81/81). CI not run this pass.
+- **Out of scope:** icon/logo, domain buy, GitHub repo rename, paid ads, Play upload
+- **Cost:** $0 now. Play listing later ~$25 — warn again before anyone pays.
+
 ### C-007 — Wire privacy link and disclaimer in Settings
 - **Status:** Done
 - **Notes:** Added `app/src/main/assets/privacy.html` (bundled), `privacy.html` (repo root for GitHub Pages), Settings "Privacy Policy" link via `ACTION_VIEW`, upgraded disclaimer to full BYOK wording from research, added Disclaimer section + Privacy Policy link to README.md
@@ -262,6 +286,36 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Status:** Done — C-025/C-026/D-005 Ready
 - **Deliverable:** `docs/GAP-ANALYSIS-R010.md`
 - **Key findings:** 4 stubs need wiring (C-021/022/016/015). No verify guards for batch tickets. Competitor patterns: scheduled tasks, stream block parser, i18n, model caching, stream pause, DDG scraper, draft persistence, backup encryption. Distribution: Play Store listing + awesome-byok-apps PR + README update still needed. Zero tests for new features.
+
+### R-011 — Historic sales & positioning playbook
+- **Status:** Done — research only. **No Ready child.** PROOF 2026-08-15 Issues addressed (backstage stamp + everyday launch copy). Waiting second PROOF pass.
+- **Deliverable:** `docs/SALES-POSITIONING-HISTORIC.md`
+- **Key findings:** Tired aisle; honesty / small / no-rent as mechanism. User-facing words now defer to `THEME-SHOW-DONT-TELL.md`. Name map still waits on H-004 + H-001. C-031 stays Blocked.
+- **Out of scope:** coding, Ready tickets, fight-talk listing copy.
+
+### R-012 — Unconventional shine (fight promoters + carnival)
+- **Status:** Done — research only. **No Ready child.** Steal list stamped backstage after H-006.
+- **Deliverable:** `docs/SHINE-UNCONVENTIONAL.md`
+- **Key findings:** Shine = real numbers + calm first screenshot + pay-once after use. No bout title, no named enemy on Play. H-005 rewritten as logistics.
+- **Out of scope:** coding, paid ads, Ready tickets.
+
+### R-013 — King's Road underdog theme
+- **Status:** Done — human locked **H-006 quieter**
+- **Deliverable:** `docs/KINGS-ROAD-THEME.md` (backstage) + `docs/THEME-SHOW-DONT-TELL.md` (**user-facing law**)
+- **Key findings:** Underdog vs fat/expensive apps lives in **bones** (small APK, honest plain “low memory” note, no account, $4.99 once, refuse heavy work). Users never hear fight words. Everyday chat app on the face. Banned: champ/kick-out/underdog/weigh-in on listing or UI. Coding: a feature that makes us louder or fatter fails the theme.
+- **Out of scope:** wrestler mascot, bout-card Play listing, coding.
+
+### R-014 — Grey sales, honest twins
+- **Status:** Research — waiting `LITECHAT-PROOF` (no Ready child)
+- **Deliverable:** `docs/GREY-SALES-GOOD-TWINS.md`
+- **Key findings:** Keep the human button (demo, one next step, which-not-if, real scarcity). Throw away the lie, fake clock, and trap door. Best twin we already have: $4.99 once (kills the whole subscription maze). Never write boiler-room scripts, fake urgency, confirmshame, or SoftRAM claims.
+- **Out of scope:** coding, Ready tickets, user-facing fight/pressure copy.
+
+### R-015 — Overnight tech myths + real roadmap
+- **Status:** Research — waiting `LITECHAT-PROOF` (no Ready child)
+- **Deliverable:** `docs/OVERNIGHT-ROADMAP.md`
+- **Key findings:** Overnight is a myth. Hits were years + one simple loop + still being around. Roadmap: demo is the product → one true share picture → underground then Play → stay thin (Opera Mini slot) → don’t pull if it spikes. No fake waitlist, no paid streamers, no Hotmail stamp on user chat.
+- **Out of scope:** coding, name list, Ready tickets.
 
 ---
 

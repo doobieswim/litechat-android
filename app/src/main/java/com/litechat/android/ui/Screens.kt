@@ -72,6 +72,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.layout.ContentScale
@@ -86,6 +87,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.litechat.android.BuildConfig
 import com.litechat.android.LiteChatApp
+import com.litechat.android.R
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.util.DeviceCompat
@@ -316,7 +318,7 @@ fun ChatScreen(
                 TopAppBar(
                     title = {
                         Column {
-                            Text("LiteChat", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.app_name), fontWeight = FontWeight.SemiBold)
                             Text(
                                 state.settings.model,
                                 style = MaterialTheme.typography.labelSmall,
@@ -753,7 +755,7 @@ fun OnboardingScreen(
                     CompatMatrixTable(highlight = snap.band)
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        "LiteChat ships only the green path by default. " +
+                        "This app only turns on the green path by default. " +
                             "Agent runtimes and local 7B models are different products — not silent bloat.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1073,7 +1075,7 @@ fun SettingsScreen(
             }
             item {
                 Text(
-                    "LiteChat is an unofficial, open-source client for OpenAI-compatible APIs (OpenAI, OpenRouter, Groq, Ollama, and others). It is not affiliated with, endorsed by, or connected to OpenAI, Google, Anthropic, or any AI provider. You bring your own API key — LiteChat does not provide, proxy, or resell API access. All chat data travels directly between your device and the API server you configure.",
+                    "BYO AI is an unofficial, open-source client for OpenAI-compatible APIs (OpenAI, OpenRouter, Groq, Ollama, and others). It is not affiliated with, endorsed by, or connected to OpenAI, Google, Anthropic, or any AI provider. You bring your own API key — BYO AI does not provide, proxy, or resell API access. All chat data travels directly between your device and the API server you configure.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

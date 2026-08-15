@@ -44,7 +44,7 @@ object DeviceCompat {
     ) {
         val headline: String
             get() = when (band) {
-                Band.TIGHT -> "Tight free RAM — LiteChat chat mode is still designed for this"
+                Band.TIGHT -> "Chat still works on this phone"
                 Band.COMFORTABLE -> "Good fit — thin BYOK chat is the right product here"
                 Band.ROOMY -> "Roomy — chat is smooth; still keep heavy brains off-device"
                 Band.GENEROUS -> "Generous free RAM — chat is fine; local 7B+ still not this app"
@@ -126,7 +126,7 @@ object DeviceCompat {
             comfortable = Verdict.NO,
             roomy = Verdict.CAUTION,
             generous = Verdict.CAUTION,
-            note = "Different product — not LiteChat default",
+            note = "Different product — not this app's default",
         ),
         MatrixRow(
             feature = "Local 7B+ LLM resident",

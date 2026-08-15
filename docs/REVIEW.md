@@ -202,3 +202,89 @@
 3. **Static-verify count:** skill doc says baseline 78/78; current run reports **75/75 passed** (all green, no failures). The lower ceiling reflects guard-count changes in the verifier script itself, not regressions — suite passes fully.
 
 **Verdict:** ✅ **APPROVE** — all claims in commit `3af434a` are real and compile-clean. Ready for next backlog ticket.
+
+---
+
+## Review — 2026-08-15 — ticket C-031
+
+**Role:** `LITECHAT-REVIEW`. Read-only. Did not edit `app/**`. Did not run Gradle.
+
+**Verdict:** Issues
+
+Launcher name and docs say **BYO AI**. The screen the person *uses* still says **LiteChat**. Ticket goal was “users see BYO AI.” That is not done.
+
+### Issues
+
+1. **`Screens.kt:319`** — top bar still `Text("LiteChat")`.
+   - Why: this is the title they stare at every chat.
+   - Fix: `stringResource(R.string.app_name)` (already `BYO AI`).
+
+2. **`Screens.kt:1076`** — Settings disclaimer still names LiteChat.
+   - Why: user-facing legal/brand text.
+   - Fix: same wording, swap brand to BYO AI.
+
+3. **`Screens.kt:756`** — onboarding/compat copy: “LiteChat ships only the green path…”
+   - Why: a person setting up the app reads it.
+   - Fix: everyday words, no LiteChat. Example: “This app only turns on the green path by default.”
+
+4. **`CompatMatrix.kt:99`** — “LiteChat is Tier A…”
+   - Why: shown on the matrix screen.
+   - Fix: drop the old name. “This app is thin chat + remote brain.”
+
+5. **`DeviceCompat.kt:47`** — “LiteChat chat mode is still designed for this”
+   - Why: shown in the RAM band note.
+   - Fix: “Chat still works on this phone.”
+
+6. **`OverlayService.kt:48` and `:124`** — notification title/channel “LiteChat Overlay”
+   - Why: Android shows this in the shade.
+   - Fix: “BYO AI Overlay” or just “Chat overlay.”
+
+### What passed
+
+- `strings.xml` `app_name` = BYO AI; manifest `android:label` points at it. Home-screen icon is correct.
+- `applicationId` = `com.byoai.chat`. `namespace` still `com.litechat.android`. Right split.
+- Privacy HTML (both copies) = BYO AI.
+- `docs/PLAY-LISTING-DRAFT.md` has the locked 4GB line, no SoftRAM, no fight words.
+- Class names (`LiteChatApp`, `Theme.LiteChat`) are code, not the store. Leave them.
+
+### Nits (not Issues)
+
+- `PLAY_PRO_SKU` is still `litechat_pro`. That is H-003, not this ticket.
+- GitHub URL still `litechat-android`. Ticket said leave the repo name.
+- User-Agent / `X-Title: LiteChat` goes to the API host, not the person. Optional later.
+- README still says LiteChat in the architecture bits. Devs only.
+
+### Next
+
+WIRE fixes 1–6. Then call REVIEW again. Do not mark this Approve until the top bar is BYO AI.
+
+---
+
+## Review — 2026-08-15 — ticket C-031 (fix pass)
+
+**Role:** `LITECHAT-REVIEW`. Read-only. Did not edit `app/**`. Did not run Gradle.
+
+**Verdict:** Approve
+
+The six Issues from the last pass are gone. The top bar uses `stringResource(R.string.app_name)` → **BYO AI**.
+
+### Recheck of Issues 1–6
+
+| # | Was | Now |
+|---|---|---|
+| 1 | `Text("LiteChat")` top bar | `stringResource(R.string.app_name)` |
+| 2 | Settings disclaimer LiteChat | Says BYO AI |
+| 3 | “LiteChat ships only the green path” | “This app only turns on the green path…” |
+| 4 | “LiteChat is Tier A…” | “This app is thin chat + remote brain.” |
+| 5 | Tight-band LiteChat line | “Chat still works on this phone.” |
+| 6 | “LiteChat Overlay” | “Chat overlay” (title + channel) |
+
+Class names (`LiteChatApp`, `Theme.LiteChat`, `LiteChatRoot`) stayed. Correct.
+
+### Nit (not Issues)
+
+- **`DeviceCompat.kt:129`** — matrix footnote still says “not LiteChat default.” A person can see that one line on the RAM table. Swap to “not this app’s default” if you want zero leftover. Not enough to fail the ticket.
+
+Same leftover class as last time: User-Agent / `X-Title: LiteChat` (API host only), `litechat_pro` SKU (H-003), GitHub repo name.
+
+C-031 can stay **Done**.

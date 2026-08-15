@@ -96,7 +96,7 @@ fun CompatMatrixTable(
         Spacer(Modifier.height(4.dp))
         Text(
             "Installed RAM is marketing. Free RAM is what the OS has left. " +
-                "LiteChat is Tier A: thin chat + remote brain.",
+                "This app is thin chat + remote brain.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

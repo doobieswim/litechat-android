@@ -1,6 +1,10 @@
-# LiteChat
+# BYO AI
 
-**Lightweight BYOK AI chat for Android** — OpenAI-compatible APIs, ChatGPT-style UI, ads + one-time Pro. Built for **4GB RAM** phones.
+**Internal codename:** LiteChat (repo / package / agent words). Users see **BYO AI**.
+
+**Chat with your own key. Works on 4GB phones. No monthly bill.**
+
+Thin BYOK AI chat for Android — OpenAI-compatible APIs, ChatGPT-style UI, ads + one-time Pro. Built for **4GB RAM** phones.
 
 HenWorks/Opclaw-style **product packaging** (Play one-tap, guided setup, BYOK, ads + Pro, no Termux for users) — **not** an Opclaw-style bundled Node/agent runtime.
 
@@ -16,7 +20,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design rationale.
 
 ## Disclaimer
 
-LiteChat is an **unofficial, open-source client** for OpenAI-compatible APIs (OpenAI, OpenRouter, Groq, Ollama, and others). It is **not affiliated with, endorsed by, or connected to OpenAI, Google, Anthropic, or any AI provider.** You bring your own API key — LiteChat does not provide, proxy, or resell API access. All chat data travels directly between your device and the API server you configure.
+BYO AI is an **unofficial, open-source client** for OpenAI-compatible APIs (OpenAI, OpenRouter, Groq, Ollama, and others). It is **not affiliated with, endorsed by, or connected to OpenAI, Google, Anthropic, or any AI provider.** You bring your own API key — BYO AI does not provide, proxy, or resell API access. All chat data travels directly between your device and the API server you configure.
 
 [Privacy Policy](https://flamingspade1995-coder.github.io/litechat-android/privacy.html)
 
