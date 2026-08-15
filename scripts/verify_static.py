@@ -250,6 +250,18 @@ def main() -> int:
     ok("C-034 no proot installer", "proot-distro" not in all_src)
     ok("C-034 no curl pipe installer", "curl " not in all_src or "| bash" not in all_src)
 
+    # C-033: pick provider / pick model / paste key.
+    catalog = (KT_ROOT / "com/litechat/android/data/prefs/ProviderCatalog.kt").read_text()
+    picker = (KT_ROOT / "com/litechat/android/ui/ProviderSetupFields.kt").read_text()
+    ok("C-033 catalog exists", "object ProviderCatalog" in catalog)
+    ok("C-033 has xai grok", 'id = "xai"' in catalog and "grok-4.6" in catalog)
+    ok("C-033 has openrouter deepseek hf", 'id = "openrouter"' in catalog and 'id = "deepseek"' in catalog and 'id = "huggingface"' in catalog)
+    ok("C-033 xai paid warning", "paid = true" in catalog and "cost money" in catalog)
+    ok("C-033 picker dropdowns", "ExposedDropdownMenuBox" in picker and "Paste your key" in picker)
+    ok("C-033 onboarding uses picker", "ProviderSetupFields(" in screens)
+    ok("C-033 settings uses picker", screens.count("ProviderSetupFields(") >= 2)
+    ok("C-033 URL hidden except custom", "isCustom" in picker)
+
     # Fastlane metadata is part of the build: F-Droid/Play read these files.
     # No Ruby gem. CI static-verify fails the job if listing copy is wrong.
     fl = ROOT / "fastlane" / "metadata" / "android" / "en-US"

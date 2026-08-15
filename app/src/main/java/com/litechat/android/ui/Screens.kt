@@ -857,7 +857,6 @@ fun OnboardingScreen(
     var key by remember { mutableStateOf(initialKey) }
     var base by remember { mutableStateOf(initialBase) }
     var model by remember { mutableStateOf(initialModel) }
-    val presets = com.litechat.android.data.prefs.SettingsRepository.PRESETS
     val ctx = LocalContext.current
     val snap = remember(ctx) { DeviceCompat.snapshot(ctx) }
     val scroll = rememberScrollState()
@@ -901,48 +900,17 @@ fun OnboardingScreen(
                     )
                 } else {
                     Text(
-                        "Paste an OpenAI-compatible API key. Traffic goes only to the endpoint you choose.",
+                        "Pick a name from the list. Paste your key. That is all.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(16.dp))
-                    Text("Provider preset", style = MaterialTheme.typography.labelLarge)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        presets.take(4).forEach { p ->
-                            TextButton(onClick = {
-                                base = p.baseUrl
-                                model = p.model
-                            }) { Text(p.name, fontSize = 12.sp) }
-                        }
-                    }
-                    OutlinedTextField(
-                        value = key,
-                        onValueChange = { key = it },
-                        label = { Text("API key") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = base,
-                        onValueChange = { base = it },
-                        label = { Text("Base URL") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = model,
-                        onValueChange = { model = it },
-                        label = { Text("Model") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Local Ollama on phone is 🟨/🟥 on weak free-RAM — prefer cloud or a LAN PC.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ProviderSetupFields(
+                        key = key,
+                        onKeyChange = { key = it },
+                        base = base,
+                        onBaseChange = { base = it },
+                        model = model,
+                        onModelChange = { model = it },
                     )
                 }
             }
@@ -1070,13 +1038,14 @@ fun SettingsScreen(
                 Text("Provider", fontWeight = FontWeight.SemiBold)
             }
             item {
-                OutlinedTextField(key, { key = it }, label = { Text("API key") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            }
-            item {
-                OutlinedTextField(base, { base = it }, label = { Text("Base URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            }
-            item {
-                OutlinedTextField(model, { model = it }, label = { Text("Model") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                ProviderSetupFields(
+                    key = key,
+                    onKeyChange = { key = it },
+                    base = base,
+                    onBaseChange = { base = it },
+                    model = model,
+                    onModelChange = { model = it },
+                )
             }
             // C-005: optional GET /models picker — failures show a short message, never crash.
                         item {
