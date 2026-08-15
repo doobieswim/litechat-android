@@ -10,6 +10,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- C-034: see Termux if the user already installed it. We never ship it. -->
+    <queries>
+        <package android:name="com.termux" />
+    </queries>
+
     <application
         android:name=".LiteChatApp"
         android:allowBackup="false"

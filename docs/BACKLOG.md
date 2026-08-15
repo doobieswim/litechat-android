@@ -236,6 +236,10 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Status:** Done — WIRE 2026-08-15. Metadata-only (no Ruby gem, no Play upload, **$0**). Added `title.txt` + `changelogs/1.txt` + `fastlane/README.md`. 13 guards in `verify_static.py` so CI `static-verify` fails if listing copy is wrong (title, locked short line, 80/4000 limits, measured 1.6 MB, foss "no billing", changelog matches `versionCode`). Suite: **105/105**.
 - **Out of scope:** installing the Fastlane Ruby gem; Play `supply` upload (needs the **$25** account + service-account JSON — ask first).
 
+### C-034 — Agent Lab door (no Termux inside the APK)
+- **Status:** Done — WIRE 2026-08-15. Opt-in Settings card only. `AgentLabGate` refuses TIGHT/COMFORTABLE and low storage (<400 MB). ROOMY = warn, GENEROUS = door. Open Termux **only if already installed**. No Node/Python/proot download. Tests: `AgentLabGateTest`.
+- **APK:** ~0 KB extra (no runtime)
+
 ### C-006 — UI stream paint throttle (if needed)
 - **Status:** Done
 - **Notes:** Throttle gate in `ChatViewModel.send()`: 250ms `lastUiUpdate` guard on `StreamEvent.Delta`; `StreamEvent.Done` flushes final paint; errors pass through immediately; `FeatureFlags.streamThrottleMs = 250L`; `PaintThrottleTest` with 8 test cases; 5 verify_static guards. Lowered `gradle.properties` JVM heap from 1536m→768m for the 4GB VPS.  

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.litechat.android.util.AgentLabGate
 import com.litechat.android.util.DeviceCompat
 
 @Composable
@@ -216,5 +218,60 @@ private fun Legend(v: DeviceCompat.Verdict, label: String) {
         Text(DeviceCompat.verdictGlyph(v), fontSize = 12.sp)
         Spacer(Modifier.width(4.dp))
         Text(label, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+fun AgentLabCard(
+    snap: DeviceCompat.Snapshot,
+    freeStorageMb: Long,
+    termuxInstalled: Boolean,
+    onOpenTermux: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val result = AgentLabGate.decide(snap.band, freeStorageMb)
+    val mayOpen = AgentLabGate.mayOpenTermux(result.decision, termuxInstalled)
+    val title = when (result.decision) {
+        AgentLabGate.Decision.REFUSE -> "Agent box — no"
+        AgentLabGate.Decision.WARN -> "Agent box — maybe, not here"
+        AgentLabGate.Decision.ALLOW_DOOR -> "Agent box — not in this app"
+    }
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                result.reason,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "${snap.availRamMb} MB free memory · $freeStorageMb MB empty storage",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (mayOpen) {
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onOpenTermux, modifier = Modifier.fillMaxWidth()) {
+                    Text("Open Termux")
+                }
+            } else {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "We do not install Termux, Node, or Linux inside this chat app.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }

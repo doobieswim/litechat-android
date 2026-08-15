@@ -126,7 +126,7 @@ object DeviceCompat {
             comfortable = Verdict.NO,
             roomy = Verdict.CAUTION,
             generous = Verdict.CAUTION,
-            note = "Different product — not this app's default",
+            note = "Different product — not this app. We will not hide Termux here.",
         ),
         MatrixRow(
             feature = "Local 7B+ LLM resident",

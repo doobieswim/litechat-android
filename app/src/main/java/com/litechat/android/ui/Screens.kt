@@ -92,6 +92,7 @@ import com.litechat.android.LiteChatApp
 import com.litechat.android.R
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.PromptTemplate
+import com.litechat.android.util.AgentLabGate
 import com.litechat.android.util.DeviceCompat
 import com.litechat.android.util.ImageCacheConfig
 import com.litechat.android.util.LanDetector
@@ -997,6 +998,7 @@ fun SettingsScreen(
     var confirmClear by remember { mutableStateOf(false) }
     var billingMsg by remember { mutableStateOf<String?>(null) }
     var showMatrix by remember { mutableStateOf(false) }
+    var showAgentLab by remember { mutableStateOf(false) }
     // C-005: /models picker state
     var fetchedModels by remember { mutableStateOf<List<String>?>(null) }
     var modelsMsg by remember { mutableStateOf<String?>(null) }
@@ -1043,6 +1045,25 @@ fun SettingsScreen(
             if (showMatrix) {
                 item {
                     CompatMatrixTable(highlight = snap.band)
+                }
+            }
+            item {
+                TextButton(onClick = { showAgentLab = !showAgentLab }) {
+                    Text(if (showAgentLab) "Hide agent box" else "Agent box (not in this app)")
+                }
+            }
+            if (showAgentLab) {
+                item {
+                    AgentLabCard(
+                        snap = snap,
+                        freeStorageMb = AgentLabGate.freeStorageMb(context),
+                        termuxInstalled = AgentLabGate.isTermuxInstalled(context),
+                        onOpenTermux = {
+                            context.packageManager
+                                .getLaunchIntentForPackage(AgentLabGate.TERMUX_PACKAGE)
+                                ?.let { context.startActivity(it) }
+                        },
+                    )
                 }
             }
             item {

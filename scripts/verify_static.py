@@ -19,6 +19,7 @@ def main() -> int:
     must_exist = [
         "java/com/litechat/android/data/api/OpenAiCompatibleClient.kt",
         "java/com/litechat/android/util/DeviceCompat.kt",
+        "java/com/litechat/android/util/AgentLabGate.kt",
         "java/com/litechat/android/ui/CompatMatrix.kt",
         "java/com/litechat/android/ui/Screens.kt",
         "java/com/litechat/android/ui/ChatViewModel.kt",
@@ -236,6 +237,18 @@ def main() -> int:
     ok("C-031 no Text LiteChat title", 'Text("LiteChat"' not in screens)
     overlay_kt = (KT_ROOT / "com/litechat/android/ui/OverlayService.kt").read_text()
     ok("C-031 overlay no LiteChat", "LiteChat Overlay" not in overlay_kt)
+
+    # C-034: Agent Lab is a door, not a bundled Termux/Node runtime.
+    gate = (KT_ROOT / "com/litechat/android/util/AgentLabGate.kt").read_text()
+    all_src = "\n".join(p.read_text() for p in KT_ROOT.rglob("*.kt"))
+    ok("C-034 AgentLabGate decide", "fun decide(" in gate)
+    ok("C-034 refuse weak phones", "Decision.REFUSE" in gate and "Band.TIGHT" in gate)
+    ok("C-034 not in this app copy", "not in this app" in gate)
+    ok("C-034 mayOpenTermux gate", "fun mayOpenTermux" in gate)
+    ok("C-034 Settings agent box", "AgentLabCard" in screens and "Agent box" in screens)
+    ok("C-034 manifest sees Termux only", 'package android:name="com.termux"' in manifest)
+    ok("C-034 no proot installer", "proot-distro" not in all_src)
+    ok("C-034 no curl pipe installer", "curl " not in all_src or "| bash" not in all_src)
 
     # Fastlane metadata is part of the build: F-Droid/Play read these files.
     # No Ruby gem. CI static-verify fails the job if listing copy is wrong.
