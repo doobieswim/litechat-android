@@ -2,6 +2,7 @@ package com.litechat.android.data.ads
 
 import android.content.Context
 import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.RequestConfiguration
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -24,6 +25,18 @@ object AdMobLazyInit {
     /** Idempotent. Safe to call multiple times / from any thread. */
     fun ensureInitialized(context: Context) {
         if (initialized.compareAndSet(false, true)) {
+            // C-032: EEA/UK-safe branch — non-personalized ads only. play-services-ads
+            // 23.x removed AdRequest's npa/setNonPersonalizedAds APIs; the supported
+            // non-personalized switch is RequestConfiguration, so no UMP consent SDK
+            // is needed (zero APK cost). Satisfies the Play-policy "consent OR
+            // non-personalized-only" requirement.
+            MobileAds.setRequestConfiguration(
+                RequestConfiguration.Builder()
+                    .setPublisherPrivacyPersonalizationState(
+                        RequestConfiguration.PublisherPrivacyPersonalizationState.DISABLED
+                    )
+                    .build()
+            )
             MobileAds.initialize(context.applicationContext) {}
         }
     }

@@ -13,6 +13,7 @@ import com.litechat.android.data.context.ContextTrimmer
 import com.litechat.android.data.db.ConversationEntity
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.AppSettings
+import com.litechat.android.data.prefs.NamedKeyStore
 import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.data.prefs.SettingsRepository
 import com.litechat.android.util.DeviceCompat
@@ -52,6 +53,8 @@ data class ChatUiState(
     val truncatedCount: Int = 0,
     /** Estimated cost of last assistant response. */
     val lastCost: String? = null,
+    /** C-023: named keys (encrypted) for multi-key per provider. */
+    val namedKeys: List<NamedKeyStore.NamedKey> = emptyList(),
 )
 
 class ChatViewModel(
@@ -93,6 +96,9 @@ class ChatViewModel(
                 }
             }
         }
+
+        // C-023: load named keys into state once at startup.
+        refreshNamedKeys()
 
         // Imp#2: connectivity observer — pause when disconnected
         connectivityJob = viewModelScope.launch {
@@ -207,7 +213,9 @@ class ChatViewModel(
             return
         }
 
-        val key = container.settingsRepository.getApiKey()
+        // C-023: an active named key overrides the primary key (Agora pattern).
+        val key = container.namedKeyStore.getActiveKey()
+            .ifBlank { container.settingsRepository.getApiKey() }
         val settings = _state.value.settings
         val localEndpoint = settings.baseUrl.contains("127.0.0.1") ||
             settings.baseUrl.contains("localhost")
@@ -218,6 +226,11 @@ class ChatViewModel(
 
         // C-013: /browse command — fetch web page, inject into context.
         if (text.startsWith("/browse ")) {
+            // Gate-gap close: the ticket said Pro-gated; enforce it here.
+            if (!container.isPro()) {
+                _state.update { it.copy(error = "Web browsing is a Pro feature — pay once to unlock") }
+                return
+            }
             val url = text.removePrefix("/browse ").trim()
             if (url.isEmpty()) {
                 _state.update { it.copy(error = "Usage: /browse <url>") }
@@ -420,10 +433,24 @@ class ChatViewModel(
             _state.update { it.copy(input = "", error = null) }
             container.chatRepository.addMessage(convId, "user", text)
 
+            // C-020: persistent memory (Pro) — explicit "Remember …" lines are
+            // stored and promoted into the system prompt immediately (5 hits).
+            val isPro = container.isPro()
+            if (isPro && text.startsWith("Remember ", ignoreCase = true)) {
+                val fact = text.removePrefix("Remember ").trim()
+                if (fact.isNotEmpty()) {
+                    repeat(5) { container.memoryManager.record(fact) }
+                }
+            }
+            val memoryPrompt = if (isPro) container.memoryManager.getMemoryPrompt() else ""
+
             val history = container.chatRepository.listMessages(convId)
             // Kai 9000 "honesty rule": measurably reduces model fabrication.
-            val systemMsg = ChatMessageDto("system",
-                "Do not fabricate tool outputs, file contents, citations, or completed work.")
+            val honestyRule = "Do not fabricate tool outputs, file contents, citations, or completed work."
+            val systemMsg = ChatMessageDto(
+                "system",
+                if (memoryPrompt.isNotBlank()) "$memoryPrompt $honestyRule" else honestyRule
+            )
             val dto = listOf(systemMsg) + history.map { ChatMessageDto(it.role, it.content) }
 
             // C-010: trim to token budget, track removed count.
@@ -646,6 +673,11 @@ class ChatViewModel(
 
     // C-014: export chat database to a file via SAF.
     fun exportChats(uri: android.net.Uri) {
+        // Gate-gap close: the ticket said Pro-gated; enforce it here.
+        if (!container.isPro()) {
+            _state.update { it.copy(error = "Chat backup is a Pro feature — pay once to unlock") }
+            return
+        }
         viewModelScope.launch {
             try {
                 // C8: Room runs in WAL mode — copying the .db file alone while the
@@ -669,6 +701,11 @@ class ChatViewModel(
 
     // C-014: import chat database from a file via SAF.
     fun importChats(uri: android.net.Uri) {
+        // Gate-gap close: the ticket said Pro-gated; enforce it here.
+        if (!container.isPro()) {
+            _state.update { it.copy(error = "Chat restore is a Pro feature — pay once to unlock") }
+            return
+        }
         viewModelScope.launch {
             try {
                 // C8: close Room before replacing the file, then drop stale
@@ -691,6 +728,11 @@ class ChatViewModel(
 
     // C-016: attach image/file for vision model analysis.
     fun attachImage(uri: android.net.Uri) {
+        // Gate-gap close: the ticket said Pro-gated; enforce it here.
+        if (!container.isPro()) {
+            _state.update { it.copy(error = "Image attachment is a Pro feature — pay once to unlock") }
+            return
+        }
         viewModelScope.launch {
             try {
                 // C-028: decode + downscale on IO (Bitmap decode is expensive).
@@ -751,6 +793,97 @@ class ChatViewModel(
             messagesCollectJob?.cancel()
             _state.update {
                 it.copy(activeConversationId = null, messages = emptyList())
+            }
+        }
+    }
+
+    // C-032: one-time acceptable-use acceptance (Play AI-Generated Content policy).
+    fun acceptAcceptableUse() {
+        viewModelScope.launch {
+            container.settingsRepository.update(acceptableUseAccepted = true)
+        }
+    }
+
+    // C-020: clear all stored memory facts.
+    fun clearMemory() {
+        container.memoryManager.clear()
+        _state.update { it.copy(error = "Memory cleared") }
+    }
+
+    // C-022: export settings (no secrets) via SAF.
+    fun exportSettings(uri: android.net.Uri) {
+        viewModelScope.launch {
+            try {
+                val json = container.settingsRepository.exportSettingsJson()
+                withContext(Dispatchers.IO) {
+                    container.ctx.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(json.toByteArray())
+                    }
+                }
+                _state.update { it.copy(error = "Settings exported") }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Export failed: ${e.message?.take(60)}") }
+            }
+        }
+    }
+
+    // C-022: import settings JSON via SAF.
+    fun importSettings(uri: android.net.Uri) {
+        viewModelScope.launch {
+            try {
+                val json = withContext(Dispatchers.IO) {
+                    container.ctx.contentResolver.openInputStream(uri)
+                        ?.readBytes()?.toString(Charsets.UTF_8) ?: ""
+                }
+                val err = container.settingsRepository.importSettingsJson(json)
+                _state.update { it.copy(error = err ?: "Settings imported") }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Import failed: ${e.message?.take(60)}") }
+            }
+        }
+    }
+
+    // C-023: named keys per provider (encrypted, Agora pattern).
+    fun saveNamedKey(name: String, key: String, setActive: Boolean = true) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || key.isBlank()) {
+            _state.update { it.copy(error = "Key name and value are required") }
+            return
+        }
+        container.namedKeyStore.save(NamedKeyStore.NamedKey(trimmed, key, setActive))
+        refreshNamedKeys()
+    }
+
+    fun deleteNamedKey(name: String) {
+        container.namedKeyStore.delete(name)
+        refreshNamedKeys()
+    }
+
+    fun setActiveNamedKey(name: String) {
+        container.namedKeyStore.getAll().find { it.name == name }?.let {
+            container.namedKeyStore.save(it.copy(isActive = true))
+        }
+        refreshNamedKeys()
+    }
+
+    private fun refreshNamedKeys() {
+        _state.update { it.copy(namedKeys = container.namedKeyStore.getAll()) }
+    }
+
+    // C-024: fork the active conversation at a message.
+    fun forkFrom(messageId: String) {
+        val convId = _state.value.activeConversationId ?: return
+        viewModelScope.launch {
+            try {
+                val branch = container.chatRepository.forkConversation(
+                    conversationId = convId,
+                    fromMessageId = messageId,
+                    model = _state.value.settings.model,
+                )
+                selectConversation(branch.id)
+                _state.update { it.copy(error = "Forked — you're now in a new branch") }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Fork failed: ${e.message?.take(60)}") }
             }
         }
     }

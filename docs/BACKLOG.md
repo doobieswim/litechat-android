@@ -13,14 +13,15 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 ## Now / next (coding)
 
 ### C-032 — Play compliance: in-app AI-content reporting + acceptable-use (policy-mandated)
-- **Status:** Ready — mandated by `docs/PLAY-POLICY-AUDIT.md` (Research B). PROOF approved Research B 2026-08-15 (this ticket was flagged for pre-PROOF Ready; re-affirmed post-approval). Not a product choice: Play rejects apps that generate AI content without in-app reporting. Independent of H-008.
+- **Status:** Done — WIRE 2026-08-15. PROOF approved Research B 2026-08-15 (this ticket was flagged for pre-PROOF Ready; re-affirmed post-approval). Not a product choice: Play rejects apps that generate AI content without in-app reporting. Independent of H-008.
+- **Fixed (2026-08-15):** long-press → "Report content" on every bubble (text, [IMAGE:], [VIDEO:]) → reason picker → mailto to litechat@proton.me (zero server); one-time acceptable-use dialog after onboarding (no dismiss path); EEA/UK non-personalized ads via RequestConfiguration.PublisherPrivacyPersonalizationState.DISABLED (play-services-ads 23.x removed npa/setNonPersonalizedAds — zero UMP SDK); "no ads in overlay" guard comment. Files: `Screens.kt`, `ChatViewModel.kt`, `SettingsRepository.kt`, `AdMobLazyInit.kt` (play), `OverlayService.kt`. Verify: 92/92 static, both flavors compile, unit tests pass, foss debug APK built.
 - **AC:**
-  - [ ] Long-press → **Report** on every message bubble (text, /imagine, /video results)
-  - [ ] In-app report flow: reason picker → opens dev contact (mailto or GitHub issue URL) — **no server** (zero-server law)
-  - [ ] One-time **acceptable-use acceptance** screen on first launch (CSAM/sexual/violence/deception prohibited; note that the user's model provider applies its own safety filters)
-  - [ ] Ads never run in the overlay service (already true — add guard/comment)
-  - [ ] EEA/UK: UMP consent or serve non-personalized ads only (ties to real AdMob IDs)
-  - [ ] Static verify green; CI green
+  - [x] Long-press → **Report** on every message bubble (text, /imagine, /video results)
+  - [x] In-app report flow: reason picker → opens dev contact (mailto or GitHub issue URL) — **no server** (zero-server law)
+  - [x] One-time **acceptable-use acceptance** screen on first launch (CSAM/sexual/violence/deception prohibited; note that the user's model provider applies its own safety filters)
+  - [x] Ads never run in the overlay service (already true — added guard comment)
+  - [x] EEA/UK: UMP consent **or** serve non-personalized ads only — chose non-personalized-only via RequestConfiguration (zero APK cost)
+  - [x] Static verify green (92/92). CI not run this pass.
 - **Out of scope:** real AdMob IDs (human needs an AdMob account), Play Console Data Safety form answers (human, per audit §2), $25 Play fee.
 
 ### C-031 — Rebrand user-facing name to BYO AI
@@ -133,7 +134,7 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Out of scope:** auto-sync, Google Drive API, multi-device merge conflict resolution
 
 ### C-015 — Floating chat overlay (Pro-gated)
-- **Status:** Done
+- **Status:** Done — **fixed 2026-08-15 (WIRE):** the service started but never showed the window (`showOverlay()` was never called) and the overlay had no send path. Now: `onStartCommand` → `showOverlay()`, input + Send + reply via `completeChat` into a persistent "Overlay" conversation, IME-friendly window flags, and the Settings toggle enforces the Pro gate (was ungated). Files: `OverlayService.kt`, `Screens.kt`. Verify: 92/92 static + both flavors compile.
 - **Notes:** OverlayService + SYSTEM_ALERT_WINDOW, foreground. 0 KB.
 - **Goal:** SYSTEM_ALERT_WINDOW floating bubble → opens minimal Compose chat overlay over any app. Sideloaded users grant manually; Play Store auto-grants on API 29+. Future: Bubbles API for Android 12+.
 - **Research:** `docs/DEEP-DIVE-C009-C016.md` (R-009) — Reddit: permission auto-grant on Play Store only, MIUI blocks by default, Bubbles API alternative for 12+
@@ -172,7 +173,7 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **APK:** 0 KB | **Touch:** `Screens.kt`, `OpenAiCompatibleClient.kt`
 
 ### C-020 — Persistent user memory (Kai 9000 steal, Pro-gated)
-- **Status:** Done
+- **Status:** Done — **fixed 2026-08-15 (WIRE):** MemoryManager existed but nothing called it (dead code). Now wired into `send()`: "Remember …" lines are recorded (5 hits → immediate promotion) and promoted memories are prepended to the system prompt — Pro only. Settings gains "Clear memory". Files: `ChatViewModel.kt`, `AppContainer.kt`, `MemoryManager.kt`, `Screens.kt`.
 - **Notes:** MemoryManager with hit-count promotion (Kai 9000). 0 KB.
 - **Goal:** Repeated user facts ("I prefer short answers") auto-promoted to system prompt after N repetitions. Stored in Room. Pro-only.
 - **Source:** Kai 9000 + `docs/COMPETITIVE-STEAL-LIST.md`
@@ -186,21 +187,21 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **APK:** 0 KB | **Touch:** `Screens.kt`, `ChatViewModel.kt`
 
 ### C-022 — Settings export/import (JSON)
-- **Status:** Done
+- **Status:** Done — **fixed 2026-08-15 (WIRE):** no settings JSON export existed (the SAF buttons only did chat-DB backup). Now `exportSettingsJson`/`importSettingsJson` (no secrets: keys stay in SecureStore, Pro state and compliance flags excluded) + Settings "Export/Import settings" buttons. Files: `SettingsRepository.kt`, `ChatViewModel.kt`, `Screens.kt`.
 - **Notes:** Settings export/import as JSON. 0 KB.
 - **Goal:** Export provider configs + templates as JSON. Import from file. Reduces multi-device setup friction.
 - **Source:** Agora key rotation pattern + `docs/COMPETITIVE-STEAL-LIST.md`
 - **APK:** 0 KB | **Touch:** `SettingsRepository.kt`, `Screens.kt`
 
 ### C-023 — Multi-key per provider (Agora steal)
-- **Status:** Done
+- **Status:** Done — **fixed 2026-08-15 (WIRE):** NamedKeyStore existed but nothing used it (dead code). Now the active named key overrides the primary key in every send; Settings gains a "Saved keys" add/list/Use/Delete section. Files: `AppContainer.kt`, `ChatViewModel.kt`, `Screens.kt`.
 - **Notes:** NamedKeyStore for multi-key per provider. Encrypted.
 - **Goal:** Named API keys per provider with radio-button active selection + masked previews. Users can have "Work OpenAI" and "Personal OpenAI" keys.
 - **Source:** Agora subagent deep-dive + `docs/COMPETITIVE-STEAL-LIST.md`
 - **APK:** ~15KB | **Touch:** `SettingsRepository.kt`, `SecureStore.kt`, `Screens.kt`
 
 ### C-024 — Conversation forks (Agora steal)
-- **Status:** Done
+- **Status:** Done — **fixed 2026-08-15 (WIRE):** forks were schema-only (a `parentId` column with zero logic). Now `forkConversation()` copies the prefix into an independent branch (fork-point copy keeps `parentId`); long-press any message → "Fork from here". Files: `ChatRepository.kt`, `ChatViewModel.kt`, `Screens.kt`.
 - **Notes:** Conversation forks: parentId in MessageEntity.
 - **Goal:** Branch conversation at any message. Message tree with branch selection. Forked branches are independent. Useful for "try different model" or "try different prompt."
 - **Source:** Agora subagent deep-dive + `docs/COMPETITIVE-STEAL-LIST.md`

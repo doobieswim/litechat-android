@@ -96,6 +96,33 @@ PROOF grades → this file
 
 # Log (newest first)
 
+## Research review — 2026-08-15 — R-015 overnight myths + real roadmap
+
+**Scope:** `docs/OVERNIGHT-ROADMAP.md` + BACKLOG R-015 (only outstanding "waiting LITECHAT-PROOF" ticket; R-014 and the R-016 pack were already graded).  \
+**Role:** `LITECHAT-PROOF`. Read-only except this file. Did not touch DIG docs, `app/**`, or BACKLOG statuses. Spot-checked three load-bearing sources live: cdixon.org ("52nd game… eight years… almost bankrupt" — exact match), TechCrunch Hotmail (100 first hour / 3,000 a day / 1M in six months / 2M five weeks later / Juno $20M — all match), howtomarketagame Among Us (itch.io front page Dec 2018 → Korean streamer Kevin Choi, Brazil end-2019 — match).
+
+**Verdict: Approve** (research only — no Ready child, correctly)
+
+### Checklist
+
+1. **Scope** — Docs only. No app code. R-015 stays **Research**, "No Ready child. No Kotlin. No name list (H-004 still empty)." Two *future* tickets (copy check, share-screenshot helper) are named but deferred behind human want + a future PROOF grade — correct shape, same as R-014.
+2. **Grounding** — 10 live URLs; the three riskiest claims verified against the pages and they match. `[unverified]` used honestly for the Dropbox video numbers. Guesses marked.
+3. **Product laws** — Held. No 7B/agent runtime/WebView (Chapter 4 "Don't" list), no SoftRAM (fake counts, fake clocks, fake waitlist banned), Tier A thin client, costs labeled every chapter ($0; ~$25 Play flagged again at Chapter 3; Play Billing cut of $4.99 named).
+4. **Theme** — BACKSTAGE stamp at the top. Chapter 5 says "without saying underdog." The "Honda that starts" is the theme law's own line. Fight metaphors stay in this backstage file only. Everyday face (paste key → real answer, one calm memory note, $4.99 once shown before Pay) matches `THEME-SHOW-DONT-TELL.md`.
+5. **Ticket quality** — No Ready ticket, and the doc says why. Chapter 0 carries a "Done when" gate (graded by PROOF). The two named future tickets are conditional, not dangling.
+6. **Usefulness** — A do-not-trap law for launch, like R-014: underground-first = shipping order (same as H-005, still human's call), "do not pull the app if it spikes," no fake waitlist, Wordle-style share proof. Feeds D-005 sequencing and the spike-response one-pager (Chapter 6). No H-question needed — it answers "how we launch and what we never do," not a product pick.
+
+### Nits (not Issues)
+
+- Chapter 6 says "$4.99 does (kills the banner)" — still true today, but if H-008 later adds more Pro value, that one-pager line needs a refresh. Flag it then, not now.
+- TechCrunch's "100 in the first hour" is a founder anecdote ("Smith counted"), not an audited number — fine for a backstage lesson, never quote it as a Play fact.
+
+### Next
+
+Human or DIG may set **R-015 → Done (research only)**. No Ready child exists and none should be created from this file. The research queue is now fully PROOF-cleared (R-011–R-016, Research A/B/C, naming pack, H-001/H-005/H-006/H-008/H-009/H-010 all graded).
+
+---
+
 ## Research review — 2026-08-15 — Re-check: PROOF issues 1–3 (commit f1d97de)
 
 **Scope:** the 3 fixes from `f1d97de` only: F-Droid metadata (`fastlane/metadata/android/en-US/fdroid.yml` + description files + `docs/LAUNCH-PACK.md` row 2), C-032 status + `docs/PLAY-POLICY-AUDIT.md` blocker #1, `docs/PRO-ROADMAP.md` /imagine boundary line.  \

@@ -10,13 +10,17 @@ import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -24,16 +28,27 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
+import com.litechat.android.LiteChatApp
+import com.litechat.android.data.api.ChatMessageDto
+import com.litechat.android.data.context.ContextTrimmer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * C-015: Floating chat overlay via SYSTEM_ALERT_WINDOW.
- * Shows a minimal chat input that floats over other apps.
- * Pro-gated feature.
+ * A minimal chat input that floats over other apps. Pro-gated — the Settings
+ * toggle refuses to enable it for free users (gate enforced in Screens.kt).
+ *
+ * C-032: ads NEVER run here. This service contains no ad code and the toggle
+ * is gated, so no banner can ever appear over other apps (Play hygiene).
  */
 class OverlayService : Service() {
 
@@ -60,13 +75,26 @@ class OverlayService : Service() {
             .build())
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // C-015 fix (was broken): the service started but showOverlay() was
+        // never called, so the floating window never appeared.
+        showOverlay()
+        // NOT_STICKY: if the system kills us, don't resurrect an overlay the
+        // user may not want — they can flip the toggle again.
+        return START_NOT_STICKY
+    }
+
     fun showOverlay() {
         if (overlayView != null) return
+        val container = (applicationContext as LiteChatApp).container
 
         overlayView = ComposeView(this).apply {
             setContent {
                 MaterialTheme {
                     var input by remember { mutableStateOf("") }
+                    var reply by remember { mutableStateOf<String?>(null) }
+                    var busy by remember { mutableStateOf(false) }
+                    val scope = rememberCoroutineScope()
                     Surface(
                         modifier = Modifier.fillMaxWidth().padding(8.dp),
                         shape = RoundedCornerShape(16.dp),
@@ -81,6 +109,88 @@ class OverlayService : Service() {
                                 placeholder = { Text("Ask AI…") },
                                 maxLines = 3,
                             )
+                            reply?.let { text ->
+                                Text(
+                                    text,
+                                    modifier = Modifier.padding(top = 6.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 8,
+                                )
+                            }
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                IconButton(
+                                    onClick = {
+                                        val text = input.trim()
+                                        if (text.isEmpty() || busy) return@IconButton
+                                        busy = true
+                                        reply = null
+                                        scope.launch {
+                                            reply = try {
+                                                if (!container.isPro()) {
+                                                    "Floating overlay is a Pro feature — upgrade in Settings."
+                                                } else {
+                                                    val key = container.namedKeyStore.getActiveKey()
+                                                        .ifBlank { container.settingsRepository.getApiKey() }
+                                                    if (key.isBlank()) {
+                                                        "Add an API key in Settings first."
+                                                    } else {
+                                                        val settings =
+                                                            container.settingsRepository.settings.first()
+                                                        // Reuse one "Overlay" conversation so overlay
+                                                        // chats persist in the main chat list.
+                                                        val convs = container.chatRepository
+                                                            .observeConversations().first()
+                                                        var conv = convs.firstOrNull { it.title == "Overlay" }
+                                                        if (conv == null) {
+                                                            conv = container.chatRepository
+                                                                .createConversation(
+                                                                    title = "Overlay",
+                                                                    model = settings.model,
+                                                                )
+                                                        }
+                                                        container.chatRepository
+                                                            .addMessage(conv.id, "user", text)
+                                                        val history = container.chatRepository
+                                                            .listMessages(conv.id)
+                                                        val systemMsg = ChatMessageDto(
+                                                            "system",
+                                                            "Do not fabricate tool outputs, file contents, citations, or completed work."
+                                                        )
+                                                        val (trimmed, _) = ContextTrimmer.trim(
+                                                            listOf(systemMsg) +
+                                                                history.map { ChatMessageDto(it.role, it.content) }
+                                                        )
+                                                        val answer = withContext(Dispatchers.IO) {
+                                                            container.openAiClient.completeChat(
+                                                                baseUrl = settings.baseUrl,
+                                                                apiKey = key,
+                                                                model = settings.model,
+                                                                messages = trimmed,
+                                                                temperature = settings.temperature,
+                                                            )
+                                                        }
+                                                        container.chatRepository.addMessage(
+                                                            conv.id, "assistant",
+                                                            answer.ifBlank { "No answer from model." }
+                                                        )
+                                                        input = ""
+                                                        answer.ifBlank { "No answer from model." }
+                                                    }
+                                                }
+                                            } catch (e: Exception) {
+                                                "Failed: ${e.message?.take(120)}"
+                                            }
+                                            busy = false
+                                        }
+                                    },
+                                    enabled = !busy,
+                                ) {
+                                    Icon(Icons.Filled.Send, contentDescription = "Send")
+                                }
+                            }
                         }
                     }
                 }
@@ -93,7 +203,11 @@ class OverlayService : Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            // FLAG_NOT_FOCUSABLE alone blocks the IME — combine with
+            // FLAG_ALT_FOCUSABLE_IM so the text field can open the keyboard
+            // without the overlay stealing focus from the app underneath.
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.BOTTOM }
 

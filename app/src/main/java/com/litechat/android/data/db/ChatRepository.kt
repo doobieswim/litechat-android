@@ -63,6 +63,42 @@ class ChatRepository(
         return entity
     }
 
+    /**
+     * C-024: fork a conversation at a message. Copies every message up to and
+     * including [fromMessageId] into a new conversation; the copy of the fork
+     * point keeps [MessageEntity.parentId] pointing at the original message so
+     * the branch lineage is queryable. The branch is fully independent after
+     * this (messages are copies, not references).
+     */
+    suspend fun forkConversation(
+        conversationId: String,
+        fromMessageId: String,
+        model: String = "",
+    ): ConversationEntity {
+        val original = conversationDao.get(conversationId)
+            ?: throw IllegalStateException("Conversation not found")
+        val all = messageDao.listForConversation(conversationId)
+        val forkPointCreatedAt = all.find { it.id == fromMessageId }?.createdAt
+            ?: throw IllegalStateException("Message not found")
+        val messages = all.filter { it.createdAt <= forkPointCreatedAt }
+        val branch = createConversation(
+            title = "Fork: ${original.title.take(70)}",
+            model = model.ifBlank { original.model },
+        )
+        val now = System.currentTimeMillis()
+        messages.forEachIndexed { i, msg ->
+            messageDao.insert(
+                msg.copy(
+                    id = UUID.randomUUID().toString(),
+                    conversationId = branch.id,
+                    createdAt = now + i,  // keep order; parentId marks the fork point
+                    parentId = if (msg.id == fromMessageId) msg.id else null,
+                )
+            )
+        }
+        return branch
+    }
+
     suspend fun updateMessageContent(id: String, conversationId: String, content: String) {
         val list = messageDao.listForConversation(conversationId)
         val msg = list.find { it.id == id } ?: return

@@ -28,6 +28,8 @@ fun BannerAd() {
             AdView(ctx).apply {
                 setAdSize(AdSize.BANNER)
                 adUnitId = unitId
+                // C-032: non-personalized ads are enforced globally via
+                // RequestConfiguration in AdMobLazyInit (23.x API) — no UMP SDK.
                 loadAd(AdRequest.Builder().build())
             }
         }

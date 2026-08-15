@@ -27,6 +27,8 @@ data class AppSettings(
     val temperature: Float = 0.7f,
     val onboardingDone: Boolean = false,
     val isPro: Boolean = false,
+    /** C-032: user accepted the in-app acceptable-use terms (one-time). */
+    val acceptableUseAccepted: Boolean = false,
 )
 
 /** C-012: prompt template with dynamic [Variable] fields. */
@@ -56,6 +58,7 @@ class SettingsRepository(
         val TEMPERATURE = floatPreferencesKey("temperature")
         val ONBOARDING = booleanPreferencesKey("onboarding_done")
         val IS_PRO = booleanPreferencesKey("is_pro")
+        val ACCEPTABLE_USE = booleanPreferencesKey("acceptable_use_accepted")
         val NON_STREAM_EXPIRY = stringPreferencesKey("non_stream_expiry_map")
     }
 
@@ -226,6 +229,7 @@ class SettingsRepository(
             temperature = p[Keys.TEMPERATURE] ?: 0.7f,
             onboardingDone = p[Keys.ONBOARDING] ?: false,
             isPro = p[Keys.IS_PRO] ?: false,
+            acceptableUseAccepted = p[Keys.ACCEPTABLE_USE] ?: false,
         )
     }
 
@@ -239,6 +243,7 @@ class SettingsRepository(
         temperature: Float? = null,
         onboardingDone: Boolean? = null,
         isPro: Boolean? = null,
+        acceptableUseAccepted: Boolean? = null,
     ) {
         context.dataStore.edit { p ->
             baseUrl?.let { p[Keys.BASE_URL] = it.trim().trimEnd('/') }
@@ -246,7 +251,59 @@ class SettingsRepository(
             temperature?.let { p[Keys.TEMPERATURE] = it.coerceIn(0f, 2f) }
             onboardingDone?.let { p[Keys.ONBOARDING] = it }
             isPro?.let { p[Keys.IS_PRO] = it }
+            acceptableUseAccepted?.let { p[Keys.ACCEPTABLE_USE] = it }
         }
+    }
+
+    // ── C-022: Settings export/import (JSON — never secrets) ──────────
+
+    @kotlinx.serialization.Serializable
+    private data class SettingsExportDto(
+        val version: Int = 1,
+        val baseUrl: String,
+        val model: String,
+        val temperature: Float,
+        val templates: List<TemplateDto> = emptyList(),
+    )
+
+    /**
+     * C-022: serialize non-secret settings for export. API keys stay on the
+     * device (SecureStore), Pro state is earned via billing, and compliance
+     * flags are device-local — none of them cross the JSON boundary.
+     */
+    suspend fun exportSettingsJson(): String {
+        val s = context.dataStore.data.first()
+        val templates = decodeTemplates(s[templateKey])
+        val dto = SettingsExportDto(
+            baseUrl = s[Keys.BASE_URL] ?: "https://api.openai.com/v1",
+            model = s[Keys.MODEL] ?: "gpt-4o-mini",
+            temperature = s[Keys.TEMPERATURE] ?: 0.7f,
+            templates = templates.map { TemplateDto(it.id, it.name, it.template, it.variables) },
+        )
+        return kotlinx.serialization.json.Json.encodeToString(
+            SettingsExportDto.serializer(), dto
+        )
+    }
+
+    /** C-022: apply an exported settings JSON. Returns an error message, or null on success. */
+    suspend fun importSettingsJson(json: String): String? {
+        val dto = try {
+            kotlinx.serialization.json.Json.decodeFromString(
+                SettingsExportDto.serializer(), json
+            )
+        } catch (_: Exception) {
+            return "Settings file is not valid"
+        }
+        if (dto.version != 1) return "Unsupported settings version ${dto.version}"
+        context.dataStore.edit { p ->
+            if (dto.baseUrl.isNotBlank()) p[Keys.BASE_URL] = dto.baseUrl.trim().trimEnd('/')
+            if (dto.model.isNotBlank()) p[Keys.MODEL] = dto.model
+            p[Keys.TEMPERATURE] = dto.temperature.coerceIn(0f, 2f)
+            p[templateKey] = encodeTemplates(
+                dto.templates.map { PromptTemplate(it.id, it.name, it.template, it.variables) }
+            )
+        }
+        return null
     }
 
     companion object {

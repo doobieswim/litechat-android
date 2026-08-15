@@ -38,6 +38,11 @@ class MemoryManager(private val context: Context) {
         return facts.joinToString("; ", prefix = "User preferences: ", postfix = ".")
     }
 
+    /** Wipe every stored memory fact (Settings → Clear memory). */
+    fun clear() {
+        prefs.edit().remove("memories").apply()
+    }
+
     private fun getAll(): List<MemoryEntry> {
         val raw = prefs.getString("memories", "[]") ?: "[]"
         return try {

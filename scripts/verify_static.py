@@ -128,8 +128,12 @@ def main() -> int:
     ok("exportChats in VM", "exportChats" in vm and "importChats" in vm)
 
     # C-015 overlay guards.
+    overlay_kt_early = (KT_ROOT / "com/litechat/android/ui/OverlayService.kt").read_text()
     ok("OverlayService file", (KT_ROOT / "com/litechat/android/ui/OverlayService.kt").is_file())
     ok("SYSTEM_ALERT_WINDOW in manifest", "SYSTEM_ALERT_WINDOW" in manifest)
+    # C-015 fix (2026-08-15): the service must actually show the window and send.
+    ok("overlay shows + sends", "onStartCommand" in overlay_kt_early
+        and "showOverlay()" in overlay_kt_early and "completeChat" in overlay_kt_early)
 
     # C-016 attach guards.
     ok("attachImage in VM", "attachImage" in vm and "Base64" in vm)
@@ -146,18 +150,43 @@ def main() -> int:
 
     # C-020 memory guards.
     ok("MemoryManager file", (KT_ROOT / "com/litechat/android/data/context/MemoryManager.kt").is_file())
+    # C-020 fix (2026-08-15): memory must be wired into the send flow.
+    ok("memory wired in VM", "memoryManager" in vm and "getMemoryPrompt" in vm
+        and "Remember " in vm)
 
     # C-021 voice input guards.
     ok("voice launcher", "rememberLauncherForActivityResult" in screens and "onVoiceInput" in screens)
 
     # C-022 export/import guards.
     ok("export/import wired", "onExport" in screens and "onImport" in screens and "Backup chats" in screens)
+    # C-022 fix (2026-08-15): settings JSON export/import (no secrets).
+    ok("settings export/import wired", "exportSettingsJson" in settings_repo
+        and "importSettingsJson" in settings_repo and "Export settings" in screens)
 
     # C-023 NamedKeyStore guards.
     ok("NamedKeyStore file", (KT_ROOT / "com/litechat/android/data/prefs/NamedKeyStore.kt").is_file())
+    # C-023 fix (2026-08-15): named keys must be wired + reachable from the UI.
+    ok("named keys wired", "namedKeyStore" in vm and "NamedKey" in vm
+        and "Saved keys" in screens and "getActiveKey" in all_kt)
 
     # C-024 conversation forks guards.
     ok("MessageEntity.parentId", "val parentId: String? = null" in all_kt and "conversation forks" in all_kt)
+    # C-024 fix (2026-08-15): fork must be more than a schema column.
+    ok("forkConversation in repo", "forkConversation" in all_kt
+        and "Fork from here" in screens)
+
+    # C-032: Play AI-Generated Content compliance (in-app reporting +
+    # acceptable-use + EEA/UK non-personalized ads).
+    ok("C-032 report flow", "ACTION_SENDTO" in screens and "Report content" in screens
+        and "mailto:litechat@proton.me" in screens)
+    ok("C-032 acceptable-use", "AcceptableUseDialog" in screens
+        and "acceptableUseAccepted" in settings_repo)
+    ok("C-032 non-personalized ads", "PublisherPrivacyPersonalizationState" in ad_init)
+
+    # Gate-gap close (2026-08-15): /browse, attach and backup now enforce Pro.
+    ok("Pro gates enforced (browse/attach/backup)", "Web browsing is a Pro feature" in vm
+        and "Image attachment is a Pro feature" in vm
+        and "Chat backup is a Pro feature" in vm)
 
     # Image cache guards.
     ok("ImageCacheConfig file", (KT_ROOT / "com/litechat/android/util/ImageCacheConfig.kt").is_file())

@@ -72,6 +72,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -134,6 +136,14 @@ fun LiteChatRoot(vm: ChatViewModel) {
         contract = ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { vm.importChats(it) } }
 
+    // C-022: settings JSON export/import (no secrets — keys never leave the device).
+    val settingsExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { vm.exportSettings(it) } }
+    val settingsImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { vm.importSettings(it) } }
+
     // C-015: overlay toggle.
     var overlayOn by remember { mutableStateOf(false) }
 
@@ -162,6 +172,12 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onSetPro = vm::setPro,
             onExport = { exportLauncher.launch("litechat_backup.db") },
             onImport = { importLauncher.launch(arrayOf("*/*")) },
+            onExportSettings = { settingsExportLauncher.launch("litechat_settings.json") },
+            onImportSettings = { settingsImportLauncher.launch(arrayOf("application/json")) },
+            onSaveNamedKey = vm::saveNamedKey,
+            onDeleteNamedKey = vm::deleteNamedKey,
+            onSetActiveNamedKey = vm::setActiveNamedKey,
+            onClearMemory = vm::clearMemory,
             overlayOn = overlayOn,
             onToggleOverlay = { enabled ->
                 if (enabled) {
@@ -188,6 +204,7 @@ fun LiteChatRoot(vm: ChatViewModel) {
         else -> ChatScreen(
             state = state,
             onOpenSettings = { showSettings = true },
+            onFork = vm::forkFrom,
             onNewChat = vm::newChat,
             onSelect = vm::selectConversation,
             onDelete = vm::deleteConversation,
@@ -217,6 +234,12 @@ fun LiteChatRoot(vm: ChatViewModel) {
                         },
                     )
     }
+
+    // C-032: one-time acceptable-use acceptance (Play AI-Generated Content
+    // policy — no BYOK carve-out, shown after onboarding, must be accepted).
+    if (state.settings.onboardingDone && !state.settings.acceptableUseAccepted) {
+        AcceptableUseDialog(onAccept = vm::acceptAcceptableUse)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -235,10 +258,16 @@ fun ChatScreen(
     onAttachImage: () -> Unit,
     onVoiceInput: () -> Unit,
     onShare: () -> Unit,
+    onFork: (String) -> Unit,
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+
+    // C-032/C-024: long-press actions — Report (Play AI-Generated Content
+    // policy) and Fork from here.
+    var actionMsg by remember { mutableStateOf<MessageEntity?>(null) }
+    var showReportReasons by remember { mutableStateOf(false) }
 
     val displayMessages = buildList {
         addAll(state.messages)
@@ -576,7 +605,7 @@ fun ChatScreen(
                         val isLastStreaming = state.isStreaming &&
                             msg.id == displayMessages.lastOrNull()?.id &&
                             msg.role == "assistant"
-                        MessageBubble(msg)
+                        MessageBubble(msg, onLongPress = { actionMsg = it })
                         if (isLastStreaming) {
                             val text = msg.content
                             val hasOpenBlock = text.contains("```") &&
@@ -595,10 +624,86 @@ fun ChatScreen(
             } // close Column(Modifier.padding(padding)) from Imp#2/#3 banners
         }
     }
+
+    // C-032: in-app AI-content reporting (Play requires this for any app that
+    // generates AI content — chat, /imagine, /video). Zero server: opens a
+    // pre-filled email to the developer.
+    actionMsg?.let { msg ->
+        val reportContext = LocalContext.current
+        if (!showReportReasons) {
+            AlertDialog(
+                onDismissRequest = { actionMsg = null },
+                title = { Text("Message actions") },
+                text = {
+                    Column {
+                        TextButton(onClick = {
+                            onFork(msg.id)
+                            actionMsg = null
+                        }) { Text("Fork from here") }
+                        TextButton(onClick = { showReportReasons = true }) {
+                            Text("Report content", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { actionMsg = null }) { Text("Cancel") }
+                },
+            )
+        } else {
+            AlertDialog(
+                onDismissRequest = {
+                    actionMsg = null
+                    showReportReasons = false
+                },
+                title = { Text("Report content") },
+                text = {
+                    Column {
+                        Text(
+                            "Why are you reporting this? This opens an email to the developer — nothing is sent automatically.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        listOf(
+                            "Illegal content",
+                            "Sexual content",
+                            "Violence or gore",
+                            "Harassment or abuse",
+                            "Misinformation",
+                            "Other",
+                        ).forEach { reason ->
+                            TextButton(onClick = {
+                                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("mailto:litechat@proton.me")
+                                    putExtra(Intent.EXTRA_SUBJECT, "AI content report — BYO AI")
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        "Reason: $reason\n\nRole: ${msg.role}\n\nMessage snippet:\n${msg.content.take(500)}"
+                                    )
+                                }
+                                try {
+                                    reportContext.startActivity(intent)
+                                } catch (_: Exception) {
+                                    // No mail app installed — the report stays local.
+                                }
+                                actionMsg = null
+                                showReportReasons = false
+                            }) { Text(reason) }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        actionMsg = null
+                        showReportReasons = false
+                    }) { Text("Cancel") }
+                },
+            )
+        }
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MessageBubble(msg: MessageEntity) {
+private fun MessageBubble(msg: MessageEntity, onLongPress: (MessageEntity) -> Unit) {
     val isUser = msg.role == "user"
 
     // C-011: render image messages with Coil AsyncImage.
@@ -610,7 +715,9 @@ private fun MessageBubble(msg: MessageEntity) {
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.widthIn(max = 520.dp),
+                    modifier = Modifier
+                        .widthIn(max = 520.dp)
+                        .combinedClickable(onClick = {}, onLongClick = { onLongPress(msg) }),
                 ) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
@@ -644,7 +751,9 @@ private fun MessageBubble(msg: MessageEntity) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
                 Surface(color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.widthIn(max = 520.dp)) {
+                    modifier = Modifier
+                        .widthIn(max = 520.dp)
+                        .combinedClickable(onClick = {}, onLongClick = { onLongPress(msg) })) {
                     AndroidView(
                         factory = { android.widget.VideoView(it).apply {
                             setVideoPath(path)
@@ -671,7 +780,9 @@ private fun MessageBubble(msg: MessageEntity) {
                 bottomStart = if (isUser) 16.dp else 4.dp,
                 bottomEnd = if (isUser) 4.dp else 16.dp,
             ),
-            modifier = Modifier.widthIn(max = 520.dp),
+            modifier = Modifier
+                .widthIn(max = 520.dp)
+                .combinedClickable(onClick = {}, onLongClick = { onLongPress(msg) }),
         ) {
             // C-008 (deferred): assistant messages render as plain text for v1.
             // Markdown deferred — see docs/MARKDOWN-COST.md.
@@ -706,6 +817,33 @@ private fun MessageBubble(msg: MessageEntity) {
  * BannerAd is flavor-specific (C-002): the play build shows an AdMob banner,
  * the foss build renders nothing. Defined in each flavor's ui source set.
  */
+
+@Composable
+private fun AcceptableUseDialog(onAccept: () -> Unit) {
+    AlertDialog(
+        // C-032: no dismiss path — the user must accept once before using chat.
+        onDismissRequest = { },
+        title = { Text("Before you start") },
+        text = {
+            Column {
+                Text("BYO AI connects to AI services with your own key. Please read this once.")
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "You must not use BYO AI to create or share: child sexual abuse material; sexual content involving minors; non-consensual sexual content; graphic violence or gore meant to shock; or content that deceives or impersonates real people for harm.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "The AI provider you connect to applies its own safety filters too. BYO AI does not host or moderate your conversations.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onAccept) { Text("I understand") }
+        },
+    )
+}
 
 @Composable
 fun OnboardingScreen(
@@ -838,6 +976,12 @@ fun SettingsScreen(
     onSetPro: (Boolean) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    onExportSettings: () -> Unit,
+    onImportSettings: () -> Unit,
+    onSaveNamedKey: (String, String) -> Unit,
+    onDeleteNamedKey: (String) -> Unit,
+    onSetActiveNamedKey: (String) -> Unit,
+    onClearMemory: () -> Unit,
     overlayOn: Boolean,
     onToggleOverlay: (Boolean) -> Unit,
 ) {
@@ -858,6 +1002,10 @@ fun SettingsScreen(
     var modelsMsg by remember { mutableStateOf<String?>(null) }
     var modelsLoading by remember { mutableStateOf(false) }
     var showModelsMenu by remember { mutableStateOf(false) }
+    // C-023: add-key form state (declared here — composable calls can't live
+    // directly inside the LazyColumn scope).
+    var newKeyName by remember { mutableStateOf("") }
+    var newKeyValue by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val snap = remember(context) { DeviceCompat.snapshot(context) }
 
@@ -1013,6 +1161,66 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Save") }
             }
+            // C-023: named keys per provider (encrypted, Agora pattern).
+            item {
+                Text("Saved keys", fontWeight = FontWeight.SemiBold)
+            }
+            if (state.namedKeys.isEmpty()) {
+                item {
+                    Text(
+                        "No named keys yet. Add one to keep multiple API keys.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            state.namedKeys.forEach { named ->
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            named.name,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            if (named.isActive) "active" else "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        TextButton(onClick = { onSetActiveNamedKey(named.name) }) {
+                            Text("Use")
+                        }
+                        TextButton(onClick = { onDeleteNamedKey(named.name) }) {
+                            Text("Delete", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+            item {
+                OutlinedTextField(
+                    newKeyName, { newKeyName = it },
+                    label = { Text("Key name (e.g. Work OpenAI)") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                )
+            }
+            item {
+                OutlinedTextField(
+                    newKeyValue, { newKeyValue = it },
+                    label = { Text("API key") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                )
+            }
+            item {
+                TextButton(onClick = {
+                    onSaveNamedKey(newKeyName, newKeyValue)
+                    newKeyName = ""
+                    newKeyValue = ""
+                }) { Text("Add key") }
+            }
             item { HorizontalDivider() }
             item {
                 Text("Pro", fontWeight = FontWeight.SemiBold)
@@ -1104,6 +1312,23 @@ fun SettingsScreen(
                                 }
                             }
                         }
+                        // C-022: settings JSON export/import (never contains keys).
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = onExportSettings) {
+                                    Text("Export settings")
+                                }
+                                TextButton(onClick = onImportSettings) {
+                                    Text("Import settings")
+                                }
+                            }
+                        }
+                        // C-020: persistent memory (Pro) — clear stored facts.
+                        item {
+                            TextButton(onClick = onClearMemory) {
+                                Text("Clear memory", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
                         // C-015: floating overlay toggle.
                         item { HorizontalDivider() }
                         item {
@@ -1113,7 +1338,15 @@ fun SettingsScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 androidx.compose.material3.Switch(
                                     checked = overlayOn,
-                                    onCheckedChange = onToggleOverlay,
+                                    onCheckedChange = { enabled ->
+                                        // C-015 gate: overlay is Pro — refuse to
+                                        // enable it for free users (was ungated).
+                                        if (enabled && !state.settings.isPro) {
+                                            billingMsg = "Floating overlay is a Pro feature — pay once to unlock"
+                                        } else {
+                                            onToggleOverlay(enabled)
+                                        }
+                                    },
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
