@@ -1,20 +1,20 @@
-# LiteChat F-Droid metadata
+# BYO AI F-Droid metadata
 
 Categories:
   - Internet
   - AI Chat
 License: MIT
-AuthorName: LiteChat
+AuthorName: BYO AI
 AuthorEmail: litechat@proton.me
 WebSite: https://github.com/flamingspade1995-coder/litechat-android
 SourceCode: https://github.com/flamingspade1995-coder/litechat-android
 IssueTracker: https://github.com/flamingspade1995-coder/litechat-android/issues
 Changelog: https://github.com/flamingspade1995-coder/litechat-android/releases
 
-AutoName: LiteChat
+AutoName: BYO AI
 Summary: Thin BYOK AI chat client for Android. Bring your own OpenAI-compatible key.
 Description: |
-  LiteChat is a lightweight, open-source AI chat client for Android.
+  BYO AI is a lightweight, open-source AI chat client for Android.
   
   Features:
   - BYOK (Bring Your Own Key) — use OpenAI, OpenRouter, Groq, Ollama, or any OpenAI-compatible API
@@ -23,7 +23,7 @@ Description: |
   - Web browsing via /browse command
   - Prompt templates with variables
   - Honest compatibility matrix — shows if your phone can run it
-  - Works on 4GB phones
+  - Built for a $30 phone — works on 4GB phones (e.g. Moto G 2025)
   - One-time $4.99 Pro removes ads and unlocks premium features
   - FOSS flavor available (no Google Play Services)
   

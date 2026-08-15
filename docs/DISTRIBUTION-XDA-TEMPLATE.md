@@ -1,8 +1,8 @@
-# [APP] LiteChat — Thin BYOK AI Chat for Android 8+ (4GB-friendly)
+# [APP] BYO AI — Thin BYOK AI Chat for Android 8+ (4GB-friendly)
 
 **I am not the developer** — just sharing an open-source BYOK app I found.
 
-## What is LiteChat?
+## What is BYO AI?
 
 A lightweight AI chat client that connects to YOUR OpenAI-compatible API key. No accounts, no subscriptions, no data collection. Your key, your endpoint, your device.
 

@@ -94,9 +94,9 @@ The LiteChat FOSS arm targets the same audience as numAi: users running old/weak
 
 **LiteChat thread template:**
 ```
-[APP][8.0+] LiteChat — Thin BYOK AI chat client for weak Android devices
+[APP][8.0+] BYO AI — Thin BYOK AI chat client for weak Android devices
 
-LiteChat is an open-source, lightweight ChatGPT-compatible client designed for 
+BYO AI is an open-source, lightweight ChatGPT-compatible client designed for 
 phones with 3–4 GB RAM. Uses your own API key — no cloud account needed.
 
 - minSdk 26 (Android 8.0+), optimized for 4 GB devices

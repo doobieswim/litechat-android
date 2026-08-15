@@ -32,3 +32,14 @@ Not affiliated with OpenAI, Google, or any AI company.
 - “Runs a real model on 4GB”
 - Named rival apps
 - Fake clocks or fake download counts
+
+## Screenshots (plan — 4 shots, 9:16 or 16:9, real app only)
+
+Rules: real screenshots of the actual UI, calm text overlays, no rival logos, no fight words, no fake claims. All text everyday words.
+
+1. **Chat screen** — a real conversation with the model name shown. Overlay: "Your key, your chat."
+2. **Compat matrix** — the honest low-memory note on a tight phone (this IS the $30 phone story, shown not told). Overlay: "Built for a $30 phone."
+3. **Key setup** — the BYOK paste screen. Overlay: "Paste your own key. No account."
+4. **Pro screen** — the pay-once card. Overlay: "Pay once. No monthly bill."
+
+Tooling: emulator at 480x800 (a real 4GB-class resolution) or the actual Moto G 2025 if you have one. Keep chat content generic ("What's the weather?") — never stage praise.
