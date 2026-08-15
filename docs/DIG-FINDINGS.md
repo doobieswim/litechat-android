@@ -198,3 +198,42 @@ numAi-plus/.../SettingsActivity.java  # STREAMING_MODE_*
 ReOldAi/.../AIApplication.java     # Conscrypt
 ReOldAi/.../MainActivity.java      # Gemini HttpURLConnection
 ```
+
+---
+
+## 7. HenWorks Hermes Agent — Android (2026-08-15)
+
+Clones (local):
+- `/opt/data/workspace/Hermes-agent-android-PC-companion-app` (official, AGPL-3.0, ★44)
+- `/opt/data/workspace/Hermes-Agent-On-Android` (AbuZar-Ansarii, ★189, MIT)
+
+**Key facts:** Play `com.hermesagent.android` (4.5★, 3.13K reviews, 10K+ downloads) is a
+**closed-source shell** around the open hermes-agent framework (MIT, Nous Research).
+~200MB env, built-in terminal, code execution, Fal.ai images, memory system, Hermes Pro
+one-time removes ads. The open companion reveals the architecture: **phone↔PC mesh**
+(NaCl Box E2E, QR public-key pairing, LAN/Tailscale broker, idempotent conversation
+handoff). Community repo shows the underlying Termux/proot packaging (~500 lines of
+shell, proot-distro ubuntu → clone hermes-agent → pip install).
+
+**Verdict:** business shell worth copying (one-time Pro, guided first-run, secrets-safe
+export — mostly already matched); agent runtime itself is the Tier B/D shape we refuse.
+Full report: `docs/HENWORKS-HERMES-AGENT-DIG.md`.
+
+---
+
+## 8. Opclaw / OpenClaw-on-Android (2026-08-15)
+
+Clones (local):
+- `/opt/data/workspace/openclaw-android` (AidanPark, ★1734, MIT — no-proot packaging)
+- `/opt/data/workspace/openclaw-termux` (mithun50, ★1678, MIT — Flutter app + terminal)
+
+**Key facts:** HenWorks' Opclaw (`com.opclaw.android`, 5.0★, 1K+) has a **~263 MB APK** —
+a closed shell around the open OpenClaw framework (openclaw/openclaw ★386K). HenWorks'
+"no proot, ~200MB, 3–10 min" marketing matches the community's glibc-ld.so-only trick
+(no full Linux distro). Packaging = native shell + WebView dashboard + bundled terminal
+emulator + Node-runtime patches (glibc-compat, argon2-stub, systemctl stub). Flutter
+alternative (openclaw-termux) monetizes via sponsor banner (Bloome).
+
+**Verdict:** agent lane = crowded, fat gold rush (dozens of packagers); 263 MB vs our
+1.6 MB is the honest-contrast number. Thin-client law unchanged. Full report:
+`docs/OPENCLAW-ANDROID-DIG.md`.

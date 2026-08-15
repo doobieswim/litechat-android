@@ -117,3 +117,42 @@ Code block card with inline web preview, scroll fade edge gradients, prompt cach
 8. ⭐⭐ **Dual SSE framing** (AetherisAI) — Anthropic support
 
 *Subagent deep-dives for Agora, EveryTalk, and Kai will refine this list.*
+
+---
+
+## HenWorks Hermes Agent - Android (★ closed shell / ★44 companion) — what to steal
+
+Full deep-dive: `docs/HENWORKS-HERMES-AGENT-DIG.md` (2026-08-15). App shell is
+closed-source; the PC companion is open (AGPL-3.0).
+
+| Pattern | HenWorks implementation | LiteChat equivalent | Steal? |
+|---------|------------------------|---------------------|--------|
+| **Remote brain mesh** (phone → PC Hermes) | NaCl-encrypted QR pairing, LAN/Tailscale broker (pair/push/poll/ack) | LAN Ollama today; future BYO-Sync / "run on my PC" (R-016 P-007) | 🔶 Design reference for P-007 |
+| **Idempotent conversation merge** | by-id upsert + natural-key dedup, both directions | C-014 manual SAF backup | 🔶 Reference for BYO-Sync |
+| **One-time Pro removes ads** | "Hermes Pro" | Already matched: $4.99 once, `BYO_pro` | ✅ Same lane |
+| **Install/check/repair lifecycle** | "Check install" + "Repair install" + progress | N/A for thin client | 🔶 Guided-first-run UX only (C-033) |
+| **Secrets-safe export** | handoff never touches auth.json/.env | C-022 already excludes keys | ✅ Matched |
+| **Fal.ai image gen** | Paid third-party image API | BYOK `/imagine` (provider-paid) | ❌ Keep BYOK |
+
+**Avoid:** bundled agent runtime + terminal + proot (~200MB env, 5–10 min install,
+stuck-progress complaints) — Tier B/D, violates the thin-client law. Their lane is agent
+power; ours is instant chat on a $30 phone.
+
+---
+
+## Opclaw / OpenClaw-on-Android (HenWorks + community) — what to steal
+
+Full deep-dive: `docs/OPENCLAW-ANDROID-DIG.md` (2026-08-15). HenWorks Opclaw shell is
+closed (APK ~263 MB); the category underneath is open and huge (openclaw/openclaw
+★386K; no-proot packager ★1734; Flutter app ★1678).
+
+| Pattern | Implementation | LiteChat action |
+|---------|---------------|-----------------|
+| **No-proot glibc-ld.so trick** | Run Node agents with just the glibc linker (~200MB, 3–10 min, native speed) | Packaging engineering to *know about*, not copy — we ship no runtime at all |
+| **One-tap bootstrap + self-check** | In-app install, "Check install", repair, progress | 🔶 Guided-first-run UX only (C-033 direction) |
+| **263 MB APK as contrast number** | HenWorks Opclaw APK = ~263 MB; ours = 1.6 MB | ✅ Show-don't-tell screenshot material (real numbers, no rival names) |
+| **Sponsor banner** (Bloome in openclaw-termux) | Affiliate monetization | ❌ Keep ads + one-time Pro only |
+| **WebView dashboard + terminal shell** | Cordova-style www dashboard + terminal emulator | ❌ WebView chat shell is banned; dashboard pattern irrelevant to Tier A |
+
+**Category signal:** dozens of Android OpenClaw packagers (★1734/1678/562/547/324/308/
+288/267/202) — the agent lane is a crowded gold rush. The thin-client lane stays ours.

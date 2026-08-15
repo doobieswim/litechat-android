@@ -334,6 +334,18 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Proposed tickets (Research, need PROOF+human):** P-001 voice · P-002 search · P-003 backup upgrade · P-004 quiet/registration · P-005 web search · P-006 memory+ · P-007 sync · P-008 tasks
 - **Out of scope:** coding, subscription models (never), Ready tickets.
 
+### R-017 — HenWorks Hermes Agent Android (competitive dig)
+- **Status:** Research — written 2026-08-15, waiting `LITECHAT-PROOF` (no Ready child)
+- **Deliverable:** `docs/HENWORKS-HERMES-AGENT-DIG.md` + `COMPETITIVE-STEAL-LIST.md` HenWorks row + `DIG-FINDINGS.md` §7. Clones: `/opt/data/workspace/Hermes-agent-android-PC-companion-app` (official, AGPL-3.0), `/opt/data/workspace/Hermes-Agent-On-Android` (community, ★189).
+- **Key findings:** App shell (`com.hermesagent.android`) is closed-source; open companion proves a phone↔PC mesh (NaCl E2E, QR pairing, idempotent handoff) — a design reference for future BYO-Sync (P-007). One-time "Hermes Pro" removes ads = same lane as our $4.99. Agent runtime + proot (~200MB env) stays on the avoid list (Tier B/D).
+- **Proposed follow-ups (need PROOF+human):** P-007 BYO-Sync design pass using the mesh/merge patterns.
+
+### R-018 — Opclaw / OpenClaw-on-Android (competitive dig)
+- **Status:** Research — written 2026-08-15, waiting `LITECHAT-PROOF` (no Ready child)
+- **Deliverable:** `docs/OPENCLAW-ANDROID-DIG.md` + `COMPETITIVE-STEAL-LIST.md` Opclaw row + `DIG-FINDINGS.md` §8. Clones: `/opt/data/workspace/openclaw-android` (AidanPark ★1734, no-proot), `/opt/data/workspace/openclaw-termux` (mithun50 ★1678, Flutter).
+- **Key findings:** HenWorks Opclaw = closed shell, **~263 MB APK**; category underneath is open (openclaw/openclaw ★386K; clawhub ★9.3K; awesome-openclaw-skills ★52K). "No proot, ~200MB, 3–10 min" = glibc-ld.so-only trick (native shell + WebView dashboard + terminal emulator + Node patches). Agent lane is a crowded gold rush; thin-client lane stays ours. 263 MB vs 1.6 MB = show-don't-tell contrast.
+- **No Ready child proposed** — research-only validation of the Tier A lane.
+
 ---
 
 ## Done (recent)
