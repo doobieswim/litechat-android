@@ -1,0 +1,15 @@
+BYO AI is a lightweight, open-source chat client for Android that connects to OpenAI-compatible AI services using your own API key.
+
+No accounts. No subscriptions. No tracking. Your key stays on your phone, encrypted. Your chats go straight from your phone to the AI service you chose.
+
+Features:
+- Bring your own key: OpenAI, OpenRouter, Groq, Ollama, LM Studio, or any OpenAI-compatible endpoint
+- Streaming chat responses
+- Image generation (/imagine) and video generation (/video) through your own provider
+- Web browsing (/browse) and image attachment for vision models
+- Voice input, prompt templates, conversation forks, chat backup and restore
+- Honest compatibility matrix: tells you plainly if your phone can handle it
+- Built for a $30 phone: small (~2 MB), fast, works on 4GB phones
+- Works with a local Ollama server on your network
+
+This build has no ads, no Google Play services, and no billing. Free forever.

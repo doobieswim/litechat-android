@@ -1,4 +1,8 @@
 # BYO AI F-Droid metadata
+# NOTE: this file is documentation for the fdroiddata submission.
+# The authoritative recipe lives in the fdroiddata repo as
+# metadata/com.byoai.chat.foss.yml (see docs/FDROID-BUILD-AUDIT.md).
+# At submission: replace commit with the FULL SHA of the v1.0.0 tag.
 
 Categories:
   - Internet
@@ -14,20 +18,23 @@ Changelog: https://github.com/flamingspade1995-coder/litechat-android/releases
 AutoName: BYO AI
 Summary: Thin BYOK AI chat client for Android. Bring your own OpenAI-compatible key.
 Description: |
-  BYO AI is a lightweight, open-source AI chat client for Android.
-  
+  BYO AI is a lightweight, open-source chat client for Android that connects to
+  OpenAI-compatible AI services using your own API key.
+
+  No accounts. No subscriptions. No tracking. Your key stays on your phone,
+  encrypted. Your chats go straight from your phone to the AI service you chose.
+
   Features:
-  - BYOK (Bring Your Own Key) — use OpenAI, OpenRouter, Groq, Ollama, or any OpenAI-compatible API
-  - Streaming responses with markdown rendering
-  - Image generation via /imagine command
-  - Web browsing via /browse command
-  - Prompt templates with variables
-  - Honest compatibility matrix — shows if your phone can run it
-  - Built for a $30 phone — works on 4GB phones (e.g. Moto G 2025)
-  - One-time $4.99 Pro removes ads and unlocks premium features
-  - FOSS flavor available (no Google Play Services)
-  
-  No accounts, no subscriptions, no data collection. Your API key, your endpoint, your device.
+  - Bring your own key: OpenAI, OpenRouter, Groq, Ollama, LM Studio, or any OpenAI-compatible endpoint
+  - Streaming chat responses
+  - Image generation (/imagine) and video generation (/video) through your own provider
+  - Web browsing (/browse) and image attachment for vision models
+  - Voice input, prompt templates, conversation forks, chat backup and restore
+  - Honest compatibility matrix: tells you plainly if your phone can handle it
+  - Built for a $30 phone: small (~2 MB), fast, works on 4GB phones
+  - Works with a local Ollama server on your network
+
+  This build has no ads, no Google Play services, and no billing. Free forever.
 
 RepoType: git
 Repo: https://github.com/flamingspade1995-coder/litechat-android
@@ -35,14 +42,13 @@ Repo: https://github.com/flamingspade1995-coder/litechat-android
 Builds:
   - versionName: '1.0.0'
     versionCode: 1
-    commit: main
-    subdir: app
+    commit: <FULL_SHA_OF_v1.0.0_TAG>   # F-Droid rejects branch names — substitute the tag's full SHA at submission
     gradle:
       - foss
 
 AntiFeatures:
-  - NonFreeNet (Play flavor uses Google Play Services for billing)
-  
+  - NonFreeNet # app connects to user-chosen proprietary AI APIs by default
+
 ArchivePolicy: 0
 AutoUpdateMode: Version
 UpdateCheckMode: Tags

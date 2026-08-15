@@ -39,6 +39,8 @@ The one-liner the app can truthfully own by 2027 (from trends §8):
 
 **Free keeps:** core chat, failover, multi-key, /imagine, /video, voice *input*, forks, compat matrix, LAN/Ollama, i18n, basic export, template share-copy.
 
+**Boundary (PROOF issue #3, resolved 2026-08-15):** generation itself — `/imagine` and `/video` — stays **free forever** (the user already pays the provider). The paid layer is what sits *on top*: image **editing** (a separate API call), folders, search, organization. No contradiction with PRO-SCAN's "never gate /imagine".
+
 ## Tier 2 — FUTURE (v1.2+, when Tier 1 lands)
 
 | # | Feature | Evidence | Notes |

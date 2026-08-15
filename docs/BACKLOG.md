@@ -13,7 +13,7 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 ## Now / next (coding)
 
 ### C-032 — Play compliance: in-app AI-content reporting + acceptable-use (policy-mandated)
-- **Status:** Ready — mandated by `docs/PLAY-POLICY-AUDIT.md` (Research B, 2026-08-15). Not a product choice: Play rejects apps that generate AI content without in-app reporting. Independent of H-008.
+- **Status:** Ready — mandated by `docs/PLAY-POLICY-AUDIT.md` (Research B). PROOF approved Research B 2026-08-15 (this ticket was flagged for pre-PROOF Ready; re-affirmed post-approval). Not a product choice: Play rejects apps that generate AI content without in-app reporting. Independent of H-008.
 - **AC:**
   - [ ] Long-press → **Report** on every message bubble (text, /imagine, /video results)
   - [ ] In-app report flow: reason picker → opens dev contact (mailto or GitHub issue URL) — **no server** (zero-server law)

@@ -96,6 +96,61 @@ PROOF grades → this file
 
 # Log (newest first)
 
+## Research review — 2026-08-15 — Full 2026-08-15 pile (R-016 pack, TypingMind dig, Research A/B/C, H-001/H-008/H-009/H-010)
+
+**Scope:** `docs/PRO-SCAN-COMPETITIVE.md`, `docs/PRO-TRENDS-NEXT-BIG.md`, `docs/PRO-LATENT-WANTS.md`, `docs/PRO-ROADMAP.md`, `docs/TYPINGMIND-DIG.md`, `docs/FDROID-BUILD-AUDIT.md` (Research A), `docs/PLAY-POLICY-AUDIT.md` (Research B), `docs/GLOBAL-MARKETS-RESEARCH.md` (Research C), `docs/QUESTIONS-FOR-HUMAN.md` H-001/H-008/H-009/H-010, BACKLOG C-032/R-016.
+**Role:** `LITECHAT-PROOF`. Read-only except this file. Did not run gradle. Did not touch `app/**` or BACKLOG statuses. Spot-checked two load-bearing URLs (TypingMind backlash thread — real, title matches; F-Droid Build Metadata Reference — confirms "full commit hash" rule at line 385).
+
+**Verdict: Issues** (small, fixable; the pile itself is the strongest DIG drop yet)
+
+### Per-doc verdict
+
+| Doc | Verdict | One line |
+|---|---|---|
+| PRO-SCAN-COMPETITIVE | ✅ Approve | Grounded competitor table; validated gate map; TypingMind cautionary tale verified live |
+| PRO-TRENDS-NEXT-BIG | ✅ Approve | Voice+Memory bundle evidence is real; explicit user-facing/backstage split; no-7B/WebView laws held |
+| PRO-LATENT-WANTS | ✅ Approve | 14 wants × URLs; never-gate list is correct and pro-theme |
+| PRO-ROADMAP | ✅ Approve (1 fix) | Clean synthesis; needs one explicit line on the image-edit gate (issue 3) |
+| TYPINGMIND-DIG | ✅ Approve | Verified source; steal list matches roadmap; feeds H-008 |
+| FDROID-BUILD-AUDIT (A) | ✅ Approve (research) | Audit is accurate — but its fixes are **untracked** (issue 1) |
+| PLAY-POLICY-AUDIT (B) | ✅ Approve (research) | Correct CONDITIONAL PASS; C-032 spawned — but was set Ready too early (issue 2) |
+| GLOBAL-MARKETS-RESEARCH (C) | ✅ Approve | 47 sourced URLs, `[unverified]` marked, answers H-009, spawns H-010 |
+| QUESTIONS-FOR-HUMAN H-001/H-008/H-009/H-010 | ✅ Approve | H-001 decision + deferral note recorded; H-008 hold recorded; H-009 locked; H-010 ready |
+
+### Checklist
+
+1. **Scope** — `git log` since the approved C-031 shows only docs/BACKLOG commits; tree clean. No DIG sneak into `app/**`. H-001 deferral and H-008 hold both recorded in QUESTIONS-FOR-HUMAN. Correct.
+2. **Grounding** — Load-bearing facts carry URLs; sources blocks match cites; `[unverified]` used where honest (ChatCat row, Pakistan, CNN Brasil). Both claims I spot-checked were true.
+3. **Product laws** — Held across the pile: Tier A thin client, 4GB honesty, no 7B (explicitly rejected), no WebView (banned), no fake RAM ("runs a real model on 4GB" stays banned), costs labeled ($0 tools, $4.99, voice per-minute, Groq free tier, $25 Play).
+4. **Theme** — All three PRO digs stamped BACKSTAGE. PLAY-LISTING-DRAFT, XDA template, reddit draft, awesome-byok-apps entry: everyday words, no banned fight terms, no named rivals. The 2027 one-liner is calm and true.
+5. **Ticket quality** — C-032 has goal/AC/files/out-of-scope — full ticket. P-00x are research-grade proposals (named + mini-AC), correctly not Ready; they must be upgraded to full tickets before any goes Ready after H-008.
+6. **Usefulness** — R-016 answers H-008 (recommendation A, fallback C); Research C answers H-009's "name the markets" and spawns H-010; Research B spawned C-032. **Research A changes nothing yet — that is issue 1.**
+
+### Issues
+
+1. **`docs/FDROID-BUILD-AUDIT.md` fixes are untracked; `fastlane/.../fdroid.yml` is still the exact stale recipe the audit flagged.**
+   - Why it matters: fdroid.yml still has `commit: main` + `subdir: app` (audit's two ❌ FAILs — build break + review blocker), description lines 27–28 still advertise "One-time $4.99 Pro removes ads" + "FOSS flavor available" (false for the foss build the audit reviewed — flagged as 1.19 review friction), wrong NonFreeNet reason (1.21), and no `short_description.txt`/`full_description.txt` (1.17). **`docs/LAUNCH-PACK.md` row 2 claims "metadata refreshed" — that is false.** No ticket exists to apply the audit's fixes, and D-005's AC does not cover them. If WIRE takes D-005 as-is, the broken recipe ships to F-Droid.
+   - Suggested fix: DIG writes one fix ticket (or amends D-005's AC): remove `subdir: app`, pin full-SHA commit, tag `v1.0.0`, rewrite description for the foss build (no ads/Pro copy), add short/full description `.txt`, correct NonFreeNet reason. Do not submit to F-Droid before it lands.
+
+2. **C-032 was flipped to Ready (commit 322479c) before this PROOF pass.**
+   - Why it matters: the flow says research-derived tickets wait for Approve; this is the same class of violation as the old C-031-ready-without-approval (which was Blocked). Today's Approve legitimizes C-032, but the ordering was wrong. Related: Research B's blocker #1 (privacy URL 404) has no ticket either — only a launch-checklist mention.
+   - Suggested fix: keep C-032 Ready now that this pile passes; add "privacy URL returns 200 before $25" to D-005's AC or a small ticket; from now on, tickets derived from an ungraded pile stay Research/Blocked.
+
+3. **PRO-ROADMAP Tier 1 row 12 gates "image editing" while PRO-SCAN §4 says never gate /imagine & /video.**
+   - Why it matters: reconcilable — `/imagine`/`/video` stay free ("Free keeps" list) and the edit variant is a new capability, not a moved gate — but the docs never say that, so a future WIRE could read a contradiction.
+   - Suggested fix: one line in PRO-ROADMAP: "generation stays free; only the new gpt-image-1 edit variant is Pro (TypingMind precedent)".
+
+### Nits (not Issues)
+
+- P-00x tickets are proposal-grade — fine at Research, must gain files-touched + out-of-scope before Ready (post H-008).
+- XDA template's "Why this over the official ChatGPT app?" is factual, but keep it that way — never let it drift into named-enemy copy.
+
+### Ready for human decisions
+
+**H-008 (Pro bundle direction)** and **H-010 (per-country pricing)** are ready: research recommends A (full Tier 1 bundle, fallback C) and B (₹199/R$14.90-class overrides, US stays $4.99). H-001 (BYO AI) and H-009 (languages free, always) are decided and recorded. After DIG fixes issues 1–3, this pile is fully safe to build from.
+
+---
+
 ## Research review — 2026-08-15 — C-031 naming pack (BYO AI + 4GB line)
 
 **Scope:** H-001 lock, `docs/APP-NAMING-RESEARCH.md` §9, BACKLOG C-031.  

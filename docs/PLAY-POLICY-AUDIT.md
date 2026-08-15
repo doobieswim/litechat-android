@@ -11,7 +11,7 @@
 
 **CONDITIONAL PASS — 2 blockers + 4 required fixes before the $25 is spent.** Nothing about BYO AI's design is fundamentally unpublishable (no accounts, BYOK, minimal permissions, no UGC hosting, Play Billing wired correctly). But as of today the submission would bounce on two hard blockers:
 
-1. **Privacy policy URL returns HTTP 404** (verified live) — Play requires a valid privacy policy URL to complete the Data Safety form and pass review. **BLOCKER.**
+1. **Privacy policy URL returns HTTP 404** (verified live) — Play requires a valid privacy policy URL to complete the Data Safety form and pass review. **BLOCKER — ✅ RESOLVED 2026-08-15:** GitHub Pages enabled on the repo; `https://flamingspade1995-coder.github.io/litechat-android/privacy.html` verified **HTTP 200** after deployment.
 2. **No in-app AI-content reporting/flagging feature exists** — the AI-Generated Content policy requires it for any app that generates AI content (chat, images, video). **BLOCKER.**
 
 Plus required fixes: real AdMob IDs, EEA/UK consent (UMP), Terms-of-use/acceptable-use acceptance, honest Data Safety + content-rating answers.

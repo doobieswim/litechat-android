@@ -12,7 +12,7 @@
 | # | Channel | Ready? | What's needed | Who |
 |---|---------|--------|---------------|-----|
 | 1 | **GitHub Releases + Obtanium** | metadata done | Build signed `fossRelease` APK, create v1.0.0 release on GitHub, attach APK | human (build on this box or CI artifact) |
-| 2 | **F-Droid** | metadata refreshed (`fastlane/metadata/android/en-US/fdroid.yml`) | Submit build request via F-Droid repo MR (metadata + build recipe), wait for inclusion | human (F-Droid account) |
+| 2 | **F-Droid** | metadata fixed per `docs/FDROID-BUILD-AUDIT.md` (2026-08-15): recipe corrected (no `subdir: app`, tag-at-release), descriptions added, AntiFeatures reason fixed, description rewritten for the foss build (no ads/Pro talk) | Tag `v1.0.0`, submit MR to fdroiddata as `metadata/com.byoai.chat.foss.yml` | human |
 | 3 | **XDA thread** | template refreshed (`docs/DISTRIBUTION-XDA-TEMPLATE.md`) | Post thread, attach APK + source + screenshots | human |
 | 4 | **4PDA thread** | covered in `docs/DISTRIBUTION-FOSS.md` | Post thread (RU forum, same template) | human |
 | 5 | **r/androidafterlife post** | draft below | Post with real screenshots; answer comments | human |
