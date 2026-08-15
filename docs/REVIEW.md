@@ -288,3 +288,61 @@ Class names (`LiteChatApp`, `Theme.LiteChat`, `LiteChatRoot`) stayed. Correct.
 Same leftover class as last time: User-Agent / `X-Title: LiteChat` (API host only), `litechat_pro` SKU (H-003), GitHub repo name.
 
 C-031 can stay **Done**.
+
+---
+
+## Review — 2026-08-15 — FULL PROJECT
+
+**Role:** `LITECHAT-REVIEW`. Read-only. Did not edit `app/**`. Did not run Gradle (fan-out RAM rule). Ran `python3 scripts/verify_static.py` → **122/122**.
+**HEAD:** `dbd62a9` (C-033 picker) on top of `b211200` (C-034 Agent Lab) + `ed41570` (D-006 Fastlane). Tree **clean**.
+**Method:** parent grep/read of hard constraints + new tickets; 3-layer fan-out dispatched (UI / data / prefs). This section is the combined verdict.
+
+**Verdict: Issues** (one leftover runtime bug). C-033 / C-034 / D-006 themselves are sound. Do not flip those tickets back. Fix the attach path, then this review can Approve.
+
+### Confirmed bugs (Issues)
+
+1. **`ChatViewModel.kt:766` — photo still goes through the 32 000-character text cap.**  
+   `attachImage` downscales (good) then `setInput("[IMG:data:$mime;base64,$b64]…")`, and `setInput` runs `InputPolicy.cap(32_000)`. `maxSaveDimension` is **512 / 768 / 1024**. A JPEG that size at quality 80 is often **bigger than ~24 KB** (what 32k base64 chars can hold). The old C6 “silent truncate” can still happen.  
+   **Why it matters:** vision attach looks like it worked; the model gets a chopped picture.  
+   **Fix:** do not route binary through `setInput`. Send the downscaled bytes as a vision part, or cap the JPEG until `b64.length + prefix < 32_000` (loop quality/size down), or raise a dedicated attach path that skips the paste cap.
+
+### Passes (this batch + old laws)
+
+- **Hard constraints:** no `WebView`, `trustAll`, `setHostnameVerifier`, RN/Flutter, `proot-distro`, or Hermes OAuth client id `b1a00492` in `app/src`.
+- **C-033 picker:** `ProviderSetupFields` = pick provider → paste key → pick model. URL box only for Custom. Paid providers (Grok/OpenAI/DeepSeek/Mistral) show “can cost money”. No fake SuperGrok login. Catalog has Gemini/Groq/OpenRouter/HF/xAI/OpenAI/DeepSeek/Mistral/Ollama/Custom. Wired in onboarding **and** Settings. Unit test `ProviderCatalogTest` exists.
+- **C-034 Agent Lab:** door only. TIGHT + COMFORTABLE + storage &lt; 400 MB → REFUSE. `mayOpenTermux` false on REFUSE. Manifest `<queries>` for `com.termux` only — not a component. No installer.
+- **C-028 video:** `pollVideo` streams MP4 to a file (`byteStream().copyTo`); comment forbids `body.bytes()`. VM wraps in `withContext(IO)`. `Thread.sleep(2000)` is on that IO path.
+- **Stop:** `streamJob` is assigned (`streamJob = viewModelScope.launch`); `stopRequested` checked; no self-cancel inside send.
+- **Keys:** primary key in `SecureStore` / EncryptedSharedPreferences. Failover list JSON stores **baseUrl + model only**; keys via `secureStore.getProviderKey`. Templates use `Json.encodeToString` (not a raw StringBuilder).
+- **Coil display:** `Screens.kt` uses `ImageCacheConfig.displaySize(band)`, not `.size(540,540)`.
+- **Overlay channel:** real `NotificationChannel` (“Chat overlay”), not an empty stub. Overlay enable checks `canDrawOverlays` + Pro gate in Settings.
+- **SKU:** `PLAY_PRO_SKU` is `BYO_pro` (old `litechat_pro` nit is gone).
+- **Fastlane / D-006:** title BYO AI, locked short line, 1.6 MB, foss “no billing”, changelog for versionCode 1. CI static-verify owns these.
+- **C-031 leftover:** DeviceCompat matrix note now says “not this app. We will not hide Termux here.” User-visible LiteChat strings from the last review are gone. Class names (`LiteChatApp`, `Theme.LiteChat`) stay — correct.
+
+### Nits (not Issues)
+
+- **`OpenAiCompatibleClient.kt:241,413-414`** — `User-Agent` / `X-Title: LiteChat` still goes to the API host. Person never sees it. Optional later.
+- **`DeviceCompat.kt:18`** — KDoc still says “LiteChat”. Devs only.
+- **`ProviderSetupFields.kt:119`** — `startActivity` for “Get a key” has no try/catch. Rare no-browser crash. Wrap it.
+- **`AgentLabGate.kt:65`** — `getPackageInfo(name, 0)` is the old overload. Works with the `<queries>` tag; can switch to `PackageInfoFlags` later.
+- **GitHub repo / package path** still `litechat-android` / `com.litechat.android`. Locked earlier. Leave them.
+
+### Fix order
+
+1. Issue 1 (attach + 32k cap) — data-loss class.  
+2. Optional nits.  
+3. Do **not** add SuperGrok OAuth or Termux-inside-APK. REVIEW agrees with the product refuse.
+
+### Tickets
+
+| Ticket | Status after this review |
+|--------|--------------------------|
+| C-033 picker | **Done** — keep |
+| C-034 Agent Lab door | **Done** — keep |
+| D-006 Fastlane-in-build | **Done** — keep |
+| C-031 brand | **Done** — keep |
+| Attach 32k residual | **new Issue** — WIRE if human wants |
+
+Call REVIEW again after Issue 1 is fixed if you want Approve.
+
