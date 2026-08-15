@@ -74,3 +74,14 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
 - **From:** plan `/opt/data/.hermes/plans/2026-08-15_051453-research-review-agent.md`
 - **Decision needed:** Name + how often + first job
 - **Decision:** **PROOF**, **every** research ticket, **grade the pile we just wrote** (human 2026-08-15). First verdict: Issues — see `docs/RESEARCH-REVIEW.md`.
+
+### H-008 — Pro bundle direction (from R-016)
+- **From:** research (R-016, synthesis `docs/PRO-ROADMAP.md`)
+- **Decision needed:** Which Pro direction to build. All three digs converge on **Voice + Memory + Ownership at $4.99 once** ("Your key. Your voice. It remembers. No monthly bill."), but scope is the human's call.
+- **Options:**
+  - **A) Full Tier 1 bundle** — voice mode, memory+/recall, full-text search, encrypted backup upgrade, template deep, quiet+registration, web search. Biggest Pro value, most work (~1-2 weeks of coding).
+  - **B) Voice first** — just voice mode + read-aloud (the next big feature), everything else later. Smallest meaningful step.
+  - **C) Ownership first** — search + backup upgrade + quiet/registration (no voice). Best "people pay to protect their work" play, zero new APIs.
+  - **D) Pick from the Tier 1 list** — human names the 2-3 features.
+- **Recommendation:** **A** (the bundle is the moat; ~0 KB cost each), fallback **C** if voice feels risky.
+- **Decision:** _(human fills)_

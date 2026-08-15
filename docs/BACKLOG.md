@@ -317,6 +317,13 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Key findings:** Overnight is a myth. Hits were years + one simple loop + still being around. Roadmap: demo is the product → one true share picture → underground then Play → stay thin (Opera Mini slot) → don’t pull if it spikes. No fake waitlist, no paid streamers, no Hotmail stamp on user chat.
 - **Out of scope:** coding, name list, Ready tickets.
 
+### R-016 — Pro incentives: 3-dig deep dive (competitive / trends / latent wants)
+- **Status:** Research — waiting `LITECHAT-PROOF` + human H-008 (no Ready child)
+- **Deliverables:** `docs/PRO-SCAN-COMPETITIVE.md` · `docs/PRO-TRENDS-NEXT-BIG.md` · `docs/PRO-LATENT-WANTS.md` · **synthesis:** `docs/PRO-ROADMAP.md`
+- **Key findings:** The bundle = **Voice + Memory + Ownership at $4.99 once** ("Your key. Your voice. It remembers. No monthly bill."). Tier 1 (v1.1, ~0 KB): voice mode, memory+/recall, full-text search, encrypted backup upgrade, template deep, quiet+registration screen, web search. Tier 2 (v1.2+): BYO-Sync, tasks mode, overlay v2, usage dashboard, custom look, profiles. **Never gate:** core chat, failover, compat matrix, key security, /imagine & /video, i18n, LAN/Ollama, basic export, community.
+- **Proposed tickets (Research, need PROOF+human):** P-001 voice · P-002 search · P-003 backup upgrade · P-004 quiet/registration · P-005 web search · P-006 memory+ · P-007 sync · P-008 tasks
+- **Out of scope:** coding, subscription models (never), Ready tickets.
+
 ---
 
 ## Done (recent)
