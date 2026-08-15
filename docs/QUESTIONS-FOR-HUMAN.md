@@ -28,9 +28,9 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
 - **Decision:**  
 
 ### H-003 — Pro price / SKU
-- **From:** research  
-- **Decision needed:** Confirm SKU `litechat_pro` and price band  
-- **Decision:**  
+- **From:** research
+- **Decision needed:** Confirm SKU `litechat_pro` and price band
+- **Decision:** **$4.99 one-time, SKU `BYO_pro`** (human 2026-08-15). `PLAY_PRO_SKU` buildConfigField updated to `BYO_pro`; README updated. Play Console must create the managed product with this exact id.
 
 ### H-004 — Who we sell to first (historic positioning map)
 - **From:** research (R-011 `docs/SALES-POSITIONING-HISTORIC.md`)

@@ -20,7 +20,7 @@ android {
         // Replace with your AdMob unit IDs before Play release.
         buildConfigField("String", "ADMOB_BANNER_ID", "\"ca-app-pub-3940256099942544/6300978111\"")
         buildConfigField("String", "ADMOB_APP_ID", "\"ca-app-pub-3940256099942544~3347511713\"")
-        buildConfigField("String", "PLAY_PRO_SKU", "\"litechat_pro\"")
+        buildConfigField("String", "PLAY_PRO_SKU", "\"BYO_pro\"")
     }
 
     buildTypes {

@@ -101,7 +101,7 @@ GitHub Actions workflow: `.github/workflows/build.yml` builds release APK on pus
 
 1. **Application id** — change `applicationId` in `app/build.gradle.kts` if desired.
 2. **AdMob** — replace sample IDs in `defaultConfig` + `AndroidManifest` meta-data.
-3. **Play Billing** — create managed product SKU `litechat_pro` (or change `PLAY_PRO_SKU`).
+3. **Play Billing** — create managed product SKU `BYO_pro` (or change `PLAY_PRO_SKU`).
 4. **Signing** — release keystore + `signingConfigs` (do not commit secrets).
 5. **Privacy policy URL** — required for Play (key stored on device; sent only to user endpoint).
 6. Remove or gate **Dev: mark Pro** button in `SettingsScreen` for production.
