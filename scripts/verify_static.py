@@ -262,6 +262,20 @@ def main() -> int:
     ok("C-033 settings uses picker", screens.count("ProviderSetupFields(") >= 2)
     ok("C-033 URL hidden except custom", "isCustom" in picker)
 
+    # 2026-08-15 REVIEW fixes — regression guards for the confirmed bugs.
+    sse = (KT_ROOT / "com/litechat/android/data/api/ChatSseParser.kt").read_text()
+    client = (KT_ROOT / "com/litechat/android/data/api/OpenAiCompatibleClient.kt").read_text()
+    trimmer = (KT_ROOT / "com/litechat/android/data/context/ContextTrimmer.kt").read_text()
+    nks = (KT_ROOT / "com/litechat/android/data/prefs/NamedKeyStore.kt").read_text()
+    vm = (KT_ROOT / "com/litechat/android/ui/ChatViewModel.kt").read_text()
+    ok("REVIEW parseEvent accepts stripped payloads", "takeIf { it.isNotEmpty() }" in sse)
+    ok("REVIEW stream cancel qualified", "this@OpenAiCompatibleClient.cancel()" in client)
+    ok("REVIEW trimmer keeps turn pairs", "keptTurns.size % 2" in trimmer)
+    ok("REVIEW trimmer counts system tokens", "systemTokens" in trimmer)
+    ok("REVIEW named key active after insert", "activeIdx" in nks)
+    ok("REVIEW listModels off main", "withContext(Dispatchers.IO) {" in screens and "openAiClient.listModels" in screens)
+    ok("REVIEW attach fits 32k cap", "MAX_INPUT_CHARS - prefix.length" in vm and "Attachment too large" in vm)
+
     # Fastlane metadata is part of the build: F-Droid/Play read these files.
     # No Ruby gem. CI static-verify fails the job if listing copy is wrong.
     fl = ROOT / "fastlane" / "metadata" / "android" / "en-US"

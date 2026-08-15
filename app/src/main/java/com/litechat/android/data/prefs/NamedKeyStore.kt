@@ -51,19 +51,31 @@ class NamedKeyStore(context: Context) {
         getAll().firstOrNull { it.isActive }?.key ?: ""
 
     fun save(key: NamedKey) {
-        val list = getAll().toMutableList()
-        val idx = list.indexOfFirst { it.name == key.name }
-        if (idx >= 0) list[idx] = key else list.add(key)
-        if (key.isActive) {
-            list.forEachIndexed { i, k ->
-                if (i != idx && k.isActive) list[i] = k.copy(isActive = false)
-            }
-        }
-        persist(list)
+        persist(withKey(getAll(), key))
     }
 
     fun delete(name: String) {
         persist(getAll().filter { it.name != name })
+    }
+
+    companion object {
+        /**
+         * Pure list logic for [save]. REVIEW fix (2026-08-15): the index was
+         * captured BEFORE insert, so a brand-new active key matched `i != -1`
+         * and was immediately deactivated. Resolve the index AFTER upsert.
+         */
+        internal fun withKey(list: List<NamedKey>, key: NamedKey): List<NamedKey> {
+            val out = list.toMutableList()
+            val existing = out.indexOfFirst { it.name == key.name }
+            if (existing >= 0) out[existing] = key else out.add(key)
+            if (key.isActive) {
+                val activeIdx = out.indexOfFirst { it.name == key.name }
+                out.forEachIndexed { i, k ->
+                    if (i != activeIdx && k.isActive) out[i] = k.copy(isActive = false)
+                }
+            }
+            return out
+        }
     }
 
     private fun persist(list: List<NamedKey>) {

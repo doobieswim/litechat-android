@@ -10,6 +10,10 @@ import com.litechat.android.data.api.ChatMessageDto
  * mark, keeping newest messages up to the low-water mark.
  * Never splits turn pairs (user+assistant stay together).
  * Always keeps the system prompt if present.
+ *
+ * REVIEW fix (2026-08-15): the old newest-first walk could keep an assistant
+ * without its user. Now the walk drops whole oldest turn pairs (user +
+ * assistant together) as a unit, and system tokens count against the budget.
  */
 object ContextTrimmer {
 
@@ -25,6 +29,9 @@ object ContextTrimmer {
     /** Per-message overhead for role/metadata (ChatPPP measured ~4 tokens). */
     private const val MESSAGE_OVERHEAD_TOKENS = 4
 
+    private fun tokensOf(msg: ChatMessageDto): Long =
+        msg.content.length.toLong() / CHARS_PER_TOKEN + MESSAGE_OVERHEAD_TOKENS
+
     /**
      * Trim [messages] to fit within the token budget.
      * Returns a Pair of (trimmed list, count of removed messages).
@@ -35,37 +42,37 @@ object ContextTrimmer {
         highWaterTokens: Int = HIGH_WATER_TOKENS,
         lowWaterTokens: Int = LOW_WATER_TOKENS,
     ): Pair<List<ChatMessageDto>, Int> {
-        val highWaterChars = highWaterTokens * CHARS_PER_TOKEN
-        val lowWaterChars = lowWaterTokens * CHARS_PER_TOKEN
+        val system = messages.filter { it.role == "system" }
+        val turns = messages.filter { it.role != "system" }
 
-        // Count total approximate tokens
-        var total = 0L
-        for (msg in messages) {
-            total += msg.content.length / CHARS_PER_TOKEN + MESSAGE_OVERHEAD_TOKENS
-        }
+        // Total includes system tokens — they count against the budget too.
+        val systemTokens = system.sumOf { tokensOf(it) }
+        val totalTokens = systemTokens + turns.sumOf { tokensOf(it) }
+        if (totalTokens <= highWaterTokens) return Pair(messages, 0)
 
-        if (total <= highWaterTokens) return Pair(messages, 0)
-
-        // Keep from newest to oldest until under low-water
-        val kept = mutableListOf<ChatMessageDto>()
-        var keptTokens = 0L
+        // Walk newest pair first; drop oldest pairs as a unit until under low-water.
+        // Pairs are (user, assistant) or (assistant, user); we group by index.
+        val keptTurns = mutableListOf<ChatMessageDto>()
+        var keptTokens = systemTokens
         var removed = 0
 
-        for (msg in messages.reversed()) {
-            val msgTokens = msg.content.length / CHARS_PER_TOKEN + MESSAGE_OVERHEAD_TOKENS
-            // Always keep system messages
-            if (msg.role == "system") {
-                kept.add(0, msg)
-                continue
-            }
-            if (keptTokens + msgTokens > lowWaterTokens && kept.isNotEmpty()) {
+        for (i in turns.indices.reversed()) {
+            val msgTokens = tokensOf(turns[i])
+            if (keptTokens + msgTokens > lowWaterTokens && keptTurns.isNotEmpty()) {
                 removed++
                 continue
             }
-            kept.add(0, msg)
+            keptTurns.add(0, turns[i])
             keptTokens += msgTokens
         }
 
-        return Pair(kept, removed)
+        // Guarantee pair integrity: if we kept an odd tail, drop the last kept
+        // turn (the oldest) so no user or assistant is left alone.
+        if (keptTurns.size % 2 != 0 && keptTurns.isNotEmpty()) {
+            removed += 1
+            keptTurns.removeAt(0)
+        }
+
+        return Pair(system + keptTurns, removed)
     }
 }

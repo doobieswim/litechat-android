@@ -85,7 +85,11 @@ class OpenAiCompatibleClient(
         allowNonStreamFallback: Boolean = true,
         preferNonStream: Boolean = false,
     ): Flow<StreamEvent> = callbackFlow {
-        cancel()
+        // REVIEW: unqualified cancel() inside callbackFlow binds to
+        // SendChannel.cancel() — it killed our own pipe instead of the
+        // active HTTP call. Qualify so it cancels the call and marks
+        // user-cancel for the next send.
+        this@OpenAiCompatibleClient.cancel()
         userCancelled = false // fresh send — caller (send()) cleared stopRequested first
 
         val url = completionsUrl(baseUrl)
@@ -172,7 +176,7 @@ class OpenAiCompatibleClient(
             trySend(StreamEvent.Done)
         }
 
-        awaitClose { cancel() }
+        awaitClose { this@OpenAiCompatibleClient.cancel() }
     }.flowOn(Dispatchers.IO)
 
     /** Non-streaming chat/completions (numAi-plus fallback path). */

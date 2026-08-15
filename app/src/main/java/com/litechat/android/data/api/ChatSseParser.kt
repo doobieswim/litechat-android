@@ -24,13 +24,16 @@ object ChatSseParser {
     /**
      * Parse one SSE line into a [StreamEvent].
      *
+     * Accepts either a full `data:` line (OpenAI wire format) or an
+     * already-stripped payload (what [StreamParser.parseSSE] emits).
+     *
      * @return [StreamEvent.Delta] for a content chunk (non-empty text),
      *   [StreamEvent.Error] for an `error` payload, [StreamEvent.Done] for
      *   `[DONE]`, or `null` for non-`data:` lines, blank payloads, empty
      *   deltas, and malformed JSON (all silently skipped).
      */
     fun parseEvent(line: String): StreamEvent? {
-        val payload = dataPayload(line) ?: return null
+        val payload = dataPayload(line) ?: line.trim().takeIf { it.isNotEmpty() } ?: return null
         val p = payload.trim()
         if (p.isEmpty()) return null
         if (p == "[DONE]") return StreamEvent.Done

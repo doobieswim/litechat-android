@@ -736,11 +736,13 @@ class ChatViewModel(
         viewModelScope.launch {
             try {
                 // C-028: decode + downscale on IO (Bitmap decode is expensive).
+                val prefix = "[IMG:data:image/jpeg;base64,"
+                val budget = InputPolicy.MAX_INPUT_CHARS - prefix.length - " Describe this.".length
                 val b64 = withContext(Dispatchers.IO) {
                     val bytes = container.ctx.contentResolver.openInputStream(uri)?.readBytes()
                         ?: return@withContext ""
-                    // C-006: downscale before base64 so a large photo doesn't blow the
-                    // 32k input cap and silently truncate the image (REVIEW finding C6).
+                    // C-006 + REVIEW: downscale AND lower quality in a loop so the
+                    // base64 always fits the 32k input cap — no silent truncation.
                     val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
                     val maxDim = ImageCacheConfig.maxSaveDimension(
@@ -750,16 +752,25 @@ class ChatViewModel(
                     while (opts.outWidth / sample > maxDim || opts.outHeight / sample > maxDim) {
                         sample *= 2
                     }
-                    val decodeOpts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
-                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOpts)
-                        ?: return@withContext ""
-                    val out = java.io.ByteArrayOutputStream()
-                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, out)
-                    bitmap.recycle()
-                    android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                    var encoded = ""
+                    for (quality in intArrayOf(80, 60, 40, 25)) {
+                        val decodeOpts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+                        val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOpts)
+                            ?: continue
+                        val out = java.io.ByteArrayOutputStream()
+                        bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
+                        bitmap.recycle()
+                        val candidate = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                        if (candidate.length <= budget) {
+                            encoded = candidate
+                            break
+                        }
+                        sample *= 2 // smaller next pass
+                    }
+                    encoded
                 }
                 if (b64.isBlank()) {
-                    _state.update { it.copy(error = "Attachment could not be read") }
+                    _state.update { it.copy(error = "Attachment too large to send — try a smaller photo") }
                     return@launch
                 }
                 val mime = container.ctx.contentResolver.getType(uri) ?: "image/jpeg"

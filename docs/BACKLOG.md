@@ -244,6 +244,10 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Status:** Done — WIRE 2026-08-15. Opt-in Settings card only. `AgentLabGate` refuses TIGHT/COMFORTABLE and low storage (<400 MB). ROOMY = warn, GENEROUS = door. Open Termux **only if already installed**. No Node/Python/proot download. Tests: `AgentLabGateTest`.
 - **APK:** ~0 KB extra (no runtime)
 
+### C-035 — REVIEW fixes: streaming + named keys + trimmer + ANR + attach
+- **Status:** Done — WIRE 2026-08-15. Fixed all parent-confirmed REVIEW issues: (1) `ChatSseParser.parseEvent` now accepts already-stripped SSE payloads (the stream→UI pipeline was dropping every event); (2) `callbackFlow` `cancel()` qualified to the client (`this@OpenAiCompatibleClient.cancel()`) so it cancels the HTTP call, not its own channel; (3) `NamedKeyStore.withKey` resolves the index after upsert so a new active key stays active; (4) `ContextTrimmer` drops oldest turn pairs as a unit and counts system tokens; (5) Fetch models / Test wrapped in `withContext(Dispatchers.IO)`; (6) attachImage loops quality+sample down so base64 always fits the 32k input cap. New tests: parser chain (2), ContextTrimmer (3), NamedKeyStoreLogic (4). 7 regression guards added. Suite **129/129**.
+- **Tests:** `ChatSseParserTest`, `ContextTrimmerTest`, `NamedKeyStoreLogicTest`
+
 ### C-006 — UI stream paint throttle (if needed)
 - **Status:** Done
 - **Notes:** Throttle gate in `ChatViewModel.send()`: 250ms `lastUiUpdate` guard on `StreamEvent.Delta`; `StreamEvent.Done` flushes final paint; errors pass through immediately; `FeatureFlags.streamThrottleMs = 250L`; `PaintThrottleTest` with 8 test cases; 5 verify_static guards. Lowered `gradle.properties` JVM heap from 1536m→768m for the 4GB VPS.  

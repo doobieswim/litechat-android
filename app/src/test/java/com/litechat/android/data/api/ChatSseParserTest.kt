@@ -1,5 +1,8 @@
 package com.litechat.android.data.api
 
+import com.litechat.android.data.api.StreamEvent
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.toList
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -107,5 +110,37 @@ class ChatSseParserTest {
             }
         }
         assertEquals(listOf("ok"), parts)
+    }
+
+    @Test
+    fun `parseEvent accepts already-stripped payloads from StreamParser`() {
+        // StreamParser.parseSSE emits payloads WITHOUT the "data:" prefix
+        // (REVIEW: the chain dropped every event because parseEvent only
+        // accepted lines that still started with "data:").
+        val payload =
+            """{"choices":[{"delta":{"content":"Hi"},"finish_reason":null}]}"""
+        val ev = ChatSseParser.parseEvent(payload)
+        assertTrue(ev is StreamEvent.Delta)
+        assertEquals("Hi", (ev as StreamEvent.Delta).text)
+        assertEquals(StreamEvent.Done, ChatSseParser.parseEvent("[DONE]"))
+        // Non-JSON stripped noise still swallows silently.
+        assertNull(ChatSseParser.parseEvent("not-json"))
+        assertNull(ChatSseParser.parseEvent(""))
+        assertNull(ChatSseParser.parseEvent(": keep-alive"))
+    }
+
+    @Test
+    fun `parseSSE to parseEvent pipeline delivers deltas and Done`() = kotlinx.coroutines.runBlocking {
+        val input = java.io.ByteArrayInputStream(
+            ("data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n" +
+                "data: {\"choices\":[{\"delta\":{\"content\":\" there\"}}]}\n" +
+                "data: [DONE]\n").toByteArray()
+        )
+        val events = StreamParser.parseSSE(input)
+            .mapNotNull { ChatSseParser.parseEvent(it) }
+            .toList()
+        assertTrue(events.first() is StreamEvent.Delta)
+        assertEquals("Hi there", events.filterIsInstance<StreamEvent.Delta>().joinToString("") { it.text })
+        assertEquals(StreamEvent.Done, events.last())
     }
 }

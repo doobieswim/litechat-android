@@ -97,7 +97,9 @@ import com.litechat.android.util.DeviceCompat
 import com.litechat.android.util.ImageCacheConfig
 import com.litechat.android.util.LanDetector
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1058,12 +1060,15 @@ fun SettingsScreen(
                                                                         modelsLoading = true
                                                                         modelsMsg = null
                                                                         scope.launch {
-                                                                            val lanBase = LanDetector.scan()
+                                                                            // REVIEW: listModels is blocking HTTP — never on Main.
+                                                                            val lanBase = withContext(Dispatchers.IO) { LanDetector.scan() }
                                                                             if (lanBase != null) {
                                                                                 base = lanBase
                                                                                 modelsMsg = "LAN Ollama found"
                                                                             } else {
-                                                                                val ids = app.container.openAiClient.listModels(base, key)
+                                                                                val ids = withContext(Dispatchers.IO) {
+                                                                                    app.container.openAiClient.listModels(base, key)
+                                                                                }
                                                                                 fetchedModels = ids
                                                                                 modelsMsg = when {
                                                                                     ids.isEmpty() -> "No models returned (check base URL)"
@@ -1086,7 +1091,9 @@ fun SettingsScreen(
                                         testMsg = null
                                         scope.launch {
                                             try {
-                                                val ids = app.container.openAiClient.listModels(base, key)
+                                                val ids = withContext(Dispatchers.IO) {
+                                                    app.container.openAiClient.listModels(base, key)
+                                                }
                                                 testMsg = if (ids.isNotEmpty()) "Connected ✓" else "No models"
                                             } catch (e: Exception) {
                                                 testMsg = "Failed: ${e.message?.take(40)}"
