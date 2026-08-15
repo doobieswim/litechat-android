@@ -9,6 +9,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Update
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "conversations")
@@ -18,6 +20,8 @@ data class ConversationEntity(
     val model: String = "",  // C-018: per-conversation model binding
     val createdAt: Long,
     val updatedAt: Long,
+    /** P-014: pinned conversations sort to the top of the drawer. */
+    val pinned: Boolean = false,
 )
 
 @Entity(tableName = "messages")
@@ -84,10 +88,21 @@ interface MessageDao {
 
 @Database(
     entities = [ConversationEntity::class, MessageEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun conversationDao(): ConversationDao
     abstract fun messageDao(): MessageDao
+
+    companion object {
+        /** P-014: v1 → v2 adds the pinned column (never destructive on 4GB). */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE conversations ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+    }
 }

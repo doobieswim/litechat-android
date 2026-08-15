@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerValue
@@ -92,6 +93,7 @@ import com.litechat.android.LiteChatApp
 import com.litechat.android.R
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.prefs.PromptTemplate
+import com.litechat.android.data.prefs.SettingsRepository
 import com.litechat.android.util.AgentLabGate
 import com.litechat.android.util.DeviceCompat
 import com.litechat.android.util.ImageCacheConfig
@@ -181,6 +183,7 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onDeleteNamedKey = vm::deleteNamedKey,
             onSetActiveNamedKey = vm::setActiveNamedKey,
             onClearMemory = vm::clearMemory,
+            onSetLanguage = vm::setLanguage,
             overlayOn = overlayOn,
             onToggleOverlay = { enabled ->
                 if (enabled) {
@@ -211,6 +214,7 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onNewChat = vm::newChat,
             onSelect = vm::selectConversation,
             onDelete = vm::deleteConversation,
+            onTogglePin = vm::togglePin,
             onInput = vm::setInput,
             onSend = vm::send,
             onStop = vm::stopStreaming,
@@ -253,6 +257,7 @@ fun ChatScreen(
     onNewChat: () -> Unit,
     onSelect: (String) -> Unit,
     onDelete: (String) -> Unit,
+    onTogglePin: (String) -> Unit,
     onInput: (String) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
@@ -331,6 +336,14 @@ fun ChatScreen(
                                     MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurface,
                             )
+                            IconButton(onClick = { onTogglePin(c.id) }) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    contentDescription = if (c.pinned) "Unpin" else "Pin",
+                                    tint = if (c.pinned) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                             IconButton(onClick = { onDelete(c.id) }) {
                                 Icon(
                                     Icons.Default.Delete,
@@ -953,6 +966,7 @@ fun SettingsScreen(
     onDeleteNamedKey: (String) -> Unit,
     onSetActiveNamedKey: (String) -> Unit,
     onClearMemory: () -> Unit,
+    onSetLanguage: (String) -> Unit,
     overlayOn: Boolean,
     onToggleOverlay: (Boolean) -> Unit,
 ) {
@@ -1157,6 +1171,42 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Save") }
+            }
+            // P-012: reply language — FREE, never gated (H-009).
+            item { HorizontalDivider() }
+            item {
+                var showLang by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = showLang,
+                    onExpandedChange = { showLang = it },
+                ) {
+                    OutlinedTextField(
+                        value = state.settings.language.ifBlank { "Default (no change)" },
+                        onValueChange = {},
+                        label = { Text("Reply language") },
+                        readOnly = true,
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = showLang)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                    )
+                    ExposedDropdownMenu(
+                        expanded = showLang,
+                        onDismissRequest = { showLang = false },
+                    ) {
+                        SettingsRepository.LANGUAGES.forEach { l ->
+                            DropdownMenuItem(
+                                text = { Text(l.ifBlank { "Default (no change)" }) },
+                                onClick = {
+                                    showLang = false
+                                    onSetLanguage(l)
+                                },
+                            )
+                        }
+                    }
+                }
             }
             // C-023: named keys per provider (encrypted, Agora pattern).
             item {

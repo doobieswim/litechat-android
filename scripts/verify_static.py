@@ -276,6 +276,20 @@ def main() -> int:
     ok("REVIEW listModels off main", "withContext(Dispatchers.IO) {" in screens and "openAiClient.listModels" in screens)
     ok("REVIEW attach fits 32k cap", "MAX_INPUT_CHARS - prefix.length" in vm and "Attachment too large" in vm)
 
+    # P-012 + P-014 — Tier 1 bundle (H-008=A): reply language + pins/drafts.
+    entities = (KT_ROOT / "com/litechat/android/data/db/Entities.kt").read_text()
+    repo = (KT_ROOT / "com/litechat/android/data/db/ChatRepository.kt").read_text()
+    settings = (KT_ROOT / "com/litechat/android/data/prefs/SettingsRepository.kt").read_text()
+    ok("P-014 pinned column", "val pinned: Boolean = false" in entities)
+    ok("P-014 migration not destructive", "MIGRATION_1_2" in entities and "ADD COLUMN pinned" in entities)
+    ok("P-014 pin sort pure + toggle", "ConversationSort.pinnedFirst" in repo and "togglePin" in repo)
+    ok("P-014 drafts persisted", "saveDraft" in settings and "drafts_json" in settings)
+    ok("P-014 draft restore on switch", "getDraft" in vm and "saveDraft" in vm and "clearDraft" in vm)
+    ok("P-014 pin button in drawer", "onTogglePin" in screens and "Icons.Default.Star" in screens)
+    ok("P-012 language setting", "LANGUAGE" in settings and "val language: String" in settings)
+    ok("P-012 language in system prompt (free)", "setLanguage" in vm and "Reply in" in vm)
+    ok("P-012 language picker in settings", "onSetLanguage" in screens and "Reply language" in screens)
+
     # Fastlane metadata is part of the build: F-Droid/Play read these files.
     # No Ruby gem. CI static-verify fails the job if listing copy is wrong.
     fl = ROOT / "fastlane" / "metadata" / "android" / "en-US"

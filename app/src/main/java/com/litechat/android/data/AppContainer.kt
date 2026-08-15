@@ -24,7 +24,10 @@ class AppContainer(context: Context) {
         appContext,
         AppDatabase::class.java,
         "litechat.db"
-    ).fallbackToDestructiveMigration().build()
+    )
+        // P-014: v1 → v2 adds `pinned` — a real migration, never a wipe.
+        .addMigrations(AppDatabase.MIGRATION_1_2)
+        .fallbackToDestructiveMigration().build()
 
     val secureStore = SecureStore(appContext)
     /** C-020: persistent user memory (hit-count promotion, Pro-gated). */

@@ -135,6 +135,9 @@ class ChatViewModel(
     }
 
     fun selectConversation(id: String) {
+        val prev = _state.value
+        val prevId = prev.activeConversationId
+        val prevInput = prev.input
         messagesCollectJob?.cancel()
         // C-018: switch to the conversation's saved model if present.
         val convModel = _state.value.conversations.find { it.id == id }?.model
@@ -144,9 +147,23 @@ class ChatViewModel(
                 messages = emptyList(),
                 streamingText = "",
                 error = null,
+                // P-014: unsent text belongs to its own chat — draft restored below.
+                input = "",
                 settings = if (!convModel.isNullOrBlank())
                     it.settings.copy(model = convModel) else it.settings,
             )
+        }
+        // P-014: save the old chat's draft, then load this chat's draft.
+        if (prevId != null && prevId != id) {
+            viewModelScope.launch {
+                container.settingsRepository.saveDraft(prevId, prevInput)
+            }
+        }
+        viewModelScope.launch {
+            val draft = container.settingsRepository.getDraft(id)
+            if (_state.value.activeConversationId == id && !_state.value.isStreaming) {
+                _state.update { it.copy(input = InputPolicy.cap(draft)) }
+            }
         }
         messagesCollectJob = viewModelScope.launch {
             container.chatRepository.observeMessages(id).collect { list ->
@@ -156,6 +173,14 @@ class ChatViewModel(
     }
 
     fun newChat() {
+        // P-014: save the current chat's unsent text before opening a new one.
+        val prev = _state.value
+        val prevId = prev.activeConversationId
+        if (prevId != null && prev.input.isNotBlank()) {
+            viewModelScope.launch {
+                container.settingsRepository.saveDraft(prevId, prev.input)
+            }
+        }
         viewModelScope.launch {
             val c = container.chatRepository.createConversation(
                 model = _state.value.settings.model
@@ -167,12 +192,25 @@ class ChatViewModel(
     fun deleteConversation(id: String) {
         viewModelScope.launch {
             container.chatRepository.deleteConversation(id)
+            container.settingsRepository.clearDraft(id)
             if (_state.value.activeConversationId == id) {
                 messagesCollectJob?.cancel()
                 _state.update {
                     it.copy(activeConversationId = null, messages = emptyList())
                 }
             }
+        }
+    }
+
+    /** P-014: pin/unpin a conversation (pinned chats sort to the top). */
+    fun togglePin(id: String) {
+        viewModelScope.launch { container.chatRepository.togglePin(id) }
+    }
+
+    /** P-012: reply-language setting — FREE, never gated (H-009). */
+    fun setLanguage(language: String) {
+        viewModelScope.launch {
+            container.settingsRepository.update(language = language)
         }
     }
 
@@ -248,6 +286,8 @@ class ChatViewModel(
                 }
                 _state.update { it.copy(input = "", error = null) }
                 container.chatRepository.addMessage(convId, "user", "/browse $url")
+                // P-014: text consumed — no draft left behind.
+                viewModelScope.launch { container.settingsRepository.clearDraft(convId) }
                 try {
                     // C-028: Jsoup fetch is blocking (15s) — never on Main.
                     val pageText = withContext(Dispatchers.IO) {
@@ -259,8 +299,13 @@ class ChatViewModel(
                     container.chatRepository.addMessage(convId, "user",
                         "[Content from $url]\n$pageText")
                     val history = container.chatRepository.listMessages(convId)
+                    // P-012: reply language rides the system prompt here too.
+                    val browseLanguage = _state.value.settings.language
                     val systemMsg = ChatMessageDto("system",
-                        "Do not fabricate tool outputs, file contents, citations, or completed work.")
+                        if (browseLanguage.isNotBlank())
+                            "Reply in $browseLanguage. Do not fabricate tool outputs, file contents, citations, or completed work."
+                        else
+                            "Do not fabricate tool outputs, file contents, citations, or completed work.")
                     val dto = listOf(systemMsg) + history.map { ChatMessageDto(it.role, it.content) }
                     val (trimmed, _) = ContextTrimmer.trim(dto)
                     val answer = withContext(Dispatchers.IO) {
@@ -302,6 +347,8 @@ class ChatViewModel(
                 }
                 _state.update { it.copy(input = "", error = null, isGeneratingImage = true) }
                 container.chatRepository.addMessage(convId, "user", "/video $prompt")
+                // P-014: text consumed — no draft left behind.
+                viewModelScope.launch { container.settingsRepository.clearDraft(convId) }
                 try {
                     // C-028: create + poll + stream-to-disk all on IO; never on Main.
                     val jobId = withContext(Dispatchers.IO) {
@@ -356,6 +403,8 @@ class ChatViewModel(
                 _state.update { it.copy(input = "", error = null, isGeneratingImage = true) }
                 // Insert user's prompt as a regular message.
                 container.chatRepository.addMessage(convId, "user", "/imagine $prompt")
+                // P-014: text consumed — no draft left behind.
+                viewModelScope.launch { container.settingsRepository.clearDraft(convId) }
                 try {
                     // C-028: network + decode + compress all on IO, never Main.
                     val imageBytes = withContext(Dispatchers.IO) {
@@ -432,6 +481,8 @@ class ChatViewModel(
 
             _state.update { it.copy(input = "", error = null) }
             container.chatRepository.addMessage(convId, "user", text)
+            // P-014: text consumed — no draft left behind.
+            viewModelScope.launch { container.settingsRepository.clearDraft(convId) }
 
             // C-020: persistent memory (Pro) — explicit "Remember …" lines are
             // stored and promoted into the system prompt immediately (5 hits).
@@ -447,10 +498,14 @@ class ChatViewModel(
             val history = container.chatRepository.listMessages(convId)
             // Kai 9000 "honesty rule": measurably reduces model fabrication.
             val honestyRule = "Do not fabricate tool outputs, file contents, citations, or completed work."
-            val systemMsg = ChatMessageDto(
-                "system",
-                if (memoryPrompt.isNotBlank()) "$memoryPrompt $honestyRule" else honestyRule
-            )
+            // P-012: reply language (FREE — H-009) rides the system prompt.
+            val language = _state.value.settings.language
+            val systemText = buildString {
+                if (memoryPrompt.isNotBlank()) append("$memoryPrompt ")
+                if (language.isNotBlank()) append("Reply in $language. ")
+                append(honestyRule)
+            }
+            val systemMsg = ChatMessageDto("system", systemText)
             val dto = listOf(systemMsg) + history.map { ChatMessageDto(it.role, it.content) }
 
             // C-010: trim to token budget, track removed count.

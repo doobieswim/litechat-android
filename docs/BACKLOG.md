@@ -477,8 +477,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 12 · boundary line row 42
 
 ### P-012 — Language output control (FREE — H-009, never gate)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
-- **Goal:** "Reply in <language>" setting injected into the system prompt. Languages are free, always (H-009).
+- **Status:** Done — WIRE 2026-08-15. Settings picker (12 choices incl. Research C market languages) → `AppSettings.language` → injected into the system prompt on every send ("Reply in <language>.") — main chat AND /browse. FREE, no Pro gate (H-009 lock; 2 verify_static guards that it stays ungated). Files: `SettingsRepository.kt`, `ChatViewModel.kt`, `Screens.kt`. Verify: 138/138 static, both flavors compile, 54/54 unit tests.
 - **AC:**
   - [ ] Settings picker with the Research C market languages
   - [ ] Injected into the system prompt on send (first line: "Reply in <language>")
@@ -501,8 +500,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 10
 
 ### P-014 — Pin chats + save draft (FREE)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
-- **Goal:** Pin conversations to the top; drafts persist per conversation.
+- **Status:** Done — WIRE 2026-08-15. `ConversationEntity.pinned` (Room v1→v2 migration — no destructive wipe) + pure `ConversationSort.pinnedFirst` (pins on top, then recency) + star toggle in the drawer; per-conversation drafts in DataStore (`drafts_json`) saved on switch/new-chat/delete and cleared on send/browse/imagine/video. Files: `Entities.kt`, `AppContainer.kt`, `ChatRepository.kt`, new `ConversationSort.kt`, `SettingsRepository.kt`, `ChatViewModel.kt`, `Screens.kt`. Tests: `ConversationSortTest` (4), `DraftStoreLogicTest` (4). Verify: 138/138 static, both flavors compile, 54/54 unit tests.
 - **AC:**
   - [ ] `pinned` flag on ConversationEntity + pin sort (pinned first, then recency)
   - [ ] Draft per conversation saved on pause/leave, restored on open (Room or DataStore)

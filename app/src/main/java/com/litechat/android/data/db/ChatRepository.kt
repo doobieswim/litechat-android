@@ -2,12 +2,15 @@ package com.litechat.android.data.db
 
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class ChatRepository(
     private val conversationDao: ConversationDao,
     private val messageDao: MessageDao,
 ) {
-    fun observeConversations(): Flow<List<ConversationEntity>> = conversationDao.observeAll()
+    fun observeConversations(): Flow<List<ConversationEntity>> =
+        // P-014: pinned chats sort to the top (pure, unit-tested sort).
+        conversationDao.observeAll().map { ConversationSort.pinnedFirst(it) }
 
     fun observeMessages(conversationId: String): Flow<List<MessageEntity>> =
         messageDao.observeForConversation(conversationId)
@@ -38,6 +41,12 @@ class ChatRepository(
     suspend fun touchConversation(id: String) {
         val existing = conversationDao.get(id) ?: return
         conversationDao.upsert(existing.copy(updatedAt = System.currentTimeMillis()))
+    }
+
+    /** P-014: flip a conversation's pin flag (does not touch updatedAt). */
+    suspend fun togglePin(id: String) {
+        val existing = conversationDao.get(id) ?: return
+        conversationDao.upsert(existing.copy(pinned = !existing.pinned))
     }
 
     suspend fun deleteConversation(id: String) {

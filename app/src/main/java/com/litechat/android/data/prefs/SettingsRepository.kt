@@ -11,6 +11,10 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -29,6 +33,8 @@ data class AppSettings(
     val isPro: Boolean = false,
     /** C-032: user accepted the in-app acceptable-use terms (one-time). */
     val acceptableUseAccepted: Boolean = false,
+    /** P-012: model reply language ("" = default). FREE — never gated (H-009). */
+    val language: String = "",
 )
 
 /** C-012: prompt template with dynamic [Variable] fields. */
@@ -60,6 +66,8 @@ class SettingsRepository(
         val IS_PRO = booleanPreferencesKey("is_pro")
         val ACCEPTABLE_USE = booleanPreferencesKey("acceptable_use_accepted")
         val NON_STREAM_EXPIRY = stringPreferencesKey("non_stream_expiry_map")
+        val LANGUAGE = stringPreferencesKey("language")
+        val DRAFTS = stringPreferencesKey("drafts_json")
     }
 
     /**
@@ -230,6 +238,7 @@ class SettingsRepository(
             onboardingDone = p[Keys.ONBOARDING] ?: false,
             isPro = p[Keys.IS_PRO] ?: false,
             acceptableUseAccepted = p[Keys.ACCEPTABLE_USE] ?: false,
+            language = p[Keys.LANGUAGE] ?: "",
         )
     }
 
@@ -244,6 +253,7 @@ class SettingsRepository(
         onboardingDone: Boolean? = null,
         isPro: Boolean? = null,
         acceptableUseAccepted: Boolean? = null,
+        language: String? = null,
     ) {
         context.dataStore.edit { p ->
             baseUrl?.let { p[Keys.BASE_URL] = it.trim().trimEnd('/') }
@@ -252,8 +262,27 @@ class SettingsRepository(
             onboardingDone?.let { p[Keys.ONBOARDING] = it }
             isPro?.let { p[Keys.IS_PRO] = it }
             acceptableUseAccepted?.let { p[Keys.ACCEPTABLE_USE] = it }
+            language?.let { p[Keys.LANGUAGE] = it.trim() }
         }
     }
+
+    // ── P-014: per-conversation drafts (unsent input survives switching) ──
+
+    suspend fun getDraft(conversationId: String): String {
+        val raw = context.dataStore.data.first()[Keys.DRAFTS]
+        return decodeDrafts(raw)[conversationId] ?: ""
+    }
+
+    suspend fun saveDraft(conversationId: String, text: String) {
+        context.dataStore.edit { p ->
+            val drafts = decodeDrafts(p[Keys.DRAFTS]).toMutableMap()
+            if (text.isBlank()) drafts.remove(conversationId)
+            else drafts[conversationId] = text
+            p[Keys.DRAFTS] = encodeDrafts(drafts)
+        }
+    }
+
+    suspend fun clearDraft(conversationId: String) = saveDraft(conversationId, "")
 
     // ── C-022: Settings export/import (JSON — never secrets) ──────────
 
@@ -329,6 +358,28 @@ class SettingsRepository(
 
         /** Free-tier template limit. Pro users have no limit. */
         const val FREE_TEMPLATE_LIMIT = 1
+
+        /** P-012: reply-language choices (Research C market languages + a few). */
+        val LANGUAGES = listOf(
+            "", "English", "Spanish", "Portuguese", "Indonesian", "Hindi",
+            "French", "Arabic", "Russian", "German", "Japanese", "Vietnamese",
+        )
+
+        /**
+         * P-014: per-conversation draft map encode/decode (pure — unit-tested
+         * without a DataStore, NamedKeyStoreLogicTest pattern).
+         */
+        internal fun encodeDrafts(map: Map<String, String>): String =
+            Json.encodeToString(MapSerializer(String.serializer(), String.serializer()), map)
+
+        internal fun decodeDrafts(raw: String?): Map<String, String> {
+            if (raw.isNullOrBlank()) return emptyMap()
+            return runCatching {
+                Json.decodeFromString(
+                    MapSerializer(String.serializer(), String.serializer()), raw
+                )
+            }.getOrDefault(emptyMap())
+        }
     }
 
     data class Preset(val name: String, val baseUrl: String, val model: String)
