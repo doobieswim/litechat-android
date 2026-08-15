@@ -395,4 +395,41 @@ Overlay `ViewTreeLifecycleOwner`, `FLAG_NOT_FOCUSABLE` vs IME, failover second a
 
 Say **WIRE** to fix the stream break. Do not ship `dbd62a9` as a daily driver until 1–2 are green.
 
+---
+
+## Review — 2026-08-15 — ticket C-035 (fix pass)
+
+**Role:** `LITECHAT-REVIEW`. Read-only. Did not edit `app/**`. Did not run Gradle (RAM rule — CI run 101 is the compile proof).
+
+**HEAD:** `5316369` (C-035). Tree clean. `verify_static.py` **129/129**, rc=0. CI run 101 (same SHA) **success**; artifact `litechat-apks` = `foss/release/app-foss-arm64-v8a-release-unsigned.apk` 1.72 MB + `play/release/app-play-arm64-v8a-release-unsigned.apk` 3.37 MB — assembleRelease + R8 + size gate really ran and passed.
+
+**Verdict: ✅ Approve.** All five fan-out Issues + the attach Issue are fixed in code, with regression tests that reproduce the original failure mode.
+
+### Issues 1–5 from the addendum — verified in code
+
+| # | Was broken | Now | Proof |
+|---|-----------|-----|-------|
+| 1 | Stream dead: `parseSSE` strips `data:`, `parseEvent` required it | `parseEvent` accepts stripped payloads | `ChatSseParser.kt`: `dataPayload(line) ?: line.trim().takeIf { it.isNotEmpty() }`; tests `parseEvent accepts already-stripped payloads` + `parseSSE to parseEvent pipeline delivers deltas and Done` (real `ByteArrayInputStream`, the exact chain the addendum demanded) |
+| 2 | `cancel()` in `callbackFlow` closed its own channel | Qualified | `OpenAiCompatibleClient.kt:92` (block head) + `:179` (awaitClose): `this@OpenAiCompatibleClient.cancel()`; `userCancelled` reset per send (`:93`); `CancellationException` rethrown (`:135-136`); IOException checks `userCancelled \|\| activeCall?.isCanceled()` (`:138`) → user Stop never falls into stream→non-stream retry |
+| 3 | New active named key deactivated (idx = -1 before insert) | `withKey()` resolves active idx **after** upsert | `NamedKeyStore.kt` companion `withKey`; `NamedKeyStoreLogicTest`: 4 cases incl. "new active key stays active after insert" + "saving an active key deactivates the previous one" |
+| 4 | `listModels()` / `LanDetector.scan()` on Main | `withContext(Dispatchers.IO)` | `Screens.kt` both Fetch-models and Test buttons; imports added. All other blocking paths already IO-wrapped (`ChatViewModel` fetchPage / completeChat / createVideo / pollVideo / generateImage / DB export) |
+| 5 | Trimmer split turn pairs; system skipped budget | Drops whole oldest pairs; system counts | `ContextTrimmer.kt`: system separated + counted (`systemTokens` starts `keptTokens`); newest-first pair walk; odd-tail parity guard `removeAt(0)`; `ContextTrimmerTest`: "never splits a user assistant turn pair" + "system prompt is always kept and counts against the budget" |
+| + | Attach still hit the 32k cap (silent truncation) | Loops quality 80→60→40→25, doubling sample until `b64 ≤ MAX_INPUT_CHARS − prefix − " Describe this."` | `ChatViewModel.kt` attachImage; honest error "Attachment too large to send — try a smaller photo" when nothing fits |
+
+### Nits (not Issues)
+
+- **Trimmer odd-tail edge:** if history has an odd non-system count (e.g. an unanswered pending user turn), the parity guard drops the *oldest* kept message, which can leave one mid-history message orphaned. Realistic Room history is user→assistant pairs, so this is belt-and-suspenders, strictly better than the old walk. If a future pass wants polish: drop the trailing pending turn instead of the oldest.
+- **`userCancelled` is a plain var** read on the IO flow thread after being set on the caller thread. Standard pattern here and the documented C3 fix; no action.
+- Old nits still open (not this ticket): `User-Agent`/`X-Title: LiteChat` to the API host, `ProviderSetupFields.kt:119` no-try/catch `startActivity`, `AgentLabGate.kt` old `getPackageInfo` overload.
+
+### Tickets
+
+| Ticket | Status after this review |
+|--------|--------------------------|
+| C-035 (stream / named keys / trimmer / ANR / attach) | **Approve** — Ready to ship |
+| C-033 / C-034 / D-006 / C-031 | Done — keep (unchanged) |
+
+`5316369` is safe as a daily driver. Next ticket can be drained.
+
+
 

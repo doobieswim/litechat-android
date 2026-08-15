@@ -86,8 +86,8 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
   - **D) Pick from the Tier 1 list** — human names the 2-3 features.
 - **Free regardless of choice:** language output control, model knobs + prompt caching, pin chats, save draft (TypingMind steals; honesty brand).
 - **Recommendation:** **A** (the bundle is the moat; ~0 KB cost each), fallback **C** if voice feels risky.
-- **Decision:** _(human fills)_
-- **Hold (2026-08-15):** human deferred this decision until ALL research is done AND `LITECHAT-PROOF` approves the research pile (Research B Play policy → Research C global markets → PROOF pass → then decide).
+- **Decision:** **A — Full Tier 1 bundle** (human 2026-08-15): voice mode, memory+/recall, full-text search, encrypted backup upgrade, template deep + persona packs, quiet + registration, web search, chat folders, image editing. P-001–P-006 + P-009–P-014 set **Ready** in BACKLOG (PROOF queue Approve same day). P-007 (BYO-Sync) + P-008 (tasks) stay Tier 2 (v1.2+).
+- **Hold (2026-08-15):** human deferred this decision until ALL research is done AND `LITECHAT-PROOF` approves the research pile (Research B Play policy → Research C global markets → PROOF pass → then decide). **Both conditions met 2026-08-15; decision made (A).**
 
 ### H-009 — Language support scope (i18n)
 - **From:** research (R-016 addendum; human asked "can we add all the languages")

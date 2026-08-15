@@ -96,6 +96,27 @@ PROOF grades → this file
 
 # Log (newest first)
 
+## Research review — 2026-08-15 — Full-queue re-verification (human: "make tickets Ready")
+
+**Scope:** whole research queue — R-011…R-018, Research A/B/C, P-001…P-008 proposals, H-001…H-010 — re-checked after the human asked PROOF to clear the queue so Ready tickets can exist.
+**Role:** `LITECHAT-PROOF`. Read-only except this file. No Gradle. No `app/**`. No BACKLOG edits (PROOF never flips statuses — DIG/human does that after Approve).
+
+**Verdict: ✅ Approve — queue fully cleared.** Everything is already graded (entries below); nothing new needed grading.
+
+### Findings
+
+1. **No ungraded research remains.** R-011/R-012/R-013 (2nd pass Approve), R-014 (Approve), R-015 (Approve), R-016 pack incl. TypingMind + PRO-ROADMAP (Approve after f1d97de issue-3 fix), R-017 + R-018 (Approve), Research A/B/C (Approve). BACKLOG rows still reading "waiting LITECHAT-PROOF" for R-014/R-015/R-016 are **stale** — flagged by PROOF earlier today; DIG/human may stamp them research-Done.
+2. **P-001…P-008 are approved-in-principle, not Ready.** The full-pile Approve (2026-08-15) was explicit: proposals must gain full-ticket shape (goal, checkbox AC, files likely touched, out of scope, research link) **post H-008**, then Ready. That gate still stands — it is the only thing between this queue and buildable tickets.
+3. **Cost flags.** P-001 voice = Whisper STT + TTS on the **user's own provider key** (Groq free tier exists). Same money shape as chat itself, but the ticket + UI must carry the quiet "can cost money" line used by the paid-provider picker — no surprise bills, per product law.
+4. **H-008 (Pro direction) and H-010 (per-country price) are the two open human decisions.** H-008 blocks ticket upgrade/Ready. H-010 is Play-Console click-work, not code — it does not block WIRE.
+5. **Theme law** re-checked against the Tier-1 list: languages free always (H-009 ✓ matches roadmap row 9), voice Pro, nothing user-facing has fight talk. Clean.
+
+### Next
+
+Human answers **H-008** (recommendation A, fallback C — see QUESTIONS-FOR-HUMAN). After that, the chosen Tier-1 features get upgraded to full tickets and may be set Ready. H-010 can be answered at launch time.
+
+---
+
 ## Research review — 2026-08-15 — R-017 + R-018 (HenWorks Hermes Agent + Opclaw)
 
 **Scope:** `docs/HENWORKS-HERMES-AGENT-DIG.md`, `docs/OPENCLAW-ANDROID-DIG.md`, steal-list rows in `docs/COMPETITIVE-STEAL-LIST.md`, `docs/DIG-FINDINGS.md` §7–8, BACKLOG R-017 / R-018.  

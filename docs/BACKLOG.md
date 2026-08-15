@@ -347,6 +347,174 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Key findings:** The bundle = **Voice + Memory + Ownership at $4.99 once** ("Your key. Your voice. It remembers. No monthly bill."). Tier 1 (v1.1, ~0 KB): voice mode, memory+/recall, full-text search, encrypted backup upgrade, template deep, quiet+registration screen, web search. Tier 2 (v1.2+): BYO-Sync, tasks mode, overlay v2, usage dashboard, custom look, profiles. **Never gate:** core chat, failover, compat matrix, key security, /imagine & /video, i18n, LAN/Ollama, basic export, community.
 - **Proposed tickets (Research, need PROOF+human):** P-001 voice · P-002 search · P-003 backup upgrade · P-004 quiet/registration · P-005 web search · P-006 memory+ · P-007 sync · P-008 tasks
 - **Out of scope:** coding, subscription models (never), Ready tickets.
+- **Status update (2026-08-15):** `LITECHAT-PROOF` **Approve** (full-queue re-verification) + human **H-008 = A (full Tier 1 bundle)**. P-001–P-006 + P-009–P-014 promoted to **Ready** below. P-007 (BYO-Sync) + P-008 (tasks) stay Research (Tier 2, v1.2+).
+
+---
+
+## Tier 1 Pro bundle — Ready (H-008 = A, human 2026-08-15)
+
+Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All tickets: Pro = $4.99 once (existing `BYO_pro`), ~0 KB APK each, API-side. Never-gate list unchanged (core chat, failover, languages, /imagine & /video, multi-key, compat matrix).
+
+### P-001 — Voice mode (Pro; free = 1 voice exchange/day)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** Mic → Whisper STT (Groq free tier OK) → chat → TTS read-aloud. Extends C-021 voice stub.
+- **AC:**
+  - [ ] STT via OpenAI-compatible `/v1/audio/transcriptions` with the active key + baseUrl
+  - [ ] Transcription lands in the composer (user presses Send — never auto-send)
+  - [ ] Read-aloud TTS (`/v1/audio/speech`): play / pause / stop, stream to file (C-028 pattern, no heap blowups)
+  - [ ] Pro gate: free tier = 1 voice exchange/day, Pro = unlimited (count-limit, roadmap row 1)
+  - [ ] Quiet cost line near the mic: "voice uses your key — can cost money" (Groq free tier noted)
+  - [ ] All audio on `Dispatchers.IO`; cancel on Stop
+  - [ ] Unit test for the daily-limit gate; verify_static guards
+- **Files:** `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`, `Screens.kt`, Pro-gate/FeatureFlags
+- **Out of scope:** on-device STT, wake word, bundled voices, speaker diarization
+- **Research:** `docs/PRO-ROADMAP.md` row 1 · `docs/PRO-TRENDS-NEXT-BIG.md`
+- **Cost:** bills the user's own provider key (like chat); app itself stays $4.99 once
+
+### P-002 — Full-text search across chats (Pro)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** Search every message. Room FTS4/5 virtual table (~0 KB).
+- **AC:**
+  - [ ] FTS table + sync on message insert (Room migration on upgrade)
+  - [ ] Search entry in Settings (or top bar) → results grouped by conversation
+  - [ ] Tap result opens the conversation at that message
+  - [ ] Pro gate
+  - [ ] FTS query-escaping unit test (quotes/dashes) + verify_static guards
+- **Files:** `Entities.kt`, `ChatRepository.kt`, `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** semantic/vector search, filters (per-conversation) in v1
+- **Research:** `docs/PRO-ROADMAP.md` row 3 · `docs/PRO-LATENT-WANTS.md` P-003
+
+### P-003 — Encrypted backup upgrade (Pro)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** AES-encrypted chat export, scheduled local backups, restore-to-new-phone. Extends C-014 SAF backup.
+- **AC:**
+  - [ ] Export DB → AES-GCM encrypted file; key from user passphrase (PBKDF2, salt stored in file header)
+  - [ ] Import: decrypt + WAL-safe restore (reuse C-008 pattern)
+  - [ ] Optional quiet "back up?" reminder (one, dismissible — never a nag)
+  - [ ] Pro gate (C-014 already Pro)
+  - [ ] Restore-to-new-phone end-to-end test path (debug build)
+  - [ ] No plaintext keys on disk
+- **Files:** `ChatViewModel.kt`, new `util/BackupCrypto.kt`, `Screens.kt` (Settings)
+- **Out of scope:** vendor cloud, auto-sync (that is P-007, Tier 2)
+- **Research:** `docs/PRO-ROADMAP.md` row 4 · `docs/PRO-LATENT-WANTS.md` #1/#4
+
+### P-004 — Quiet + registration screen (Pro)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** Lifetime "Registered" screen; paid users never see a sale prompt again.
+- **AC:**
+  - [ ] After Pro purchase: calm screen "Registered — BYO AI · <date> · no renewal, ever"
+  - [ ] Zero remaining upsell prompts for Pro users (grep all sale strings; gate check)
+  - [ ] Banner removal already `isPro`-gated — verify
+  - [ ] Theme-law everyday words only (`docs/THEME-SHOW-DONT-TELL.md`)
+  - [ ] verify_static guards
+- **Files:** `Screens.kt`, `SettingsRepository.kt`, `BillingRepository.kt`
+- **Out of scope:** accounts, cloud registration, receipts
+- **Research:** `docs/PRO-ROADMAP.md` row 6 · `docs/PRO-LATENT-WANTS.md` P-001/P-006
+
+### P-005 — Web search (Pro)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** `/search <query>` → DDG HTML search → top results → model answers with source links. Extends C-013 /browse.
+- **AC:**
+  - [ ] `/search` handler: DDG results via Jsoup (reuse C-013 stack — no second HTTP client)
+  - [ ] Top results fed to model via `completeChat` (C-013 pattern)
+  - [ ] Answer carries plain-text source URLs
+  - [ ] Pro gate
+  - [ ] Timeout + `Dispatchers.IO`; cancel on Stop
+- **Files:** `OpenAiCompatibleClient.kt` (`fetchSearch`), `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** Google/Bing paid APIs, JS rendering, result caching
+- **Research:** `docs/PRO-ROADMAP.md` row 7
+
+### P-006 — Memory+ (Pro)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** `/recall` command, rolling summaries, memory visible + editable. Extends C-020 MemoryManager.
+- **AC:**
+  - [ ] `/recall <topic>` surfaces promoted memories
+  - [ ] Rolling summary: when history exceeds budget, oldest turns summarized via model into a memory row (Pro)
+  - [ ] Settings "Memory" screen: list / edit / delete (C-020 "Clear memory" grows up)
+  - [ ] C-020 hit-promotion logic kept
+  - [ ] Summary call on `Dispatchers.IO`, cancels on Stop; summary stored as memory, not chat spam
+- **Files:** `MemoryManager.kt`, `ChatViewModel.kt`, `Screens.kt`, `Entities.kt`
+- **Out of scope:** embedding memory, cross-device sync, auto-recall in every prompt
+- **Research:** `docs/PRO-ROADMAP.md` row 2
+
+### P-009 — Chat folders (Pro)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** Organize conversations into folders.
+- **AC:**
+  - [ ] `ConversationEntity.folderId` (nullable) + Room migration
+  - [ ] Folder CRUD (DataStore or Room table)
+  - [ ] Drawer/screen: "All" + folders list; long-press conversation → move to folder
+  - [ ] Pro gate
+- **Files:** `Entities.kt`, `ChatRepository.kt`, `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** nested folders, smart/auto folders
+- **Research:** `docs/PRO-ROADMAP.md` row 8
+
+### P-010 — Template deep + AI persona packs (Pro)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** Template import/export + curated persona packs (system-prompt presets). Extends C-012.
+- **AC:**
+  - [ ] Template export/import as JSON (no secrets — keys stay in SecureStore)
+  - [ ] 5–8 built-in personas (e.g. Plain-English explainer, Translator, Teacher, Code helper) as system-prompt templates
+  - [ ] Persona picker row above the composer
+  - [ ] Pro gate (C-012 already Pro)
+  - [ ] Persona names in theme-law everyday words
+- **Files:** `SettingsRepository.kt`, `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** community template marketplace
+- **Research:** `docs/PRO-ROADMAP.md` row 5 · TypingMind "agents" precedent
+
+### P-011 — Image editing (Pro)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** `/edit <prompt>` edits the last generated image (gpt-image-1 edit variant). Extends C-011 /imagine.
+- **AC:**
+  - [ ] `/edit` uses last generated image + prompt → `POST /v1/images/edits`
+  - [ ] Result appended as a new bubble (original stays)
+  - [ ] Stream to disk (C-028 pattern) + `MediaCleanup` (C-029)
+  - [ ] Pro gate
+  - [ ] Honest error when the provider lacks an edits endpoint (no fake retry loop)
+  - [ ] Boundary law: generation itself stays free — only the edit call is Pro (PROOF issue-3 line)
+- **Files:** `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** in-app image editor UI, multi-image edit, masks
+- **Research:** `docs/PRO-ROADMAP.md` row 12 · boundary line row 42
+
+### P-012 — Language output control (FREE — H-009, never gate)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** "Reply in <language>" setting injected into the system prompt. Languages are free, always (H-009).
+- **AC:**
+  - [ ] Settings picker with the Research C market languages
+  - [ ] Injected into the system prompt on send (first line: "Reply in <language>")
+  - [ ] FREE — no Pro gate (verify_static guard that it never gates)
+  - [ ] Per-conversation override optional (v1: global setting)
+- **Files:** `SettingsRepository.kt`, `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** UI translation (separate i18n ticket), locale detection
+- **Research:** `docs/PRO-ROADMAP.md` row 9 · H-009 · `docs/GLOBAL-MARKETS-RESEARCH.md`
+
+### P-013 — Model knobs + prompt caching toggle (FREE)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** top_p, presence/frequency penalty, max tokens, prompt-caching toggle. Free (honesty brand — caching saves the user money).
+- **AC:**
+  - [ ] Params in DataStore, sent only when non-default (no request bloat)
+  - [ ] Prompt-caching toggle (provider-supported header/flag where available; documented no-op otherwise)
+  - [ ] FREE — no Pro gate
+  - [ ] Collapsed "Advanced" section in provider settings (quiet, not a power-user shrine)
+- **Files:** `SettingsRepository.kt`, `OpenAiCompatibleClient.kt`, `Screens.kt`
+- **Out of scope:** temperature per-message UI, JSON-schema output
+- **Research:** `docs/PRO-ROADMAP.md` row 10
+
+### P-014 — Pin chats + save draft (FREE)
+- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Goal:** Pin conversations to the top; drafts persist per conversation.
+- **AC:**
+  - [ ] `pinned` flag on ConversationEntity + pin sort (pinned first, then recency)
+  - [ ] Draft per conversation saved on pause/leave, restored on open (Room or DataStore)
+  - [ ] FREE — no Pro gate
+  - [ ] Unit tests for pin sort + draft restore
+- **Files:** `Entities.kt`, `ChatRepository.kt`, `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** cross-device draft sync (P-007), pinned-folder UI
+- **Research:** `docs/PRO-ROADMAP.md` row 11
+
+**Build order suggestion (WIRE):** P-012/P-014 first (tiny, free, zero risk) → P-002/P-009 (pure Room) → P-004/P-010 (pure UI) → P-005/P-006 (model calls) → P-003 (crypto) → P-001/P-011 (audio + image APIs). All compile-safe individually; one Gradle task at a time on the 4GB host.
+
+---
 
 ### R-017 — HenWorks Hermes Agent Android (competitive dig)
 - **Status:** Research — written 2026-08-15, waiting `LITECHAT-PROOF` (no Ready child)
