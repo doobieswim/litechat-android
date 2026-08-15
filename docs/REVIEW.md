@@ -346,3 +346,53 @@ C-031 can stay **Done**.
 
 Call REVIEW again after Issue 1 is fixed if you want Approve.
 
+---
+
+## Review — 2026-08-15 — FULL PROJECT fan-out addendum
+
+**Role:** `LITECHAT-REVIEW`. Still read-only. Did not edit `app/**`.  
+**Source:** 3-layer fan-out (`deleg_839f16ae`). Parent **byte-checked** every new Issue below. Child text is not enough.
+
+**Verdict stays Issues.** Worse than the first pass: **chat streaming is dead in the current tree.** C-033/C-034/D-006 still stay Done.
+
+### New confirmed bugs (parent verified)
+
+1. **`StreamParser.kt:47` + `ChatSseParser.kt:48-49` + `OpenAiCompatibleClient.kt:106-111` — tokens never reach the UI.**  
+   `parseSSE` emits the payload **without** `data:`. `parseEvent` then returns null unless the line **still** starts with `data:`. Every chunk is dropped. `gotDelta` stays false and `streamError` stays null, so the stream→non-stream fallback **does not run**. Tests only feed `parseEvent("data: …")` — they never test the two functions chained.  
+   **Fix:** accept already-stripped JSON/`[DONE]` in `dataPayload`, **or** stop stripping in `parseSSE`. Add one test that pipes `data: {"choices":…}` through `parseSSE` → `parseEvent`.
+
+2. **`OpenAiCompatibleClient.kt:88` — `cancel()` inside `callbackFlow` closes the channel.**  
+   Receiver is `ProducerScope` / `SendChannel`. Unqualified `cancel()` is **not** `OpenAiCompatibleClient.cancel()`. Every `streamChat` starts by shutting its own pipe.  
+   **Fix:** `this@OpenAiCompatibleClient.cancel()` then `userCancelled = false`.
+
+3. **`NamedKeyStore.kt:55-59` — new named key with `isActive=true` is turned off.**  
+   On insert `idx` is `-1`, then `i != idx` is true for **every** row including the new one. `getActiveKey()` is blank; send falls back to the primary key.  
+   **Fix:** after `list.add`, set `idx = list.lastIndex`.
+
+4. **`Screens.kt` Fetch models / Test — `listModels()` (`Call.execute()`) on Main.**  
+   `rememberCoroutineScope().launch` is Main. Weak phone ANR for the whole HTTP wait.  
+   **Fix:** `withContext(Dispatchers.IO)`.
+
+5. **`ContextTrimmer.kt:11` vs `:54-67` — “never splits turn pairs” is a lie.**  
+   Newest-first walk can keep an assistant without its user. System rows skip the token budget.  
+   **Fix:** drop oldest user+assistant pairs as a unit; count system tokens.
+
+### Already in the first pass (still true)
+
+- `ChatViewModel.kt:766` attach still hits the 32k text cap.
+
+### Fan-out Issues I did **not** promote (plausible, not re-read line-by-line this addendum)
+
+Overlay `ViewTreeLifecycleOwner`, `FLAG_NOT_FOCUSABLE` vs IME, failover second assistant row, `/imagine`/`/video` untracked jobs, RetryInterceptor retrying canceled calls, Jsoup second HTTP stack. Treat as next REVIEW pass or WIRE if the human wants a crash/ANR sweep.
+
+### Fix order (updated)
+
+1. Issues 1–2 (chat does not stream).  
+2. Named-key activate (3).  
+3. Attach 32k + listModels Main (4) + trimmer (5).  
+4. Overlay / Stop-on-media sweep.  
+5. Still do **not** add SuperGrok OAuth or Termux-in-APK.
+
+Say **WIRE** to fix the stream break. Do not ship `dbd62a9` as a daily driver until 1–2 are green.
+
+
