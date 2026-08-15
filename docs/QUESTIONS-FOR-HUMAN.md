@@ -87,6 +87,7 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
 - **Free regardless of choice:** language output control, model knobs + prompt caching, pin chats, save draft (TypingMind steals; honesty brand).
 - **Recommendation:** **A** (the bundle is the moat; ~0 KB cost each), fallback **C** if voice feels risky.
 - **Decision:** _(human fills)_
+- **Hold (2026-08-15):** human deferred this decision until ALL research is done AND `LITECHAT-PROOF` approves the research pile (Research B Play policy → Research C global markets → PROOF pass → then decide).
 
 ### H-009 — Language support scope (i18n)
 - **From:** research (R-016 addendum; human asked "can we add all the languages")
