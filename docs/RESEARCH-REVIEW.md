@@ -96,6 +96,30 @@ PROOF grades → this file
 
 # Log (newest first)
 
+## Research review — 2026-08-15 — Re-check: PROOF issues 1–3 (commit f1d97de)
+
+**Scope:** the 3 fixes from `f1d97de` only: F-Droid metadata (`fastlane/metadata/android/en-US/fdroid.yml` + description files + `docs/LAUNCH-PACK.md` row 2), C-032 status + `docs/PLAY-POLICY-AUDIT.md` blocker #1, `docs/PRO-ROADMAP.md` /imagine boundary line.  \
+**Role:** `LITECHAT-PROOF` re-check. Read-only except this file. No gradle. No `app/**`. Re-verified every fix against real bytes: `git status` clean, `yaml.safe_load` on fdroid.yml, `wc -c` on both description files, live `curl` on the privacy URL.
+
+**Verdict: Approve** — all 3 issues closed.
+
+### Issue-by-issue
+
+1. **F-Droid metadata — ✅ closed.** `fdroid.yml` has no `subdir: app` and no literal `commit: main` (placeholder `<FULL_SHA_OF_v1.0.0_TAG>` + inline comment; YAML parses). NonFreeNet reason is now the real rationale ("connects to user-chosen proprietary AI APIs by default"). Description rewritten for the foss build — no ads/Pro/billing talk; ends "no ads, no Google Play services, and no billing. Free forever." `short_description.txt` exists at 61 chars (≤80); `full_description.txt` at 925 bytes (≤4000). `LAUNCH-PACK.md` row 2 reflects the fix and adds the tag-at-release step (Tag `v1.0.0`, submit MR as `metadata/com.byoai.chat.foss.yml`).
+2. **C-032 + privacy blocker — ✅ closed.** BACKLOG C-032 notes PROOF approved Research B post-hoc (re-affirmed after the pre-PROOF Ready flag). PLAY-POLICY-AUDIT blocker #1 is marked **RESOLVED 2026-08-15** with the Pages-enable fix, and I independently verified `https://flamingspade1995-coder.github.io/litechat-android/privacy.html` returns **HTTP 200** (serves the BYO AI Privacy Policy) — the doc's claim is true, not just asserted.
+3. **PRO-ROADMAP boundary — ✅ closed.** Explicit line: `/imagine` and `/video` generation stay **free forever** (user already pays the provider); the paid layer is what sits on top — image editing (separate API call), folders, search, organization. Names PRO-SCAN's "never gate /imagine" and states the reconciliation, so a future WIRE cannot read a contradiction.
+
+### Nits (not Issues)
+
+- `fdroid.yml` is now explicitly documented as the fdroiddata-submission reference (recipe lives in fdroiddata as `com.byoai.chat.foss.yml`) — correct per the audit; the file still contains `commit:` as a placeholder, which is the intended pre-submission state, not a live recipe.
+- Re-verify the placeholder swap + HTTP 200 at actual submission time (URL depends on Pages staying enabled).
+
+### Next
+
+Issues 1–3 are closed. C-032 Ready stands; Research A/B/C + PRO pile are safe to build from. No further PROOF action needed on this drop.
+
+---
+
 ## Research review — 2026-08-15 — Full 2026-08-15 pile (R-016 pack, TypingMind dig, Research A/B/C, H-001/H-008/H-009/H-010)
 
 **Scope:** `docs/PRO-SCAN-COMPETITIVE.md`, `docs/PRO-TRENDS-NEXT-BIG.md`, `docs/PRO-LATENT-WANTS.md`, `docs/PRO-ROADMAP.md`, `docs/TYPINGMIND-DIG.md`, `docs/FDROID-BUILD-AUDIT.md` (Research A), `docs/PLAY-POLICY-AUDIT.md` (Research B), `docs/GLOBAL-MARKETS-RESEARCH.md` (Research C), `docs/QUESTIONS-FOR-HUMAN.md` H-001/H-008/H-009/H-010, BACKLOG C-032/R-016.
