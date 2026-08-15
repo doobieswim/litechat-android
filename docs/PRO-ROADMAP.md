@@ -24,13 +24,18 @@ The one-liner the app can truthfully own by 2027 (from trends §8):
 
 | # | Feature | Evidence | Extends | Pro gate |
 |---|---------|----------|---------|----------|
-| 1 | **Voice mode**: mic → Whisper STT (incl. Groq free tier) → chat → TTS read-aloud | Trends #1; Scan #3 (OpenCat & Chattica gate TTS) | Existing voice stub C-021 | Pro = full voice; free = 1 voice exchange/day |
+| 1 | **Voice mode**: mic → Whisper STT (incl. Groq free tier) → chat → TTS read-aloud | Trends #1; Scan #3 (OpenCat & Chattica gate TTS); TypingMind gates TTS at $79 | Existing voice stub C-021 | Pro = full voice; free = 1 voice exchange/day |
 | 2 | **Memory+**: /recall command, rolling summaries, memory visible/editable | Trends #2; Latent P-010 | C-020 MemoryManager (done, Pro) | Pro (already gated) |
-| 3 | **Full-text search across chats** | Latent P-003 (★ the highest-value missing Pro feature; Room FTS4/5, ~0 KB) | Room DB | Pro |
+| 3 | **Full-text search across chats** | Latent P-003 (★ the highest-value missing Pro feature; Room FTS4/5, ~0 KB); TypingMind's most-praised feature | Room DB | Pro |
 | 4 | **Encrypted backup upgrade**: AES + scheduled local backups + restore-to-new-phone | Scan #4; Latent #1/#4 (sunk cost; "the file you own") | C-014 (done, Pro) | Pro |
-| 5 | **Template deep**: import/export + curated packs | Scan #1 (count-limits convert); Latent "finish the game" | C-012 (done, Pro) | Pro (already) |
+| 5 | **Template deep**: import/export + curated packs + **AI persona packs** (curated system-prompt presets — TypingMind's 60+ "agents" as zero-code template packs) | Scan #1 (count-limits convert); Latent "finish the game"; TypingMind agents | C-012 (done, Pro) | Pro (already) |
 | 6 | **Quiet + registration**: lifetime "Registered — BYO AI · date · no renewal, ever" screen; paid users never see a sale again | Latent P-001/P-006 (WinAmp; anti-enshittification) | Billing | Pro |
-| 7 | **Web search**: /browse + DDG search-then-answer | Scan #2 (web search paid in Chatbox & UnboundChat) | C-013 /browse (done, Pro) | Pro |
+| 7 | **Web search**: /browse + DDG search-then-answer | Scan #2 (web search paid in Chatbox & UnboundChat); TypingMind gates at $79 | C-013 /browse (done, Pro) | Pro |
+| 8 | **Chat folders** (organize by topic/project) | TypingMind Premium; Latent #7 (organization = Pro layer) | Room `folderId` | Pro |
+| 9 | **Language output control** ("reply in Spanish") | TypingMind free-tier feature; pairs with i18n/global markets | System prompt | **Free** |
+| 10 | **Model knobs**: top_p, presence/frequency penalty, max tokens, **prompt caching toggle** | TypingMind free-tier params; caching SAVES user money | Client params | **Free** (honesty brand) |
+| 11 | **Pin chats + save draft** | TypingMind chat mgmt | Room/DataStore | **Free** (tiny) |
+| 12 | **Image editing** (gpt-image-1 edit variant) | TypingMind Extended $79; Chatbox gates image quotas | /imagine (C-011) | Pro |
 
 **Free keeps:** core chat, failover, multi-key, /imagine, /video, voice *input*, forks, compat matrix, LAN/Ollama, i18n, basic export, template share-copy.
 

@@ -76,12 +76,25 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
 - **Decision:** **PROOF**, **every** research ticket, **grade the pile we just wrote** (human 2026-08-15). First verdict: Issues — see `docs/RESEARCH-REVIEW.md`.
 
 ### H-008 — Pro bundle direction (from R-016)
-- **From:** research (R-016, synthesis `docs/PRO-ROADMAP.md`)
-- **Decision needed:** Which Pro direction to build. All three digs converge on **Voice + Memory + Ownership at $4.99 once** ("Your key. Your voice. It remembers. No monthly bill."), but scope is the human's call.
+- **From:** research (R-016, synthesis `docs/PRO-ROADMAP.md` + TypingMind digs `docs/TYPINGMIND-DIG.md`)
+- **Decision needed:** Which Pro direction to build. All digs converge on **Voice + Memory + Ownership at $4.99 once** ("Your key. Your voice. It remembers. No monthly bill."), but scope is the human's call.
 - **Options:**
-  - **A) Full Tier 1 bundle** — voice mode, memory+/recall, full-text search, encrypted backup upgrade, template deep, quiet+registration, web search. Biggest Pro value, most work (~1-2 weeks of coding).
+  - **A) Full Tier 1 bundle** — voice mode, memory+/recall, full-text search, encrypted backup upgrade, template + persona packs, quiet+registration, web search, **chat folders**, image editing. Biggest Pro value, most work (~1-2 weeks of coding).
   - **B) Voice first** — just voice mode + read-aloud (the next big feature), everything else later. Smallest meaningful step.
-  - **C) Ownership first** — search + backup upgrade + quiet/registration (no voice). Best "people pay to protect their work" play, zero new APIs.
+  - **C) Ownership first** — search + backup upgrade + quiet/registration + folders (no voice). Best "people pay to protect their work" play, zero new APIs.
   - **D) Pick from the Tier 1 list** — human names the 2-3 features.
+- **Free regardless of choice:** language output control, model knobs + prompt caching, pin chats, save draft (TypingMind steals; honesty brand).
 - **Recommendation:** **A** (the bundle is the moat; ~0 KB cost each), fallback **C** if voice feels risky.
+- **Decision:** _(human fills)_
+
+### H-009 — Language support scope (i18n)
+- **From:** research (R-016 addendum; human asked "can we add all the languages")
+- **Decision needed:** How much of the app should speak other languages, and how far.
+- **Facts:** app has only **2** strings in resources; **~100 user-facing strings are hardcoded in Kotlin** (Screens.kt etc.). So UI translation needs one string-extraction refactor first (small ticket, ~0 KB APK). Android supports any number of locales — adding a language = one `values-XX/strings.xml` file. F-Droid/XDA/4PDA communities translate FOSS apps for free.
+- **Options:**
+  - **A) Language output only** — model replies in a chosen language (system-prompt setting). Free, trivial, do now. UI stays English.
+  - **B) UI in top markets** — extract strings, then ship the 5-10 languages Research C (global markets) names (Spanish, Portuguese, Indonesian, Hindi, French, Arabic, Russian…). Community-translated via FOSS channels.
+  - **C) All languages, machine-translated** — extract strings + ~100 machine-translated locales. Technically possible, but broken translations hurt the honest brand and Play reviews.
+  - **D) B now, C later** — extract once, ship top markets first, let community drive the long tail.
+- **Recommendation:** **D** (A is included free anyway). Research C runs before this is built.
 - **Decision:** _(human fills)_
