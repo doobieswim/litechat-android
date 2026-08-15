@@ -35,7 +35,7 @@ Sub is about running modern software on old Android — this fits exactly. Post 
 >
 > The phone in mind: the Moto G 2025 that Walmart sells for $29.88. 4GB of RAM. It runs fine there. If your phone is low on memory, the app tells you plainly instead of pretending — it shows an honest compatibility table.
 >
-> - ~2 MB APK, native Kotlin + Compose
+> - Under 2 MB APK (1.6 MB foss release, measured), native Kotlin + Compose
 > - Free with one small banner, or $4.99 once to remove it (no monthly bill, ever)
 > - Open source, MIT, FOSS flavor with no Google services
 > - Android 8.0+
@@ -53,7 +53,7 @@ Sub is about running modern software on old Android — this fits exactly. Post 
 Fork [yatsyk/awesome-byok-apps](https://github.com/yatsyk/awesome-byok-apps), add to the Android list, open PR. Suggested entry:
 
 ```markdown
-- [BYO AI](https://github.com/flamingspade1995-coder/litechat-android) — Android. Thin BYOK chat for OpenAI-compatible APIs. 4GB-friendly (~2MB APK), honest low-memory check, ads + one-time $4.99 Pro, FOSS flavor without Google services.
+- [BYO AI](https://github.com/flamingspade1995-coder/litechat-android) — Android. Thin BYOK chat for OpenAI-compatible APIs. 4GB-friendly (1.6 MB APK), honest low-memory check, ads + one-time $4.99 Pro, FOSS flavor without Google services.
 ```
 
 ---

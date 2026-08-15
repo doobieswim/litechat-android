@@ -9,7 +9,7 @@ Features:
 - Web browsing (/browse) and image attachment for vision models
 - Voice input, prompt templates, conversation forks, chat backup and restore
 - Honest compatibility matrix: tells you plainly if your phone can handle it
-- Built for a $30 phone: small (~2 MB), fast, works on 4GB phones
+- Built for a $30 phone: small (1.6 MB APK), fast, works on 4GB phones
 - Works with a local Ollama server on your network
 
 This build has no ads, no Google Play services, and no billing. Free forever.

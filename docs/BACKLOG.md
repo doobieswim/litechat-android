@@ -226,13 +226,11 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **APK:** 0 KB | **Touch:** `scripts/verify_static.py`
 
 ### D-005 — Complete distribution: Play Store + awesome-byok-apps + README
-- **Status:** Ready — positioning locked 2026-08-15 (H-004: promise "Built for a $30 phone", verified Walmart Moto G 2025 $29.88/4GB; H-005: no dare, no rivals, FOSS first). Listing copy: `docs/PLAY-LISTING-DRAFT.md`.
+- **Status:** Done — WIRE 2026-08-15. README rewritten with full feature set + real measured APK sizes (foss 1.6 MB, play 3.2 MB from CI artifacts); fastlane F-Droid copy aligned to locked brand line + real size; XDA template made honest (dev framing, accurate features); r/androidafterlife draft + awesome-byok-apps entry finalized in `docs/LAUNCH-PACK.md`; awesome-byok-apps PR opened (yatsyk/awesome-byok-apps#11). Verify: 92/92 static.
 - **Goal:** Play Store short+full description, README update with all features, awesome-byok-apps PR, r/androidafterlife post.
 - **Source:** R-010 gap analysis
 - **APK:** 0 KB | **Docs only**
-- **Goal:** F-Droid metadata, XDA post template, awesome-byok-apps PR, r/androidafterlife post. Zero code.
-- **Source:** `docs/X-TWITTER-COMPETITIVE.md`
-- **APK:** 0 KB
+- **Remaining (human):** post r/androidafterlife + XDA/4PDA threads, pay $25 + upload to Play, tag v1.0.0 + create GitHub Release, submit fdroiddata MR.
 
 
 
