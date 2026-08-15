@@ -20,6 +20,7 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
 - **Recommendation:** **BYO AI** — short description: *“Chat with your own key. Works on 4GB phones. No monthly bill.”* (61/80). 4GB lives in that line + a screenshot, **not** the name. Full table: `docs/APP-NAMING-RESEARCH.md`.
 - **Hold:** Play Console must search the exact name at submit time. DIG will not flip C-031 to Ready until PROOF grades this naming pack.
 - **Decision:** **BYO AI** (human, 2026-08-15). Short description: *“Chat with your own key. Works on 4GB phones. No monthly bill.”* applicationId when WIRE runs C-031: `com.byoai.chat`. Namespace/package stay `com.litechat.android`.
+- **Note (2026-08-15):** final name confirmation deferred until the research queue completes (Research B Play policy → Research C global markets). C-031 rebrand already applied; if the name changes post-research, the rebrand process is documented and cheap to re-run.
 
 ### H-002 — FOSS applicationId
 - **From:** coding (when C-002 starts)  
