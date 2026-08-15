@@ -41,7 +41,11 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
   3. **Disease or desire.** Listerine named a hidden pain. Hopkins rode a want people already had. Which? (A) name the pain ("your phone is lying about RAM" / "you are renting a chatbot") (B) ride the want ("bring your own AI to the party") (C) both — pain in the subtitle, want in the name
   4. **Front door.** How should a stranger first meet us? (A) shareware: free real chat + one banner, $4.99 kills it (current plan) (B) Trojan Horse: a tiny useful free tool (cost display? compat check?) that later becomes the chat app (C) Caples story: launch as a Reddit/X story about a cheap phone, app is the punchline
 - **Recommendation:** 1C (or anyone on a normal phone), 2 mixed as *user words* (“works / yours / no monthly bill”). Theme lock: show don’t tell — `docs/THEME-SHOW-DONT-TELL.md`.
-- **Decision:** _(human fills)_
+- **Decision:** (human 2026-08-15)
+  1. **First human: C** (cheap/old 4GB phone owner) — follows from the promise.
+  2. **One promise: C, upgraded — “Built for a $30 phone.”** Verified 2026-08-15: Walmart sells the **Straight Talk Moto G 2025 (5G, 64GB) at $29.88 with 4GB RAM** (locked to Straight Talk; plans from $35/mo) — https://www.walmart.com/ip/Straight-Talk-Motorola-Moto-g-2025-5G-64GB-Blue-Prepaid-Smartphone-Locked-to-Straight-Talk/14552506783 . Honest, checkable, nobody else can say it.
+  3. **Disease or desire: C** (both — want in the name, pain in the subtitle).
+  4. **Front door: A** (shareware — free chat + one banner, $4.99 removes it).
 
 ### H-005 — Which shine stunts we will actually run
 - **From:** research (R-012 `docs/SHINE-UNCONVENTIONAL.md`) + H-006 quieter lock
@@ -51,7 +55,10 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
   2. Store page names **no** rival (ChatGPT / Agora stay off the listing)? **Y/N** — theme law already says yes
   3. Ship FOSS / 4PDA / XDA **before** Play (distribution, not a stunt)? **Y/N**
 - **Recommendation:** **N / Y / your call.** After H-006: no store dare, no named enemy on Play. Screenshot of a real size number or a calm “low memory” note is enough. Underground week is optional logistics (`docs/DISTRIBUTION-FOSS.md` already exists).
-- **Decision:** _(human fills)_
+- **Decision:** (human 2026-08-15, adopted research recommendations)
+  1. **Honesty test: N** — not now; save as a post-launch story.
+  2. **No rival names on listing: Y** — already theme law.
+  3. **Ship FOSS / 4PDA / XDA before Play: Y** — the “secret Mississippi field” move; costs nothing.
 
 ### H-006 — Lock King's Road as the underdog theme
 - **From:** research (R-013 `docs/KINGS-ROAD-THEME.md` + `docs/THEME-SHOW-DONT-TELL.md`)

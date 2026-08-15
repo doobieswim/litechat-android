@@ -214,7 +214,7 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **APK:** 0 KB | **Touch:** `scripts/verify_static.py`
 
 ### D-005 — Complete distribution: Play Store + awesome-byok-apps + README
-- **Status:** Ready
+- **Status:** Ready — positioning locked 2026-08-15 (H-004: promise "Built for a $30 phone", verified Walmart Moto G 2025 $29.88/4GB; H-005: no dare, no rivals, FOSS first). Listing copy: `docs/PLAY-LISTING-DRAFT.md`.
 - **Goal:** Play Store short+full description, README update with all features, awesome-byok-apps PR, r/androidafterlife post.
 - **Source:** R-010 gap analysis
 - **APK:** 0 KB | **Docs only**

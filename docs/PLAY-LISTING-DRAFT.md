@@ -18,7 +18,7 @@ Paste your own API key. Then just chat.
 
 No account. No monthly bill. Free has a small banner. Pay once to remove it.
 
-Works on phones with 4GB of memory. If this phone is low on memory, a plain note says so. Heavy extras stay off.
+Built for a $30 phone. The Moto G 2025 at Walmart costs $29.88 and has 4GB of memory — that is exactly the kind of phone this app is for. If your phone is low on memory, a plain note says so. Heavy extras stay off.
 
 This app does not run a big AI model on the phone. The brain is the service you already pay. We are the small window.
 
