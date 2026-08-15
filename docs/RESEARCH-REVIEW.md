@@ -96,6 +96,35 @@ PROOF grades → this file
 
 # Log (newest first)
 
+## Research review — 2026-08-15 — R-017 + R-018 (HenWorks Hermes Agent + Opclaw)
+
+**Scope:** `docs/HENWORKS-HERMES-AGENT-DIG.md`, `docs/OPENCLAW-ANDROID-DIG.md`, steal-list rows in `docs/COMPETITIVE-STEAL-LIST.md`, `docs/DIG-FINDINGS.md` §7–8, BACKLOG R-017 / R-018.  
+**Role:** `LITECHAT-PROOF`. Read-only except this file. Did not touch DIG docs, `app/**`, BACKLOG statuses, or Gradle.  
+**Spot-checks:** all four named clones exist on disk; henworks.com Opclaw bullets match the dig (no Linux / skip proot-distro / ~200MB / 3–10 min / 10+ providers); appbrain `com.opclaw.android` = **263.38 MB**, v1.6.14, 5.00★, 1K+; companion README matches NaCl Box, never `0.0.0.0`, never `auth.json`/`.env`, `mesh_broker.py` pair/push/poll/ack; `openclaw-android` has `android/www` + `terminal-emulator` + `patches/glibc-compat.js`.
+
+**Verdict: Approve** (research only — no Ready child, correctly)
+
+### Checklist
+
+1. **Scope** — Docs + tickets only. DIG did not sneak these essays into a Ready flip. Later C-033/C-034 WIRE was a **human** “add what you can,” not DIG promoting R-017/R-018 to Ready. Fine.
+2. **Grounding** — Load-bearing facts have URLs or live clones. The two numbers I re-opened (Opclaw **263.38 MB**, henworks “~200MB / 3–10 min / no proot”) match. Mesh/security claims match the companion README, not vibes. Star counts will drift; they are labeled as of the dig date.
+3. **Product laws** — Held. Avoid list is the point: no Node/Termux/proot in the chat APK, no LiteRT-LM “runs on 4GB,” no SoftRAM. Cost labeled (Fal.ai paid; our $4.99 already matched; sponsor banners refused).
+4. **Theme** — These are backstage DIG files. “Gold rush / weigh-in screenshot” is told as a *show-don’t-tell* rule (numbers, no rival names). Not listing copy. Passes.
+5. **Ticket quality** — Both stay **Research**. R-017’s only follow-up is “P-007 design pass, need PROOF+human.” R-018 says **no Ready child**. Correct shape.
+6. **Usefulness** — Changes what WIRE must not build (fat agent) and what P-007 may copy later (mesh merge, QR pairing). R-018’s 1.6 MB vs 263 MB is honest contrast for screenshots. Not a pure essay.
+
+### Nits (not Issues)
+
+- BACKLOG still says R-014 / R-015 / R-016 are “waiting LITECHAT-PROOF.” Those were already graded earlier today. DIG/human may stamp them; PROOF does not edit BACKLOG.
+- `com.mobilefork.hermesagent` on the R-017 watch list has no URL. Optional later.
+- Play Hermes Agent 4.5★ / 3.13K was not re-opened this pass. Cited Play URL is enough for research; re-check if anyone quotes it on a store page.
+
+### Next
+
+Human or DIG may mark **R-017** and **R-018** research-Done. Do **not** spawn a Ready “bundle Hermes/Termux” ticket from this Approve. P-007 stays Research until H-008.
+
+---
+
 ## Research review — 2026-08-15 — R-015 overnight myths + real roadmap
 
 **Scope:** `docs/OVERNIGHT-ROADMAP.md` + BACKLOG R-015 (only outstanding "waiting LITECHAT-PROOF" ticket; R-014 and the R-016 pack were already graded).  \
