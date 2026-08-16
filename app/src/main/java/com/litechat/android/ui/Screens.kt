@@ -260,15 +260,13 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onInsertTemplate = vm::insertTemplate,
             onAttachImage = { imagePicker.launch("image/*") },
             onVoiceInput = {
-                if (vm.consumeVoiceSlot()) {
-                    val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                        putExtra(
-                            android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                            android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
-                        )
-                    }
-                    voiceLauncher.launch(intent)
+                val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(
+                        android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                    )
                 }
+                voiceLauncher.launch(intent)
             },
             onShare = {
                 shareScope.launch {

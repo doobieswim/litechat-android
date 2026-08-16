@@ -356,7 +356,7 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All tickets: Pro = $4.99 once (existing `BYO_pro`), ~0 KB APK each, API-side. Never-gate list unchanged (core chat, failover, languages, /imagine & /video, multi-key, compat matrix).
 
 ### P-001 — Voice mode (Pro; free = 1 voice exchange/day)
-- **Status:** Done — WIRE 2026-08-16. Mic still lands text in the box (never auto-send). Free = 1 voice use/day. Read-aloud uses `/v1/audio/speech` to a file. Quiet cost line. Tests: VoiceDailyLimit.
+- **Status:** Done — WIRE 2026-08-16. **v1 STT is the phone speech box** (lands in the composer, never auto-send, does **not** burn the daily slot, does **not** use the key). `transcribeAudio()` exists for later. Read-aloud uses `/v1/audio/speech` (counts as the 1/day free use). Slot is only taken after there is text to read. `MediaPlayer.prepare()` is on IO. Quiet cost line.
 - **Goal:** Mic → Whisper STT (Groq free tier OK) → chat → TTS read-aloud. Extends C-021 voice stub.
 - **AC:**
   - [ ] STT via OpenAI-compatible `/v1/audio/transcriptions` with the active key + baseUrl
@@ -385,7 +385,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 3 · `docs/PRO-LATENT-WANTS.md` P-003
 
 ### P-003 — Encrypted backup upgrade (Pro)
-- **Status:** Done — WIRE 2026-08-16. Optional backup password (AES-GCM + PBKDF2, magic BYO1). One quiet "Want a backup?" banner. Tests: BackupCrypto round-trip.
+- **Status:** Done — WIRE 2026-08-16. Optional backup password (AES-GCM + PBKDF2, magic BYO1). Streams in 8 KB chunks (no full-DB heap). One quiet "Want a backup?" banner. Tests: BackupCrypto round-trip + 64 KB stream.
 - **Goal:** AES-encrypted chat export, scheduled local backups, restore-to-new-phone. Extends C-014 SAF backup.
 - **AC:**
   - [ ] Export DB → AES-GCM encrypted file; key from user passphrase (PBKDF2, salt stored in file header)

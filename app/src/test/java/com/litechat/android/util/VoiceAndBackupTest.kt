@@ -35,4 +35,14 @@ class BackupCryptoTest {
         val blob = BackupCrypto.encrypt("x".toByteArray(), "right")
         BackupCrypto.decrypt(blob, "wrong")
     }
+
+    @Test
+    fun `stream round trip keeps a bigger payload`() {
+        val plain = ByteArray(64 * 1024) { it.toByte() }
+        val out = java.io.ByteArrayOutputStream()
+        BackupCrypto.encryptTo(plain.inputStream(), "pw", out)
+        val restored = java.io.ByteArrayOutputStream()
+        BackupCrypto.decryptTo(out.toByteArray().inputStream(), "pw", restored)
+        assertArrayEquals(plain, restored.toByteArray())
+    }
 }

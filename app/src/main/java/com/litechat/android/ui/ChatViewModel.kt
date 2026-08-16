@@ -1078,14 +1078,14 @@ class ChatViewModel(
                     container.database.openHelper.writableDatabase
                         .query("PRAGMA wal_checkpoint(TRUNCATE)")
                         .use { it.moveToFirst() }
-                    val bytes = dbFile.readBytes()
-                    val outBytes = if (passphrase.isNotBlank()) {
-                        BackupCrypto.encrypt(bytes, passphrase)
-                    } else {
-                        bytes
-                    }
                     container.ctx.contentResolver.openOutputStream(uri)?.use { out ->
-                        out.write(outBytes)
+                        dbFile.inputStream().use { inn ->
+                            if (passphrase.isNotBlank()) {
+                                BackupCrypto.encryptTo(inn, passphrase, out)
+                            } else {
+                                inn.copyTo(out)
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -1105,18 +1105,33 @@ class ChatViewModel(
                 withContext(Dispatchers.IO) {
                     container.database.close()
                     val dbFile = container.ctx.getDatabasePath("litechat.db")
-                    val raw = container.ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                        ?: throw IllegalArgumentException("Could not read file")
-                    val magic = if (raw.size >= 4) raw.copyOfRange(0, 4).toString(Charsets.US_ASCII) else ""
-                    val bytes = if (magic == "BYO1") {
-                        if (passphrase.isBlank()) {
-                            throw IllegalArgumentException("This backup needs a password")
+                    val incoming = java.io.File.createTempFile("bak", ".bin", container.ctx.cacheDir)
+                    try {
+                        container.ctx.contentResolver.openInputStream(uri)?.use { inn ->
+                            incoming.outputStream().use { inn.copyTo(it) }
+                        } ?: throw IllegalArgumentException("Could not read file")
+                        val header = ByteArray(4)
+                        incoming.inputStream().use { inn ->
+                            val n = inn.read(header)
+                            if (n < 4) header.fill(0)
                         }
-                        BackupCrypto.decrypt(raw, passphrase)
-                    } else {
-                        raw
+                        if (BackupCrypto.looksEncrypted(header)) {
+                            if (passphrase.isBlank()) {
+                                throw IllegalArgumentException("This backup needs a password")
+                            }
+                            incoming.inputStream().use { inn ->
+                                dbFile.outputStream().use { out ->
+                                    BackupCrypto.decryptTo(inn, passphrase, out)
+                                }
+                            }
+                        } else {
+                            incoming.inputStream().use { inn ->
+                                dbFile.outputStream().use { inn.copyTo(it) }
+                            }
+                        }
+                    } finally {
+                        incoming.delete()
                     }
-                    dbFile.writeBytes(bytes)
                     java.io.File("${dbFile.path}-wal").delete()
                     java.io.File("${dbFile.path}-shm").delete()
                 }
@@ -1277,35 +1292,35 @@ class ChatViewModel(
     }
 
     fun readAloud() {
-        if (!consumeVoiceSlot()) return
         val text = _state.value.messages.lastOrNull { it.role == "assistant" }?.content
             ?.takeIf { it.isNotBlank() && !it.startsWith("[IMAGE:") }
         if (text.isNullOrBlank()) {
             _state.update { it.copy(error = "Nothing to read yet") }
             return
         }
+        if (!consumeVoiceSlot()) return
         val key = container.namedKeyStore.getActiveKey()
             .ifBlank { container.settingsRepository.getApiKey() }
         val settings = _state.value.settings
         viewModelScope.launch {
             try {
                 val dest = java.io.File(container.ctx.cacheDir, "tts_${System.currentTimeMillis()}.mp3")
-                withContext(Dispatchers.IO) {
+                val player = withContext(Dispatchers.IO) {
                     container.openAiClient.speakToFile(settings.baseUrl, key, text, dest)
-                }
-                _state.update { it.copy(isSpeaking = true) }
-                android.media.MediaPlayer().apply {
-                    setDataSource(dest.absolutePath)
-                    setOnCompletionListener {
-                        it.release()
-                        dest.delete()
-                        _state.update { st -> st.copy(isSpeaking = false) }
+                    android.media.MediaPlayer().apply {
+                        setDataSource(dest.absolutePath)
+                        setOnCompletionListener {
+                            it.release()
+                            dest.delete()
+                            _state.update { st -> st.copy(isSpeaking = false) }
+                        }
+                        prepare()
                     }
-                    prepare()
-                    start()
-                    ttsPlayer?.release()
-                    ttsPlayer = this
                 }
+                ttsPlayer?.release()
+                ttsPlayer = player
+                _state.update { it.copy(isSpeaking = true) }
+                player.start()
             } catch (e: java.util.concurrent.CancellationException) {
                 throw e
             } catch (e: Exception) {

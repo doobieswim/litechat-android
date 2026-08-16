@@ -312,6 +312,13 @@ def main() -> int:
     ok("P-006 recall + edit", '"/recall"' in vm and "fun recall" in (KT_ROOT / "com/litechat/android/data/context/MemoryManager.kt").read_text())
     ok("P-003 BackupCrypto", "object BackupCrypto" in (KT_ROOT / "com/litechat/android/util/BackupCrypto.kt").read_text())
     ok("P-001 voice limit + tts", "VoiceDailyLimit" in vm and "readAloud" in vm)
+    ok("REVIEW #1 slot after text", vm.find("Nothing to read yet") is not None and vm.find("Nothing to read yet") < vm.find("if (!consumeVoiceSlot()) return"))
+    ok("REVIEW #2 mic does not burn slot", "consumeVoiceSlot" not in screens)
+    ok("REVIEW #4 prepare on IO", "prepare()" in vm and "withContext(Dispatchers.IO)" in vm)
+    crypto = (KT_ROOT / "com/litechat/android/util/BackupCrypto.kt").read_text()
+    export_fn = vm.split("fun exportChats")[1].split("fun importChats")[0] if "fun exportChats" in vm else ""
+    import_fn = vm.split("fun importChats")[1].split("fun attachImage")[0] if "fun importChats" in vm else ""
+    ok("REVIEW #5 stream backup", "encryptTo" in crypto and "readBytes()" not in export_fn and "readBytes()" not in import_fn)
     ok("P-011 /edit", '"/edit "' in vm and "editImage" in (KT_ROOT / "com/litechat/android/data/api/OpenAiCompatibleClient.kt").read_text())
 
     # Fastlane metadata is part of the build: F-Droid/Play read these files.
