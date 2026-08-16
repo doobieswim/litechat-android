@@ -492,5 +492,64 @@ The batch is real (not dead-code tickets). Several items should be fixed before 
 
 Say **WIRE** if you want those Issues fixed. Then we re-review. Do not install this as the "everything works" phone build until 1–4 are fixed (5 if you keep big chat histories).
 
+---
+
+## Review addendum — 2026-08-16 — 3-layer fan-out (after `5656ab4`)
+
+Three read-only reviewers finished after the first verdict. They looked at `f2c475a`. Coding then shipped `5656ab4` for the first five Issues. This addendum **keeps** what is still real.
+
+### Already fixed in `5656ab4` (do not re-open)
+
+| First-pass # | What |
+|---|---|
+| Voice #1 / UI #3 | Slot taken only after there is text. Mic no longer burns the slot. |
+| Voice #4 / UI #1 (part) | `MediaPlayer.prepare()` is now inside `withContext(IO)`. |
+| Backup heap #5 | Encrypt/decrypt in 8 KB chunks. No `readBytes()` on the backup path. |
+| Voice #3 / Data #5 | BACKLOG now says v1 STT is the phone speech box. |
+
+Leftover of UI #1: `ttsPlayer` is still assigned **after** prepare. Stop during prepare cannot cancel, then `start()` can still play. Smaller than the original ANR.
+
+### Still Issues (new or leftover)
+
+| # | Where | What's wrong | Why | Suggested fix |
+|---|-------|--------------|-----|---------------|
+| A | `OpenAiCompatibleClient.kt:309` | `/edit` posts to `$root/v1/images/edits`. Catalog `baseUrl` already ends in `/v1` → **`/v1/v1/images/edits`**. | Feature is broken on OpenAI/Groq/OpenRouter. Combined with B, the user sees “cannot edit” instead of a URL bug. | `"$root/images/edits"` (same join as chat). |
+| B | `OpenAiCompatibleClient.kt:329-333` | Any 404/405 or body containing `unknown` / `not found` becomes “This provider cannot edit images.” | “Unknown API key” and the bad URL from A all look like “this host has no edits.” | Only 404/405 on the edits path, or “not supported”. Leave 401/400 as the real HTTP text. |
+| C | `OpenAiCompatibleClient.kt:315` | Last `/imagine` file is JPEG (`gen_*.jpg`). `/edit` always sends `image/png`. | Edits APIs want a real PNG. Even a correct URL can fail. | Convert to PNG before upload, or save `/imagine` as PNG. |
+| D | `ChatViewModel.kt` `/search` + `/edit` | Bare `viewModelScope.launch`. Not on `streamJob`. Stop FAB never shows. | P-005 said cancel on Stop. User can send again while DDG is still running. | Assign `streamJob`, set `isStreaming`, honor `stopRequested`. |
+| E | `Screens.kt` backup password | Password lives in `remember { }`. If the phone kills the screen while the file picker is open, it comes back empty. Export then writes a **plain** DB. | 4GB phones die in the picker a lot. User thought they set a password. | Store `pendingBackupPass` on the ViewModel **before** opening the picker. |
+| F | Settings Backup / Restore buttons | Not Pro-gated in the UI. Search chats is. | Free user gets an empty leftover file, then a late error. | Same as Search: if not Pro, show the pay-once line and do not open the picker. |
+| G | `SettingsRepository` template import | Bad JSON / a settings file used as templates → silently reset to the one built-in pack. UI says “imported.” | User loses their templates. | Strict decoder. Throw on non-array. Never reuse the “missing → builtins” reader. |
+| H | Folder names JSON | Hand-built JSON. A newline in a folder name can invalidate the file; next save wipes **all** folders. | Same class we already fixed for drafts/templates. | Use kotlinx serialization like drafts. |
+| I | Search-as-you-type | Every keystroke starts a new query. No cancel. Slow `"a"` can overwrite `"ab"`. | Wrong hits. | `searchJob?.cancel()`; ignore stale results. |
+
+### Nits (do not block a small fix pass)
+
+- `addSummary` is append-only (many “Summary:” rows). Ticket wanted one rolling row.
+- Already-Pro installs never get `proSince` stamped → Registered card can say “today” every launch.
+- `generateImage` has the same extra `/v1` (pre-existing; `/edit` copied it).
+- New chat created inside a folder still lands in All.
+- `fallbackToDestructiveMigration()` still on.
+- `clearHighlight()` never called after you leave the hit.
+
+### Ticket table (updated)
+
+| Ticket | After fan-out |
+|--------|----------------|
+| P-002 search | Approve (nit: keystroke race = I) |
+| P-009 folders | **Issues** (H wipe-all) |
+| P-004 registered | Approve (nit: already-Pro date) |
+| P-010 personas | **Issues** (G template wipe) |
+| P-013 knobs | Approve |
+| P-005 `/search` | **Issues** (D Stop) |
+| P-006 memory+ | Approve (nit: rolling summary) |
+| P-003 backup | **Issues** (E process-death plaintext) |
+| P-001 voice | First-pass Issues fixed in `5656ab4`. Leftover Stop-during-prepare nit. |
+| P-011 `/edit` | **Issues** (A broken URL, B lie, C JPEG-as-PNG, D Stop) |
+
+**Verdict stays Issues.** Worst leftover: **A `/edit` URL is wrong**, **E backup can save plaintext after the picker kills the app**, **G/H data wipe**.
+
+Say **WIRE** to fix A–I. I will not start until you say that.
+
 
 
