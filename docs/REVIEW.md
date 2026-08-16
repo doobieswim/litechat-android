@@ -431,5 +431,66 @@ Say **WIRE** to fix the stream break. Do not ship `dbd62a9` as a daily driver un
 
 `5316369` is safe as a daily driver. Next ticket can be drained.
 
+---
+
+## Review — 2026-08-16 — Tier 1 WIRE batch (P-002 + P-001/003/004/005/006/009/010/011/013)
+
+**Role:** `LITECHAT-REVIEW`. Read-only. Did not edit `app/**`. Did not run Gradle (RAM + review law).  
+**HEAD:** `f2c475a` (Tier 1 bundle). Also in scope: `1f249cc` (P-002 search). Tree clean.  
+**Proof already on disk (coding session):** `verify_static.py` **158/158**; foss unit tests **67/67**. This review does not re-run those.
+
+**Verdict: Issues**
+
+The batch is real (not dead-code tickets). Several items should be fixed before you treat this as a daily-driver install.
+
+### Issues (fix these)
+
+| # | Where | What's wrong | Why it matters | Suggested fix |
+|---|-------|--------------|----------------|---------------|
+| 1 | `ChatViewModel.kt:1262-1285` | `readAloud()` calls `consumeVoiceSlot()` **before** it checks there is text. Empty chat still burns the free daily use, then says "Nothing to read yet". | Free user loses their one voice use for nothing. | Check for a readable last reply first. Only then count the slot. |
+| 2 | `Screens.kt` mic `onVoiceInput` + `consumeVoiceSlot()` | The phone's built-in speech box also burns the 1/day slot. That path does **not** call the user's paid key. Ticket said the limit is for a voice **exchange** (Whisper/TTS). | Free user taps mic once → cannot tap "Read last reply" the same day. Feels like a trap. | Count the slot only for `speakToFile` / `transcribeAudio` (key-using calls). Leave on-device speech free. |
+| 3 | P-001 AC vs code | Ticket: STT via `/v1/audio/transcriptions`. Code: `transcribeAudio()` exists in the client and has **zero callers**. Mic is still Android `SpeechRecognizer`. | Claimed feature is half-built. | Either wire a record-then-`transcribeAudio` path, or say in BACKLOG that v1 STT is the phone box and only TTS is the key path. |
+| 4 | `ChatViewModel.kt:1296-1305` | After writing the mp3 on IO, `MediaPlayer.prepare()` runs on the **main** thread. | Can freeze the UI (ANR class). Same family as old Review C2. | `prepare()` / `setDataSource` on `Dispatchers.IO`, then `start()` on Main. |
+| 5 | `ChatViewModel.kt:1081-1119` | Encrypted backup does `dbFile.readBytes()` and `inputStream.readBytes()`. Whole chat DB + whole backup file sit in heap twice. Old C-014 streamed with `copyTo`. | 4GB law. A fat chat history can kill the process on a $30 phone. | Stream through a temp file. Encrypt in chunks, or encrypt the streamed copy after checkpoint. Don't hold two full copies. |
+
+### Nits (not enough to fail the whole batch)
+
+- **`deleteFolder`** (`ChatViewModel.kt:289`) deletes the folder name but does not clear `folderId` on chats. They still show under All. Harmless, a bit messy.
+- **`editImage`** still returns a full `ByteArray` (same as existing `/imagine`). Not new, but `/edit` copies the same heap pattern.
+- **`fallbackToDestructiveMigration()`** is still on. If Room decides the FTS table doesn't match, an upgrade **wipes chats**. Pre-existing; more dangerous now that search/folders bump the schema.
+- **`RECORD_AUDIO`** was added to the manifest. Play Data Safety / F-Droid need an honest line for that. **$0**, but a human form change.
+- **`consumeVoiceSlot`** increments in a launch; two fast taps can both pass. Small race.
+- Theme law: user-facing words look everyday. Personas are "Teacher", "Short answers", etc. Good.
+
+### What passed
+
+- Search table + upgrade copy + Pro lock + grouped results + tap-to-open (P-002).
+- Folders: `folderId`, v3→v4 migration registered, drawer All + Move, Pro gate on create/move (P-009).
+- Registered card + upgrade button hidden for Pro (P-004). Settings export still omits keys and Pro flags.
+- Personas exist (6), picker row, injected only if Pro (P-010).
+- Advanced knobs + `ChatOptions` only sent when not default (P-013). FREE.
+- `/search` is Pro, IO, feeds the model, asks for URLs (P-005).
+- `/recall` + memory list/edit/delete + summary hook (P-006).
+- Backup password uses AES-GCM + PBKDF2; magic `BYO1`; wrong password fails (P-003). Passphrase is not saved to disk.
+- `/edit` is Pro; `/imagine` stays free; honest "cannot edit images" (P-011).
+- No WebView / trust-all in the new code.
+
+### Tickets
+
+| Ticket | Review |
+|--------|--------|
+| P-002 search | Approve |
+| P-009 folders | Approve |
+| P-004 registered | Approve |
+| P-010 personas | Approve |
+| P-013 knobs | Approve |
+| P-005 `/search` | Approve |
+| P-006 memory+ | Approve |
+| P-003 encrypted backup | **Issues** (#5 heap) |
+| P-001 voice | **Issues** (#1 #2 #3 #4) |
+| P-011 `/edit` | Approve (nit: ByteArray) |
+
+Say **WIRE** if you want those Issues fixed. Then we re-review. Do not install this as the "everything works" phone build until 1–4 are fixed (5 if you keep big chat histories).
+
 
 
