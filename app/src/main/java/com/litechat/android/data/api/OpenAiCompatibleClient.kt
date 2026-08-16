@@ -271,10 +271,20 @@ class OpenAiCompatibleClient(
      */
     fun fetchSearch(query: String): String {
         val q = URLEncoder.encode(query, "UTF-8")
-        val doc = org.jsoup.Jsoup.connect("https://html.duckduckgo.com/html/?q=$q")
-            .userAgent("LiteChat/0.1 (Android; BYOK)")
-            .timeout(15_000)
-            .get()
+        val page = "https://html.duckduckgo.com/html/?q=$q"
+        val req = Request.Builder()
+            .url(page)
+            .header("User-Agent", "LiteChat/0.1 (Android; BYOK)")
+            .build()
+        val call = client.newCall(req)
+        activeCall = call
+        val html = call.execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("Search HTTP ${response.code}")
+            }
+            response.body?.string().orEmpty()
+        }
+        val doc = org.jsoup.Jsoup.parse(html, page)
         val hits = doc.select("div.result, div.web-result")
         if (hits.isEmpty()) {
             val titles = doc.select("a.result__a")
@@ -303,16 +313,18 @@ class OpenAiCompatibleClient(
         prompt: String,
     ): ByteArray {
         val root = baseUrl.trim().trimEnd('/')
-        val url = if (root.contains("/v1/images")) {
-            root.replace("/generations", "/edits")
-        } else {
-            "$root/v1/images/edits"
+        val url = imagesUrl(root, "edits")
+        val mime = when {
+            imageFile.name.endsWith(".png", ignoreCase = true) -> "image/png"
+            imageFile.name.endsWith(".jpg", ignoreCase = true) ||
+                imageFile.name.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
+            else -> "image/png"
         }
         val body = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart(
                 "image",
                 imageFile.name,
-                imageFile.asRequestBody("image/png".toMediaType()),
+                imageFile.asRequestBody(mime.toMediaType()),
             )
             .addFormDataPart("prompt", prompt)
             .addFormDataPart("n", "1")
@@ -325,11 +337,7 @@ class OpenAiCompatibleClient(
         call.execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                val low = raw.lowercase()
-                if (response.code == 404 || response.code == 405 ||
-                    low.contains("unknown") || low.contains("not found") ||
-                    low.contains("not supported")
-                ) {
+                if (response.code == 404 || response.code == 405) {
                     throw IOException("This provider cannot edit images.")
                 }
                 throw IOException("HTTP ${response.code}: ${raw.take(400)}")
@@ -426,7 +434,7 @@ class OpenAiCompatibleClient(
         size: String = "1024x1024",
     ): ByteArray {
         val root = baseUrl.trim().trimEnd('/')
-        val url = if (root.contains("/v1/images")) root else "$root/v1/images/generations"
+        val url = imagesUrl(root, "generations")
         val body = buildJsonObject {
             put("model", model)
             put("prompt", prompt)
@@ -642,6 +650,17 @@ class OpenAiCompatibleClient(
 
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
+
+        /** Catalog baseUrl already ends in /v1. Never emit /v1/v1/…. */
+        fun imagesUrl(baseUrl: String, kind: String): String {
+            val root = baseUrl.trim().trimEnd('/')
+            return when {
+                root.endsWith("/images/$kind") -> root
+                root.contains("/images/generations") && kind == "edits" ->
+                    root.replace("/generations", "/edits")
+                else -> "$root/images/$kind"
+            }
+        }
 
         /**
          * Heuristic from numAi-plus MainActivity stream-failure detector.

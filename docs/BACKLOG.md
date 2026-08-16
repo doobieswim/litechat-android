@@ -372,7 +372,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Cost:** bills the user's own provider key (like chat); app itself stays $4.99 once
 
 ### P-002 — Full-text search across chats (Pro)
-- **Status:** Done — WIRE 2026-08-16. Room FTS4 `messages_fts` (unicode61, content only) + real v2→v3 migration that backfills old messages (never a wipe). Every insert/update/fork/delete keeps the search table in sync. `FtsQuery.escape` strips quotes/dashes/stars so a typed search cannot become an FTS operator. Settings + drawer "Search chats" (Pro); results grouped by conversation; tap opens that chat and lands on the message. Files: `Entities.kt`, `FtsQuery.kt`, `ChatRepository.kt`, `AppContainer.kt`, `ChatViewModel.kt`, `Screens.kt`. Tests: `FtsQueryTest` (6). Verify: 145/145 static, foss unit tests 60/60.
+- **Status:** Done — WIRE 2026-08-16. Room FTS4 + Pro search UI. REVIEW I (2026-08-16): `searchJob?.cancel()` + ignore stale hits so a slow "a" cannot overwrite "ab".
 - **Goal:** Search every message. Room FTS4/5 virtual table (~0 KB).
 - **AC:**
   - [x] FTS table + sync on message insert (Room migration on upgrade)
@@ -385,7 +385,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 3 · `docs/PRO-LATENT-WANTS.md` P-003
 
 ### P-003 — Encrypted backup upgrade (Pro)
-- **Status:** Done — WIRE 2026-08-16. Optional backup password (AES-GCM + PBKDF2, magic BYO1). Streams in 8 KB chunks (no full-DB heap). One quiet "Want a backup?" banner. Tests: BackupCrypto round-trip + 64 KB stream.
+- **Status:** Done — WIRE 2026-08-16. AES-GCM + PBKDF2, streamed 8 KB chunks. REVIEW E/F (2026-08-16): password armed on the ViewModel before the file picker; Backup/Restore buttons stay closed until Pro.
 - **Goal:** AES-encrypted chat export, scheduled local backups, restore-to-new-phone. Extends C-014 SAF backup.
 - **AC:**
   - [ ] Export DB → AES-GCM encrypted file; key from user passphrase (PBKDF2, salt stored in file header)
@@ -412,7 +412,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 6 · `docs/PRO-LATENT-WANTS.md` P-001/P-006
 
 ### P-005 — Web search (Pro)
-- **Status:** Done — WIRE 2026-08-16. `/search` fetches DuckDuckGo HTML via Jsoup, feeds the model, asks it to keep source URLs.
+- **Status:** Done — WIRE 2026-08-16. `/search` → DDG HTML → model keeps URLs. REVIEW D (2026-08-16): lives on `streamJob`, Stop FAB shows.
 - **Goal:** `/search <query>` → DDG HTML search → top results → model answers with source links. Extends C-013 /browse.
 - **AC:**
   - [ ] `/search` handler: DDG results via Jsoup (reuse C-013 stack — no second HTTP client)
@@ -438,7 +438,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 2
 
 ### P-009 — Chat folders (Pro)
-- **Status:** Done — WIRE 2026-08-16. folderId + v3→v4 migration. Drawer All + folders. Move button. Pro gate.
+- **Status:** Done — WIRE 2026-08-16. folderId + drawer. REVIEW H (2026-08-16): folder names use kotlinx JSON so a newline cannot wipe every folder.
 - **Goal:** Organize conversations into folders.
 - **AC:**
   - [ ] `ConversationEntity.folderId` (nullable) + Room migration
@@ -450,7 +450,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 8
 
 ### P-010 — Template deep + AI persona packs (Pro)
-- **Status:** Done — WIRE 2026-08-16. Template JSON export/import (no keys). Six everyday persona packs. Picker row above the chat box. Pro gate.
+- **Status:** Done — WIRE 2026-08-16. Personas + template export. REVIEW G (2026-08-16): import uses a strict decoder; a settings file or garbage JSON no longer wipes templates.
 - **AC:**
   - [ ] Template export/import as JSON (no secrets — keys stay in SecureStore)
   - [ ] 5–8 built-in personas (e.g. Plain-English explainer, Translator, Teacher, Code helper) as system-prompt templates
@@ -462,7 +462,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 5 · TypingMind "agents" precedent
 
 ### P-011 — Image editing (Pro)
-- **Status:** Done — WIRE 2026-08-16. `/edit` uses the last `/imagine` file → `/v1/images/edits`. Honest "This provider cannot edit images." Generation stays free.
+- **Status:** Done — WIRE 2026-08-16. `/edit` last image. REVIEW A/B/C/D (2026-08-16): URL is `$root/images/edits` (no /v1/v1); only HTTP 404/405 say "cannot edit"; JPEG saved as real PNG; Stop works.
 - **AC:**
   - [ ] `/edit` uses last generated image + prompt → `POST /v1/images/edits`
   - [ ] Result appended as a new bubble (original stays)

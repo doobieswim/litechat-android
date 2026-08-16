@@ -86,10 +86,12 @@ class ChatViewModel(
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
 
     private var streamJob: Job? = null
+    private var searchJob: Job? = null
     private var messagesCollectJob: Job? = null
     private var connectivityJob: Job? = null
     private var stopRequested = false
     private var ttsPlayer: android.media.MediaPlayer? = null
+    private var pendingBackupPass: String = ""
 
     init {
         viewModelScope.launch {
@@ -246,10 +248,12 @@ class ChatViewModel(
             return
         }
         _state.update { it.copy(searchQuery = raw) }
-        viewModelScope.launch {
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
             val hits = withContext(Dispatchers.IO) {
                 container.chatRepository.searchMessages(raw)
             }
+            if (raw != _state.value.searchQuery) return@launch
             _state.update { it.copy(searchResults = hits) }
         }
     }
@@ -374,7 +378,7 @@ class ChatViewModel(
         stopRequested = true
         streamJob?.cancel()
         container.openAiClient.cancel()
-        _state.update { it.copy(isStreaming = false, retryProgress = null) }
+        _state.update { it.copy(isStreaming = false, isGeneratingImage = false, retryProgress = null) }
     }
 
     /** C-012: insert a rendered template into the input field. */
@@ -495,7 +499,8 @@ class ChatViewModel(
                 _state.update { it.copy(error = "Usage: /search <words>") }
                 return
             }
-            viewModelScope.launch {
+            stopRequested = false
+            streamJob = viewModelScope.launch {
                 var convId = _state.value.activeConversationId
                 if (convId == null) {
                     val c = container.chatRepository.createConversation(
@@ -505,13 +510,14 @@ class ChatViewModel(
                     convId = c.id
                     selectConversation(convId)
                 }
-                _state.update { it.copy(input = "", error = null) }
+                _state.update { it.copy(input = "", error = null, isStreaming = true) }
                 container.chatRepository.addMessage(convId, "user", "/search $query")
-                viewModelScope.launch { container.settingsRepository.clearDraft(convId) }
+                container.settingsRepository.clearDraft(convId)
                 try {
                     val results = withContext(Dispatchers.IO) {
                         container.openAiClient.fetchSearch(query)
                     }
+                    if (stopRequested) return@launch
                     container.chatRepository.addMessage(
                         convId, "user",
                         "[Search results for $query]\n$results\n\nAnswer using these sources. Keep the URLs in the answer.",
@@ -537,6 +543,7 @@ class ChatViewModel(
                             options = chatOptionsOf(settings),
                         )
                     }
+                    if (stopRequested) return@launch
                     container.chatRepository.addMessage(
                         convId, "assistant",
                         answer.ifBlank { "No answer from model." },
@@ -544,7 +551,10 @@ class ChatViewModel(
                 } catch (e: java.util.concurrent.CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    if (stopRequested) return@launch
                     _state.update { it.copy(error = "Search failed: ${e.message?.take(100)}") }
+                } finally {
+                    _state.update { it.copy(isStreaming = false) }
                 }
             }
             return
@@ -667,7 +677,7 @@ class ChatViewModel(
                     )
                     val file = java.io.File(
                         container.ctx.filesDir,
-                        "gen_${System.currentTimeMillis()}.jpg"
+                        "gen_${System.currentTimeMillis()}.png"
                     )
                     withContext(Dispatchers.IO) {
                         val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
@@ -680,9 +690,9 @@ class ChatViewModel(
                                 true
                             )
                         } else bitmap
-                        val outStream = java.io.ByteArrayOutputStream()
-                        scaled?.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, outStream)
-                        file.writeBytes(outStream.toByteArray())
+                        file.outputStream().use { out ->
+                            scaled?.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                        }
                         scaled?.recycle()
                         bitmap?.recycle()
                     }
@@ -720,7 +730,8 @@ class ChatViewModel(
                 _state.update { it.copy(error = "Usage: /edit <what to change>") }
                 return
             }
-            viewModelScope.launch {
+            stopRequested = false
+            streamJob = viewModelScope.launch {
                 var convId = _state.value.activeConversationId
                 if (convId == null) {
                     _state.update { it.copy(error = "Make an image first with /imagine") }
@@ -739,20 +750,30 @@ class ChatViewModel(
                     _state.update { it.copy(error = "The last image file is gone") }
                     return@launch
                 }
-                _state.update { it.copy(input = "", error = null, isGeneratingImage = true) }
+                _state.update { it.copy(input = "", error = null, isGeneratingImage = true, isStreaming = true) }
                 container.chatRepository.addMessage(convId, "user", "/edit $prompt")
                 try {
                     val bytes = withContext(Dispatchers.IO) {
+                        val upload = if (src.name.endsWith(".png", true)) src else {
+                            val png = java.io.File(container.ctx.cacheDir, "edit_${System.currentTimeMillis()}.png")
+                            val bmp = android.graphics.BitmapFactory.decodeFile(src.absolutePath)
+                                ?: throw IllegalArgumentException("Could not read the image")
+                            png.outputStream().use { out ->
+                                bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            bmp.recycle()
+                            png
+                        }
                         container.openAiClient.editImage(
                             baseUrl = settings.baseUrl,
                             apiKey = key,
-                            imageFile = src,
+                            imageFile = upload,
                             prompt = prompt,
                         )
                     }
                     val file = java.io.File(
                         container.ctx.filesDir,
-                        "gen_${System.currentTimeMillis()}.jpg",
+                        "gen_${System.currentTimeMillis()}.png",
                     )
                     withContext(Dispatchers.IO) { file.writeBytes(bytes) }
                     MediaCleanup.run(container.ctx)
@@ -762,12 +783,13 @@ class ChatViewModel(
                 } catch (e: java.util.concurrent.CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    if (stopRequested) return@launch
                     _state.update { it.copy(error = e.message?.take(160) ?: "Edit failed") }
                     container.chatRepository.addMessage(
                         convId, "assistant", e.message?.take(200) ?: "Edit failed",
                     )
                 } finally {
-                    _state.update { it.copy(isGeneratingImage = false) }
+                    _state.update { it.copy(isGeneratingImage = false, isStreaming = false) }
                 }
             }
             return
@@ -1066,7 +1088,11 @@ class ChatViewModel(
     }
 
     // C-014 / P-003: export chat database. Encrypted if passphrase is set.
-    fun exportChats(uri: android.net.Uri, passphrase: String = "") {
+    fun armBackupPass(pass: String) {
+        pendingBackupPass = pass
+    }
+
+    fun exportChats(uri: android.net.Uri, passphrase: String = pendingBackupPass) {
         if (!container.isPro()) {
             _state.update { it.copy(error = "Chat backup is a Pro feature — pay once to unlock") }
             return
@@ -1095,7 +1121,7 @@ class ChatViewModel(
     }
 
     // C-014 / P-003: import. Decrypts if the file starts with BYO1.
-    fun importChats(uri: android.net.Uri, passphrase: String = "") {
+    fun importChats(uri: android.net.Uri, passphrase: String = pendingBackupPass) {
         if (!container.isPro()) {
             _state.update { it.copy(error = "Chat restore is a Pro feature — pay once to unlock") }
             return

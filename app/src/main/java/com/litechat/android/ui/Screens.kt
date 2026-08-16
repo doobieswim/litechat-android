@@ -137,12 +137,12 @@ fun LiteChatRoot(vm: ChatViewModel) {
     // C-022: SAF export launcher.
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
-    ) { uri -> uri?.let { vm.exportChats(it, backupPass) } }
+    ) { uri -> uri?.let { vm.exportChats(it) } }
 
     // C-022: SAF import launcher.
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { vm.importChats(it, backupPass) } }
+    ) { uri -> uri?.let { vm.importChats(it) } }
 
     // C-022: settings JSON export/import (no secrets — keys never leave the device).
     val settingsExportLauncher = rememberLauncherForActivityResult(
@@ -184,8 +184,14 @@ fun LiteChatRoot(vm: ChatViewModel) {
             },
             onClearHistory = vm::clearHistory,
             onSetPro = vm::setPro,
-            onExport = { exportLauncher.launch("litechat_backup.db") },
-            onImport = { importLauncher.launch(arrayOf("*/*")) },
+            onExport = {
+                vm.armBackupPass(backupPass)
+                exportLauncher.launch("litechat_backup.db")
+            },
+            onImport = {
+                vm.armBackupPass(backupPass)
+                importLauncher.launch(arrayOf("*/*"))
+            },
             onExportSettings = { settingsExportLauncher.launch("litechat_settings.json") },
             onImportSettings = { settingsImportLauncher.launch(arrayOf("application/json")) },
             onSaveNamedKey = vm::saveNamedKey,
@@ -1565,10 +1571,22 @@ fun SettingsScreen(
                         }
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(onClick = onExport) {
+                                TextButton(onClick = {
+                                    if (!state.settings.isPro) {
+                                        billingMsg = "Chat backup is a Pro feature — pay once to unlock"
+                                    } else {
+                                        onExport()
+                                    }
+                                }) {
                                     Text("Backup chats")
                                 }
-                                TextButton(onClick = onImport) {
+                                TextButton(onClick = {
+                                    if (!state.settings.isPro) {
+                                        billingMsg = "Chat restore is a Pro feature — pay once to unlock"
+                                    } else {
+                                        onImport()
+                                    }
+                                }) {
                                     Text("Restore chats")
                                 }
                             }

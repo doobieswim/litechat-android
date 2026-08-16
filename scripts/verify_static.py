@@ -319,6 +319,17 @@ def main() -> int:
     export_fn = vm.split("fun exportChats")[1].split("fun importChats")[0] if "fun exportChats" in vm else ""
     import_fn = vm.split("fun importChats")[1].split("fun attachImage")[0] if "fun importChats" in vm else ""
     ok("REVIEW #5 stream backup", "encryptTo" in crypto and "readBytes()" not in export_fn and "readBytes()" not in import_fn)
+    ok("REVIEW A no /v1/v1 edits", '"$root/v1/images/edits"' not in client)
+    ok("REVIEW B honest 404 only", 'low.contains("unknown")' not in client)
+    ok("REVIEW C png imagine", 'gen_${System.currentTimeMillis()}.png' in vm or "CompressFormat.PNG" in vm)
+    ok("REVIEW D search streamJob", "streamJob = viewModelScope.launch" in vm.split("fun send")[1].split("/recall")[0] if "fun send" in vm else False)
+    ok("REVIEW D edit sets isStreaming", "isStreaming = true" in vm.split("/edit $prompt")[0].split("P-011")[-1] if "P-011" in vm else False)
+    ok("REVIEW E armBackupPass", "fun armBackupPass" in vm)
+    ok("REVIEW F backup Pro UI", "Chat backup is a Pro feature" in screens)
+    ok("REVIEW G strict templates", "decodeTemplatesStrict" in settings)
+    ok("REVIEW H folder kotlinx", "ChatFolder.serializer" in settings)
+    ok("REVIEW I searchJob cancel", "searchJob?.cancel()" in vm)
+    ok("REVIEW D search uses activeCall", "fun fetchSearch" in client and "activeCall = call" in client.split("fun fetchSearch")[1].split("fun editImage")[0])
     ok("P-011 /edit", '"/edit "' in vm and "editImage" in (KT_ROOT / "com/litechat/android/data/api/OpenAiCompatibleClient.kt").read_text())
 
     # Fastlane metadata is part of the build: F-Droid/Play read these files.

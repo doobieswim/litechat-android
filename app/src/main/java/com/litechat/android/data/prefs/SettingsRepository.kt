@@ -376,7 +376,7 @@ class SettingsRepository(
 
     suspend fun importTemplatesJson(json: String): String? {
         return try {
-            val list = decodeTemplates(json)
+            val list = decodeTemplatesStrict(json)
             if (list.isEmpty()) return "No templates in file"
             context.dataStore.edit { p -> p[templateKey] = encodeTemplates(list) }
             null
@@ -483,27 +483,38 @@ class SettingsRepository(
         }
 
         internal fun encodeFolders(list: List<ChatFolder>): String =
-            list.joinToString(prefix = "[", postfix = "]") { f ->
-                """{"id":${jsonQuote(f.id)},"name":${jsonQuote(f.name)}}"""
-            }
+            Json.encodeToString(
+                kotlinx.serialization.builtins.ListSerializer(ChatFolder.serializer()),
+                list,
+            )
 
         internal fun decodeFolders(raw: String?): List<ChatFolder> {
             if (raw.isNullOrBlank()) return emptyList()
             return try {
-                Json.parseToJsonElement(raw).jsonArray.map { el ->
-                    val obj = el.jsonObject
-                    ChatFolder(
-                        id = obj["id"]!!.jsonPrimitive.content,
-                        name = obj["name"]!!.jsonPrimitive.content,
-                    )
-                }
+                Json.decodeFromString(
+                    kotlinx.serialization.builtins.ListSerializer(ChatFolder.serializer()),
+                    raw,
+                )
             } catch (_: Exception) {
                 emptyList()
             }
         }
 
-        private fun jsonQuote(s: String): String =
-            "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        /** Import-only: never fall back to builtins (that would wipe user templates). */
+        internal fun decodeTemplatesStrict(raw: String): List<PromptTemplate> {
+            val arr = Json.parseToJsonElement(raw).jsonArray
+            return arr.map { el ->
+                val obj = el.jsonObject
+                PromptTemplate(
+                    id = obj["id"]!!.jsonPrimitive.content,
+                    name = obj["name"]!!.jsonPrimitive.content,
+                    template = obj["template"]!!.jsonPrimitive.content,
+                    variables = obj["variables"]?.jsonObject?.mapValues {
+                        it.value.jsonPrimitive.content
+                    } ?: emptyMap(),
+                )
+            }
+        }
     }
 
     data class Preset(val name: String, val baseUrl: String, val model: String)
