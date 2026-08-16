@@ -50,6 +50,12 @@ class ChatRepository(
         conversationDao.upsert(existing.copy(pinned = !existing.pinned))
     }
 
+    /** P-009: put a chat in a folder, or null to take it out. */
+    suspend fun setFolder(id: String, folderId: String?) {
+        val existing = conversationDao.get(id) ?: return
+        conversationDao.upsert(existing.copy(folderId = folderId))
+    }
+
     suspend fun deleteConversation(id: String) {
         messageFtsDao.deleteForConversation(id)
         messageDao.deleteForConversation(id)

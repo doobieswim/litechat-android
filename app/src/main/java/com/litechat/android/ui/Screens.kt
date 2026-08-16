@@ -110,6 +110,7 @@ fun LiteChatRoot(vm: ChatViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
+    var backupPass by remember { mutableStateOf("") }
     var showOnboarding by remember {
         mutableStateOf(!state.settings.onboardingDone)
     }
@@ -136,12 +137,12 @@ fun LiteChatRoot(vm: ChatViewModel) {
     // C-022: SAF export launcher.
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
-    ) { uri -> uri?.let { vm.exportChats(it) } }
+    ) { uri -> uri?.let { vm.exportChats(it, backupPass) } }
 
     // C-022: SAF import launcher.
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { vm.importChats(it) } }
+    ) { uri -> uri?.let { vm.importChats(it, backupPass) } }
 
     // C-022: settings JSON export/import (no secrets — keys never leave the device).
     val settingsExportLauncher = rememberLauncherForActivityResult(
@@ -150,6 +151,12 @@ fun LiteChatRoot(vm: ChatViewModel) {
     val settingsImportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { vm.importSettings(it) } }
+    val templatesExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { vm.exportTemplates(it) } }
+    val templatesImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { vm.importTemplates(it) } }
 
     // C-015: overlay toggle.
     var overlayOn by remember { mutableStateOf(false) }
@@ -191,6 +198,14 @@ fun LiteChatRoot(vm: ChatViewModel) {
                 showSettings = false
                 showSearch = true
             },
+            onSetPersona = vm::setPersona,
+            onSetKnobs = vm::setModelKnobs,
+            onEditMemory = vm::editMemory,
+            onDeleteMemory = vm::deleteMemory,
+            onExportTemplates = { templatesExportLauncher.launch("byoai_templates.json") },
+            onImportTemplates = { templatesImportLauncher.launch(arrayOf("application/json")) },
+            backupPass = backupPass,
+            onBackupPass = { backupPass = it },
             onToggleOverlay = { enabled ->
                 if (enabled) {
                     // C-015 (REVIEW C5): check SYSTEM_ALERT_WINDOW first to avoid
@@ -243,26 +258,37 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onStop = vm::stopStreaming,
             onClearError = vm::clearError,
             onInsertTemplate = vm::insertTemplate,
-                        onAttachImage = { imagePicker.launch("image/*") },
-                        onVoiceInput = {
-                            val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                                    android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                            }
-                            voiceLauncher.launch(intent)
-                        },
-                        onShare = {
-                            shareScope.launch {
-                                // C-028: getCurrentChatText is now suspending (Room on IO).
-                                val text = vm.getCurrentChatText() ?: "No messages yet"
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, text)
-                                }
-                                context.startActivity(Intent.createChooser(intent, "Share chat"))
-                            }
-                        },
-                    )
+            onAttachImage = { imagePicker.launch("image/*") },
+            onVoiceInput = {
+                if (vm.consumeVoiceSlot()) {
+                    val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(
+                            android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                            android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                        )
+                    }
+                    voiceLauncher.launch(intent)
+                }
+            },
+            onShare = {
+                shareScope.launch {
+                    val text = vm.getCurrentChatText() ?: "No messages yet"
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    }
+                    context.startActivity(Intent.createChooser(intent, "Share chat"))
+                }
+            },
+            onSelectFolder = vm::selectFolder,
+            onCreateFolder = vm::createFolder,
+            onDeleteFolder = vm::deleteFolder,
+            onMoveChat = vm::moveChatToFolder,
+            onSetPersona = vm::setPersona,
+            onReadAloud = vm::readAloud,
+            onStopAloud = vm::stopAloud,
+            onDismissBackup = vm::dismissBackupReminder,
+        )
     }
 
     // C-032: one-time acceptable-use acceptance (Play AI-Generated Content
@@ -291,6 +317,14 @@ fun ChatScreen(
     onVoiceInput: () -> Unit,
     onShare: () -> Unit,
     onFork: (String) -> Unit,
+    onSelectFolder: (String?) -> Unit,
+    onCreateFolder: (String) -> Unit,
+    onDeleteFolder: (String) -> Unit,
+    onMoveChat: (String, String?) -> Unit,
+    onSetPersona: (String) -> Unit,
+    onReadAloud: () -> Unit,
+    onStopAloud: () -> Unit,
+    onDismissBackup: () -> Unit,
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -300,6 +334,7 @@ fun ChatScreen(
     // policy) and Fork from here.
     var actionMsg by remember { mutableStateOf<MessageEntity?>(null) }
     var showReportReasons by remember { mutableStateOf(false) }
+    var moveChatId by remember { mutableStateOf<String?>(null) }
 
     val displayMessages = buildList {
         addAll(state.messages)
@@ -349,9 +384,21 @@ fun ChatScreen(
                 }) {
                     Text("Search chats")
                 }
+                FolderBar(
+                    folders = state.folders,
+                    activeFolderId = state.activeFolderId,
+                    isPro = state.settings.isPro,
+                    onSelect = onSelectFolder,
+                    onCreate = onCreateFolder,
+                    onDelete = onDeleteFolder,
+                )
                 HorizontalDivider()
+                val visibleChats = com.litechat.android.data.db.ConversationSort.inFolder(
+                    state.conversations,
+                    state.activeFolderId,
+                )
                 LazyColumn {
-                    items(state.conversations, key = { it.id }) { c ->
+                    items(visibleChats, key = { it.id }) { c ->
                         Row(
                             Modifier
                                 .fillMaxWidth()
@@ -384,6 +431,9 @@ fun ChatScreen(
                                     contentDescription = "Delete",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
+                            }
+                            if (state.settings.isPro && state.folders.isNotEmpty()) {
+                                TextButton(onClick = { moveChatId = c.id }) { Text("Move") }
                             }
                         }
                     }
@@ -435,6 +485,11 @@ fun ChatScreen(
                         .imePadding()
                 ) {
                     // C-012: template picker row — Pro-gated beyond free limit.
+                    PersonaRow(
+                        activeId = state.settings.activePersonaId,
+                        isPro = state.settings.isPro,
+                        onPick = onSetPersona,
+                    )
                     if (state.templates.isNotEmpty()) {
                         Row(
                             Modifier
@@ -536,6 +591,22 @@ fun ChatScreen(
                             )
                         }
                     }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Voice uses your key — can cost money",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { if (state.isSpeaking) onStopAloud() else onReadAloud() }) {
+                            Text(if (state.isSpeaking) "Stop" else "Read last reply")
+                        }
+                    }
                     if (!state.settings.isPro) {
                         BannerAd()
                     }
@@ -555,6 +626,24 @@ fun ChatScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
+                    }
+                }
+                if (state.showBackupReminder) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Want a backup of your chats?",
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            TextButton(onClick = onDismissBackup) { Text("Later") }
+                        }
                     }
                 }
                 // Imp#3: retry progress — show attempt count during backoff
@@ -677,6 +766,30 @@ fun ChatScreen(
             }
             } // close Column(Modifier.padding(padding)) from Imp#2/#3 banners
         }
+    }
+
+    moveChatId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { moveChatId = null },
+            title = { Text("Move to folder") },
+            text = {
+                Column {
+                    TextButton(onClick = {
+                        onMoveChat(id, null)
+                        moveChatId = null
+                    }) { Text("All (no folder)") }
+                    state.folders.forEach { f ->
+                        TextButton(onClick = {
+                            onMoveChat(id, f.id)
+                            moveChatId = null
+                        }) { Text(f.name) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { moveChatId = null }) { Text("Cancel") }
+            },
+        )
     }
 
     // C-032: in-app AI-content reporting (Play requires this for any app that
@@ -1015,6 +1128,14 @@ fun SettingsScreen(
     overlayOn: Boolean,
     onOpenSearch: () -> Unit,
     onToggleOverlay: (Boolean) -> Unit,
+    onSetPersona: (String) -> Unit = {},
+    onSetKnobs: (Float?, Float?, Float?, Int?, Boolean?) -> Unit = { _, _, _, _, _ -> },
+    onEditMemory: (String, String) -> Unit = { _, _ -> },
+    onDeleteMemory: (String) -> Unit = {},
+    onExportTemplates: () -> Unit = {},
+    onImportTemplates: () -> Unit = {},
+    backupPass: String = "",
+    onBackupPass: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as LiteChatApp
@@ -1254,6 +1375,41 @@ fun SettingsScreen(
                     }
                 }
             }
+            item { HorizontalDivider() }
+            item {
+                var showAdv by remember { mutableStateOf(false) }
+                TextButton(onClick = { showAdv = !showAdv }) {
+                    Text(if (showAdv) "Hide advanced" else "Advanced")
+                }
+                if (showAdv) {
+                    var topP by remember { mutableStateOf(state.settings.topP.toString()) }
+                    var pres by remember { mutableStateOf(state.settings.presencePenalty.toString()) }
+                    var freq by remember { mutableStateOf(state.settings.frequencyPenalty.toString()) }
+                    var maxT by remember { mutableStateOf(if (state.settings.maxTokens == 0) "" else state.settings.maxTokens.toString()) }
+                    Column {
+                        OutlinedTextField(topP, { topP = it }, label = { Text("top_p") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(pres, { pres = it }, label = { Text("presence penalty") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(freq, { freq = it }, label = { Text("frequency penalty") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(maxT, { maxT = it }, label = { Text("max tokens (blank = off)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Switch(
+                                checked = state.settings.promptCache,
+                                onCheckedChange = { onSetKnobs(null, null, null, null, it) },
+                            )
+                            Text("Prompt cache (saves you money if the host supports it)")
+                        }
+                        TextButton(onClick = {
+                            onSetKnobs(
+                                topP.toFloatOrNull(),
+                                pres.toFloatOrNull(),
+                                freq.toFloatOrNull(),
+                                maxT.toIntOrNull() ?: 0,
+                                null,
+                            )
+                        }) { Text("Save advanced") }
+                    }
+                }
+            }
             // C-023: named keys per provider (encrypted, Agora pattern).
             item {
                 Text("Saved keys", fontWeight = FontWeight.SemiBold)
@@ -1317,11 +1473,14 @@ fun SettingsScreen(
             item { HorizontalDivider() }
             item {
                 Text("Pro", fontWeight = FontWeight.SemiBold)
-                Text(
-                    if (state.settings.isPro) "Pro active — ads removed"
-                    else "One-time purchase removes ads",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (state.settings.isPro) {
+                    RegisteredCard(state.settings.proSinceMillis)
+                } else {
+                    Text(
+                        "One-time purchase removes ads",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             if (!state.settings.isPro) {
                 item {
@@ -1414,6 +1573,30 @@ fun SettingsScreen(
                                 TextButton(onClick = onImport) {
                                     Text("Restore chats")
                                 }
+                            }
+                        }
+                        item {
+                            OutlinedTextField(
+                                value = backupPass,
+                                onValueChange = onBackupPass,
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                label = { Text("Backup password (optional)") },
+                            )
+                        }
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = onExportTemplates) { Text("Export templates") }
+                                TextButton(onClick = onImportTemplates) { Text("Import templates") }
+                            }
+                        }
+                        if (state.settings.isPro) {
+                            item {
+                                MemoryList(
+                                    facts = state.memories,
+                                    onEdit = onEditMemory,
+                                    onDelete = onDeleteMemory,
+                                )
                             }
                         }
                         // C-022: settings JSON export/import (never contains keys).

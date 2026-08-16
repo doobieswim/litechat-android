@@ -43,6 +43,38 @@ class MemoryManager(private val context: Context) {
         prefs.edit().remove("memories").apply()
     }
 
+    /** P-006: every stored fact, promoted or not. */
+    fun list(): List<MemoryEntry> = getAll()
+
+    fun update(oldFact: String, newFact: String) {
+        val trimmed = newFact.trim()
+        if (trimmed.isEmpty()) return
+        val memories = getAll().toMutableList()
+        val idx = memories.indexOfFirst { it.fact.equals(oldFact, ignoreCase = true) }
+        if (idx < 0) return
+        memories[idx] = memories[idx].copy(fact = trimmed)
+        saveAll(memories)
+    }
+
+    fun delete(fact: String) {
+        saveAll(getAll().filterNot { it.fact.equals(fact, ignoreCase = true) })
+    }
+
+    fun recall(topic: String): List<MemoryEntry> {
+        val q = topic.trim()
+        if (q.isEmpty()) return getPromoted().map { MemoryEntry(it, 5) }
+        return getAll().filter { it.fact.contains(q, ignoreCase = true) }
+    }
+
+    /** P-006: store a rolling summary as an already-promoted memory. */
+    fun addSummary(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        val memories = getAll().toMutableList()
+        memories.add(MemoryEntry("Summary: $trimmed", hitCount = 5))
+        saveAll(memories)
+    }
+
     private fun getAll(): List<MemoryEntry> {
         val raw = prefs.getString("memories", "[]") ?: "[]"
         return try {

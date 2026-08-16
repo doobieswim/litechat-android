@@ -25,6 +25,8 @@ data class ConversationEntity(
     val updatedAt: Long,
     /** P-014: pinned conversations sort to the top of the drawer. */
     val pinned: Boolean = false,
+    /** P-009: optional folder id. Null = no folder (shows under All). */
+    val folderId: String? = null,
 )
 
 @Entity(tableName = "messages")
@@ -149,7 +151,7 @@ interface MessageFtsDao {
 
 @Database(
     entities = [ConversationEntity::class, MessageEntity::class, MessageFtsEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -180,6 +182,13 @@ abstract class AppDatabase : RoomDatabase() {
                     "INSERT INTO messages_fts(messageId, conversationId, content) " +
                         "SELECT id, conversationId, content FROM messages"
                 )
+            }
+        }
+
+        /** P-009: v3 → v4 adds folderId (null = All). Never a wipe. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE conversations ADD COLUMN folderId TEXT")
             }
         }
     }

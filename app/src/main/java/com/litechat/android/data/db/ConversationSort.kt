@@ -13,4 +13,8 @@ object ConversationSort {
             compareByDescending<ConversationEntity> { it.pinned }
                 .thenByDescending { it.updatedAt }
         )
+
+    /** P-009: null folderId = All chats. Else only that folder. */
+    fun inFolder(list: List<ConversationEntity>, folderId: String?): List<ConversationEntity> =
+        if (folderId == null) list else list.filter { it.folderId == folderId }
 }

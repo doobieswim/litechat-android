@@ -356,7 +356,7 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All tickets: Pro = $4.99 once (existing `BYO_pro`), ~0 KB APK each, API-side. Never-gate list unchanged (core chat, failover, languages, /imagine & /video, multi-key, compat matrix).
 
 ### P-001 — Voice mode (Pro; free = 1 voice exchange/day)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Status:** Done — WIRE 2026-08-16. Mic still lands text in the box (never auto-send). Free = 1 voice use/day. Read-aloud uses `/v1/audio/speech` to a file. Quiet cost line. Tests: VoiceDailyLimit.
 - **Goal:** Mic → Whisper STT (Groq free tier OK) → chat → TTS read-aloud. Extends C-021 voice stub.
 - **AC:**
   - [ ] STT via OpenAI-compatible `/v1/audio/transcriptions` with the active key + baseUrl
@@ -385,7 +385,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 3 · `docs/PRO-LATENT-WANTS.md` P-003
 
 ### P-003 — Encrypted backup upgrade (Pro)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Status:** Done — WIRE 2026-08-16. Optional backup password (AES-GCM + PBKDF2, magic BYO1). One quiet "Want a backup?" banner. Tests: BackupCrypto round-trip.
 - **Goal:** AES-encrypted chat export, scheduled local backups, restore-to-new-phone. Extends C-014 SAF backup.
 - **AC:**
   - [ ] Export DB → AES-GCM encrypted file; key from user passphrase (PBKDF2, salt stored in file header)
@@ -399,7 +399,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 4 · `docs/PRO-LATENT-WANTS.md` #1/#4
 
 ### P-004 — Quiet + registration screen (Pro)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Status:** Done — WIRE 2026-08-16. Settings shows "Registered — BYO AI · date · no renewal, ever". Upgrade button hidden for Pro. First Pro day is stamped.
 - **Goal:** Lifetime "Registered" screen; paid users never see a sale prompt again.
 - **AC:**
   - [ ] After Pro purchase: calm screen "Registered — BYO AI · <date> · no renewal, ever"
@@ -412,7 +412,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 6 · `docs/PRO-LATENT-WANTS.md` P-001/P-006
 
 ### P-005 — Web search (Pro)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Status:** Done — WIRE 2026-08-16. `/search` fetches DuckDuckGo HTML via Jsoup, feeds the model, asks it to keep source URLs.
 - **Goal:** `/search <query>` → DDG HTML search → top results → model answers with source links. Extends C-013 /browse.
 - **AC:**
   - [ ] `/search` handler: DDG results via Jsoup (reuse C-013 stack — no second HTTP client)
@@ -425,7 +425,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 7
 
 ### P-006 — Memory+ (Pro)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Status:** Done — WIRE 2026-08-16. `/recall`, Settings list/edit/delete, rolling summary when history is trimmed.
 - **Goal:** `/recall` command, rolling summaries, memory visible + editable. Extends C-020 MemoryManager.
 - **AC:**
   - [ ] `/recall <topic>` surfaces promoted memories
@@ -438,7 +438,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 2
 
 ### P-009 — Chat folders (Pro)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Status:** Done — WIRE 2026-08-16. folderId + v3→v4 migration. Drawer All + folders. Move button. Pro gate.
 - **Goal:** Organize conversations into folders.
 - **AC:**
   - [ ] `ConversationEntity.folderId` (nullable) + Room migration
@@ -450,8 +450,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 8
 
 ### P-010 — Template deep + AI persona packs (Pro)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
-- **Goal:** Template import/export + curated persona packs (system-prompt presets). Extends C-012.
+- **Status:** Done — WIRE 2026-08-16. Template JSON export/import (no keys). Six everyday persona packs. Picker row above the chat box. Pro gate.
 - **AC:**
   - [ ] Template export/import as JSON (no secrets — keys stay in SecureStore)
   - [ ] 5–8 built-in personas (e.g. Plain-English explainer, Translator, Teacher, Code helper) as system-prompt templates
@@ -463,8 +462,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 5 · TypingMind "agents" precedent
 
 ### P-011 — Image editing (Pro)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
-- **Goal:** `/edit <prompt>` edits the last generated image (gpt-image-1 edit variant). Extends C-011 /imagine.
+- **Status:** Done — WIRE 2026-08-16. `/edit` uses the last `/imagine` file → `/v1/images/edits`. Honest "This provider cannot edit images." Generation stays free.
 - **AC:**
   - [ ] `/edit` uses last generated image + prompt → `POST /v1/images/edits`
   - [ ] Result appended as a new bubble (original stays)
@@ -488,8 +486,7 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Research:** `docs/PRO-ROADMAP.md` row 9 · H-009 · `docs/GLOBAL-MARKETS-RESEARCH.md`
 
 ### P-013 — Model knobs + prompt caching toggle (FREE)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
-- **Goal:** top_p, presence/frequency penalty, max tokens, prompt-caching toggle. Free (honesty brand — caching saves the user money).
+- **Status:** Done — WIRE 2026-08-16. Advanced sliders in Settings. Extra fields sent only when not default. Prompt-cache toggle. FREE.
 - **AC:**
   - [ ] Params in DataStore, sent only when non-default (no request bloat)
   - [ ] Prompt-caching toggle (provider-supported header/flag where available; documented no-op otherwise)

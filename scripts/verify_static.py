@@ -300,6 +300,20 @@ def main() -> int:
     ok("P-002 SearchScreen + grouped", "fun SearchScreen" in screens and "Search chats" in screens)
     ok("P-002 tap opens hit", "openSearchHit" in vm and "highlightMessageId" in vm)
 
+    ok("P-009 folderId + migration", "folderId" in entities and "MIGRATION_3_4" in entities)
+    ok("P-009 setFolder + filter", "setFolder" in repo and "inFolder" in (KT_ROOT / "com/litechat/android/data/db/ConversationSort.kt").read_text())
+    ok("P-009 FolderBar", "fun FolderBar" in screens or "FolderBar(" in screens)
+    ok("P-004 Registered card", "Registered — BYO AI" in screens or "RegisteredCard" in screens)
+    ok("P-010 PersonaPacks", "object PersonaPacks" in (KT_ROOT / "com/litechat/android/data/prefs/PersonaPacks.kt").read_text())
+    ok("P-010 persona picker", "PersonaRow" in screens and "setPersona" in vm)
+    ok("P-013 ChatOptions + knobs", "class ChatOptions" in (KT_ROOT / "com/litechat/android/data/api/OpenAiCompatibleClient.kt").read_text() and "top_p" in (KT_ROOT / "com/litechat/android/data/api/OpenAiCompatibleClient.kt").read_text())
+    ok("P-013 Advanced free", "Advanced" in screens and "promptCache" in settings)
+    ok("P-005 /search", '"/search "' in vm and "fetchSearch" in (KT_ROOT / "com/litechat/android/data/api/OpenAiCompatibleClient.kt").read_text())
+    ok("P-006 recall + edit", '"/recall"' in vm and "fun recall" in (KT_ROOT / "com/litechat/android/data/context/MemoryManager.kt").read_text())
+    ok("P-003 BackupCrypto", "object BackupCrypto" in (KT_ROOT / "com/litechat/android/util/BackupCrypto.kt").read_text())
+    ok("P-001 voice limit + tts", "VoiceDailyLimit" in vm and "readAloud" in vm)
+    ok("P-011 /edit", '"/edit "' in vm and "editImage" in (KT_ROOT / "com/litechat/android/data/api/OpenAiCompatibleClient.kt").read_text())
+
     # Fastlane metadata is part of the build: F-Droid/Play read these files.
     # No Ruby gem. CI static-verify fails the job if listing copy is wrong.
     fl = ROOT / "fastlane" / "metadata" / "android" / "en-US"

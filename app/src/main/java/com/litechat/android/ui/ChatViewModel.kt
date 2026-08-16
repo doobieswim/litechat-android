@@ -17,6 +17,11 @@ import com.litechat.android.data.prefs.AppSettings
 import com.litechat.android.data.prefs.NamedKeyStore
 import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.data.prefs.SettingsRepository
+import com.litechat.android.data.api.ChatOptions
+import com.litechat.android.data.prefs.ChatFolder
+import com.litechat.android.data.prefs.PersonaPacks
+import com.litechat.android.util.BackupCrypto
+import com.litechat.android.util.VoiceDailyLimit
 import com.litechat.android.util.DeviceCompat
 import com.litechat.android.util.ImageCacheConfig
 import com.litechat.android.util.MediaCleanup
@@ -62,6 +67,15 @@ data class ChatUiState(
     val searchResults: List<SearchHit> = emptyList(),
     /** P-002: scroll-to + highlight after opening a hit. */
     val highlightMessageId: String? = null,
+    /** P-009: folders + which one the drawer is showing (null = All). */
+    val folders: List<com.litechat.android.data.prefs.ChatFolder> = emptyList(),
+    val activeFolderId: String? = null,
+    /** P-006: visible memory list for Settings. */
+    val memories: List<com.litechat.android.data.context.MemoryManager.MemoryEntry> = emptyList(),
+    /** P-001: TTS is playing. */
+    val isSpeaking: Boolean = false,
+    /** P-003: one quiet backup reminder. */
+    val showBackupReminder: Boolean = false,
 )
 
 class ChatViewModel(
@@ -75,6 +89,7 @@ class ChatViewModel(
     private var messagesCollectJob: Job? = null
     private var connectivityJob: Job? = null
     private var stopRequested = false
+    private var ttsPlayer: android.media.MediaPlayer? = null
 
     init {
         viewModelScope.launch {
@@ -96,6 +111,7 @@ class ChatViewModel(
                         settings = merged,
                         conversations = convos,
                         apiKeyPresent = container.settingsRepository.getApiKey().isNotBlank(),
+                        showBackupReminder = merged.isPro && !merged.backupReminderDone,
                         activeConversationId = it.activeConversationId?.takeIf { id ->
                             convos.any { c -> c.id == id }
                         },
@@ -127,6 +143,13 @@ class ChatViewModel(
                 _state.update { it.copy(templates = visible) }
             }
         }
+
+        viewModelScope.launch {
+            container.settingsRepository.folders.collect { list ->
+                _state.update { it.copy(folders = list) }
+            }
+        }
+        refreshMemories()
     }
 
     fun setInput(value: String) {
@@ -245,6 +268,101 @@ class ChatViewModel(
         _state.update { it.copy(highlightMessageId = null) }
     }
 
+    fun selectFolder(folderId: String?) {
+        _state.update { it.copy(activeFolderId = folderId) }
+    }
+
+    fun createFolder(name: String) {
+        if (!container.isPro()) {
+            _state.update { it.copy(error = "Folders are a Pro feature — pay once to unlock") }
+            return
+        }
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            container.settingsRepository.saveFolder(
+                ChatFolder(id = java.util.UUID.randomUUID().toString(), name = trimmed.take(40)),
+            )
+        }
+    }
+
+    fun deleteFolder(id: String) {
+        if (!container.isPro()) return
+        viewModelScope.launch {
+            container.settingsRepository.deleteFolder(id)
+            if (_state.value.activeFolderId == id) {
+                _state.update { it.copy(activeFolderId = null) }
+            }
+        }
+    }
+
+    fun moveChatToFolder(conversationId: String, folderId: String?) {
+        if (!container.isPro()) {
+            _state.update { it.copy(error = "Folders are a Pro feature — pay once to unlock") }
+            return
+        }
+        viewModelScope.launch { container.chatRepository.setFolder(conversationId, folderId) }
+    }
+
+    fun setPersona(id: String) {
+        if (id.isNotBlank() && !container.isPro()) {
+            _state.update { it.copy(error = "Personas are a Pro feature — pay once to unlock") }
+            return
+        }
+        viewModelScope.launch {
+            container.settingsRepository.update(activePersonaId = id)
+        }
+    }
+
+    fun setModelKnobs(
+        topP: Float? = null,
+        presencePenalty: Float? = null,
+        frequencyPenalty: Float? = null,
+        maxTokens: Int? = null,
+        promptCache: Boolean? = null,
+    ) {
+        viewModelScope.launch {
+            container.settingsRepository.update(
+                topP = topP,
+                presencePenalty = presencePenalty,
+                frequencyPenalty = frequencyPenalty,
+                maxTokens = maxTokens,
+                promptCache = promptCache,
+            )
+        }
+    }
+
+    fun refreshMemories() {
+        _state.update { it.copy(memories = container.memoryManager.list()) }
+    }
+
+    fun editMemory(oldFact: String, newFact: String) {
+        if (!container.isPro()) return
+        container.memoryManager.update(oldFact, newFact)
+        refreshMemories()
+    }
+
+    fun deleteMemory(fact: String) {
+        if (!container.isPro()) return
+        container.memoryManager.delete(fact)
+        refreshMemories()
+    }
+
+    fun dismissBackupReminder() {
+        viewModelScope.launch {
+            container.settingsRepository.update(backupReminderDone = true)
+            _state.update { it.copy(showBackupReminder = false) }
+        }
+    }
+
+    private fun chatOptionsOf(s: AppSettings): ChatOptions = ChatOptions(
+        topP = s.topP.takeIf { it != 1f },
+        presencePenalty = s.presencePenalty.takeIf { it != 0f },
+        frequencyPenalty = s.frequencyPenalty.takeIf { it != 0f },
+        maxTokens = s.maxTokens.takeIf { it > 0 },
+        promptCache = s.promptCache,
+    )
+
     /** P-012: reply-language setting — FREE, never gated (H-009). */
     fun setLanguage(language: String) {
         viewModelScope.launch {
@@ -362,6 +480,97 @@ class ChatViewModel(
                     container.chatRepository.addMessage(convId, "assistant",
                         "Failed to fetch $url: ${e.message?.take(200)}")
                 }
+            }
+            return
+        }
+
+        // P-005: /search — DuckDuckGo then the model answers with source URLs.
+        if (text.startsWith("/search ")) {
+            if (!container.isPro()) {
+                _state.update { it.copy(error = "Web search is a Pro feature — pay once to unlock") }
+                return
+            }
+            val query = text.removePrefix("/search ").trim()
+            if (query.isEmpty()) {
+                _state.update { it.copy(error = "Usage: /search <words>") }
+                return
+            }
+            viewModelScope.launch {
+                var convId = _state.value.activeConversationId
+                if (convId == null) {
+                    val c = container.chatRepository.createConversation(
+                        title = "/search ${query.take(40)}",
+                        model = settings.model,
+                    )
+                    convId = c.id
+                    selectConversation(convId)
+                }
+                _state.update { it.copy(input = "", error = null) }
+                container.chatRepository.addMessage(convId, "user", "/search $query")
+                viewModelScope.launch { container.settingsRepository.clearDraft(convId) }
+                try {
+                    val results = withContext(Dispatchers.IO) {
+                        container.openAiClient.fetchSearch(query)
+                    }
+                    container.chatRepository.addMessage(
+                        convId, "user",
+                        "[Search results for $query]\n$results\n\nAnswer using these sources. Keep the URLs in the answer.",
+                    )
+                    val history = container.chatRepository.listMessages(convId)
+                    val language = _state.value.settings.language
+                    val systemMsg = ChatMessageDto(
+                        "system",
+                        buildString {
+                            if (language.isNotBlank()) append("Reply in $language. ")
+                            append("Do not fabricate citations. Keep source URLs.")
+                        },
+                    )
+                    val dto = listOf(systemMsg) + history.map { ChatMessageDto(it.role, it.content) }
+                    val (trimmed, _) = ContextTrimmer.trim(dto)
+                    val answer = withContext(Dispatchers.IO) {
+                        container.openAiClient.completeChat(
+                            baseUrl = settings.baseUrl,
+                            apiKey = key,
+                            model = settings.model,
+                            messages = trimmed,
+                            temperature = settings.temperature,
+                            options = chatOptionsOf(settings),
+                        )
+                    }
+                    container.chatRepository.addMessage(
+                        convId, "assistant",
+                        answer.ifBlank { "No answer from model." },
+                    )
+                } catch (e: java.util.concurrent.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    _state.update { it.copy(error = "Search failed: ${e.message?.take(100)}") }
+                }
+            }
+            return
+        }
+
+        // P-006: /recall — show stored memories matching a topic.
+        if (text.startsWith("/recall")) {
+            if (!container.isPro()) {
+                _state.update { it.copy(error = "Memory is a Pro feature — pay once to unlock") }
+                return
+            }
+            val topic = text.removePrefix("/recall").trim()
+            viewModelScope.launch {
+                var convId = _state.value.activeConversationId
+                if (convId == null) {
+                    val c = container.chatRepository.createConversation(title = "/recall")
+                    convId = c.id
+                    selectConversation(convId)
+                }
+                _state.update { it.copy(input = "", error = null) }
+                container.chatRepository.addMessage(convId, "user", text)
+                val hits = container.memoryManager.recall(topic)
+                val body = if (hits.isEmpty()) "Nothing stored about that."
+                else hits.joinToString("\n") { "• ${it.fact}" }
+                container.chatRepository.addMessage(convId, "assistant", body)
+                refreshMemories()
             }
             return
         }
@@ -500,6 +709,70 @@ class ChatViewModel(
             return
         }
 
+        // P-011: /edit — edit the last generated image. Generation stays free.
+        if (text.startsWith("/edit ")) {
+            if (!container.isPro()) {
+                _state.update { it.copy(error = "Image edit is a Pro feature — pay once to unlock") }
+                return
+            }
+            val prompt = text.removePrefix("/edit ").trim()
+            if (prompt.isEmpty()) {
+                _state.update { it.copy(error = "Usage: /edit <what to change>") }
+                return
+            }
+            viewModelScope.launch {
+                var convId = _state.value.activeConversationId
+                if (convId == null) {
+                    _state.update { it.copy(error = "Make an image first with /imagine") }
+                    return@launch
+                }
+                val lastImage = container.chatRepository.listMessages(convId)
+                    .asReversed()
+                    .firstOrNull { it.content.startsWith("[IMAGE:") }
+                if (lastImage == null) {
+                    _state.update { it.copy(error = "No image in this chat to edit") }
+                    return@launch
+                }
+                val path = lastImage.content.removePrefix("[IMAGE:").removeSuffix("]")
+                val src = java.io.File(path)
+                if (!src.exists()) {
+                    _state.update { it.copy(error = "The last image file is gone") }
+                    return@launch
+                }
+                _state.update { it.copy(input = "", error = null, isGeneratingImage = true) }
+                container.chatRepository.addMessage(convId, "user", "/edit $prompt")
+                try {
+                    val bytes = withContext(Dispatchers.IO) {
+                        container.openAiClient.editImage(
+                            baseUrl = settings.baseUrl,
+                            apiKey = key,
+                            imageFile = src,
+                            prompt = prompt,
+                        )
+                    }
+                    val file = java.io.File(
+                        container.ctx.filesDir,
+                        "gen_${System.currentTimeMillis()}.jpg",
+                    )
+                    withContext(Dispatchers.IO) { file.writeBytes(bytes) }
+                    MediaCleanup.run(container.ctx)
+                    container.chatRepository.addMessage(
+                        convId, "assistant", "[IMAGE:${file.absolutePath}]",
+                    )
+                } catch (e: java.util.concurrent.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    _state.update { it.copy(error = e.message?.take(160) ?: "Edit failed") }
+                    container.chatRepository.addMessage(
+                        convId, "assistant", e.message?.take(200) ?: "Edit failed",
+                    )
+                } finally {
+                    _state.update { it.copy(isGeneratingImage = false) }
+                }
+            }
+            return
+        }
+
         stopRequested = false
         streamJob = viewModelScope.launch {
             // C-028: reset stale per-send state so a new send doesn't inherit the
@@ -538,8 +811,10 @@ class ChatViewModel(
             val honestyRule = "Do not fabricate tool outputs, file contents, citations, or completed work."
             // P-012: reply language (FREE — H-009) rides the system prompt.
             val language = _state.value.settings.language
+            val persona = if (isPro) PersonaPacks.byId(settings.activePersonaId) else null
             val systemText = buildString {
                 if (memoryPrompt.isNotBlank()) append("$memoryPrompt ")
+                if (persona != null) append("${persona.system} ")
                 if (language.isNotBlank()) append("Reply in $language. ")
                 append(honestyRule)
             }
@@ -550,6 +825,31 @@ class ChatViewModel(
             val (trimmed, removed) = ContextTrimmer.trim(dto)
             if (removed > 0) {
                 _state.update { it.copy(truncatedCount = removed) }
+                if (isPro) {
+                    val dropped = dto.filter { it.role != "system" }.take(removed)
+                    val blob = dropped.joinToString("\n") { "${it.role}: ${it.content.take(400)}" }
+                    viewModelScope.launch {
+                        try {
+                            val summary = withContext(Dispatchers.IO) {
+                                container.openAiClient.completeChat(
+                                    baseUrl = settings.baseUrl,
+                                    apiKey = key,
+                                    model = settings.model,
+                                    messages = listOf(
+                                        ChatMessageDto(
+                                            "system",
+                                            "Summarize in 2 short sentences. No extras.",
+                                        ),
+                                        ChatMessageDto("user", blob.take(4000)),
+                                    ),
+                                    temperature = 0.3f,
+                                )
+                            }
+                            container.memoryManager.addSummary(summary)
+                            refreshMemories()
+                        } catch (_: Exception) { /* keep chat going */ }
+                    }
+                }
             }
 
             // Imp#3: retry loop with exponential backoff + jitter
@@ -603,6 +903,7 @@ class ChatViewModel(
                         messages = trimmed,
                         temperature = settings.temperature,
                         preferNonStream = preferNonStream,
+                        options = chatOptionsOf(settings),
                     ).collect { event ->
                         when (event) {
                             is StreamEvent.Delta -> {
@@ -764,26 +1065,27 @@ class ChatViewModel(
         }
     }
 
-    // C-014: export chat database to a file via SAF.
-    fun exportChats(uri: android.net.Uri) {
-        // Gate-gap close: the ticket said Pro-gated; enforce it here.
+    // C-014 / P-003: export chat database. Encrypted if passphrase is set.
+    fun exportChats(uri: android.net.Uri, passphrase: String = "") {
         if (!container.isPro()) {
             _state.update { it.copy(error = "Chat backup is a Pro feature — pay once to unlock") }
             return
         }
         viewModelScope.launch {
             try {
-                // C8: Room runs in WAL mode — copying the .db file alone while the
-                // WAL holds uncheckpointed pages yields a corrupt/truncated backup.
-                // Checkpoint (TRUNCATE) first so the main file is self-consistent
-                // and the WAL shrinks to 0 bytes, then copy just the .db off Main.
                 withContext(Dispatchers.IO) {
                     val dbFile = container.ctx.getDatabasePath("litechat.db")
                     container.database.openHelper.writableDatabase
                         .query("PRAGMA wal_checkpoint(TRUNCATE)")
                         .use { it.moveToFirst() }
+                    val bytes = dbFile.readBytes()
+                    val outBytes = if (passphrase.isNotBlank()) {
+                        BackupCrypto.encrypt(bytes, passphrase)
+                    } else {
+                        bytes
+                    }
                     container.ctx.contentResolver.openOutputStream(uri)?.use { out ->
-                        dbFile.inputStream().use { input -> input.copyTo(out) }
+                        out.write(outBytes)
                     }
                 }
             } catch (e: Exception) {
@@ -792,23 +1094,29 @@ class ChatViewModel(
         }
     }
 
-    // C-014: import chat database from a file via SAF.
-    fun importChats(uri: android.net.Uri) {
-        // Gate-gap close: the ticket said Pro-gated; enforce it here.
+    // C-014 / P-003: import. Decrypts if the file starts with BYO1.
+    fun importChats(uri: android.net.Uri, passphrase: String = "") {
         if (!container.isPro()) {
             _state.update { it.copy(error = "Chat restore is a Pro feature — pay once to unlock") }
             return
         }
         viewModelScope.launch {
             try {
-                // C8: close Room before replacing the file, then drop stale
-                // -wal/-shm so the restored DB can't be replayed from a foreign WAL.
                 withContext(Dispatchers.IO) {
                     container.database.close()
                     val dbFile = container.ctx.getDatabasePath("litechat.db")
-                    container.ctx.contentResolver.openInputStream(uri)?.use { input ->
-                        dbFile.outputStream().use { input.copyTo(it) }
+                    val raw = container.ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: throw IllegalArgumentException("Could not read file")
+                    val magic = if (raw.size >= 4) raw.copyOfRange(0, 4).toString(Charsets.US_ASCII) else ""
+                    val bytes = if (magic == "BYO1") {
+                        if (passphrase.isBlank()) {
+                            throw IllegalArgumentException("This backup needs a password")
+                        }
+                        BackupCrypto.decrypt(raw, passphrase)
+                    } else {
+                        raw
                     }
+                    dbFile.writeBytes(bytes)
                     java.io.File("${dbFile.path}-wal").delete()
                     java.io.File("${dbFile.path}-shm").delete()
                 }
@@ -911,7 +1219,107 @@ class ChatViewModel(
     // C-020: clear all stored memory facts.
     fun clearMemory() {
         container.memoryManager.clear()
+        refreshMemories()
         _state.update { it.copy(error = "Memory cleared") }
+    }
+
+    fun exportTemplates(uri: android.net.Uri) {
+        if (!container.isPro()) {
+            _state.update { it.copy(error = "Template export is a Pro feature — pay once to unlock") }
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val json = container.settingsRepository.exportTemplatesJson()
+                withContext(Dispatchers.IO) {
+                    container.ctx.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Export failed: ${e.message?.take(60)}") }
+            }
+        }
+    }
+
+    fun importTemplates(uri: android.net.Uri) {
+        if (!container.isPro()) {
+            _state.update { it.copy(error = "Template import is a Pro feature — pay once to unlock") }
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val json = withContext(Dispatchers.IO) {
+                    container.ctx.contentResolver.openInputStream(uri)
+                        ?.readBytes()?.toString(Charsets.UTF_8) ?: ""
+                }
+                val err = container.settingsRepository.importTemplatesJson(json)
+                _state.update { it.copy(error = err ?: "Templates imported") }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Import failed: ${e.message?.take(60)}") }
+            }
+        }
+    }
+
+    fun consumeVoiceSlot(): Boolean {
+        val s = _state.value.settings
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .format(java.util.Date())
+        val used = if (s.voiceDay == today) s.voiceUsedToday else 0
+        if (!VoiceDailyLimit.allowed(container.isPro(), used)) {
+            _state.update { it.copy(error = "Free plan: 1 voice use per day. Pay once for more.") }
+            return false
+        }
+        if (!container.isPro()) {
+            viewModelScope.launch {
+                container.settingsRepository.update(voiceDay = today, voiceUsedToday = used + 1)
+            }
+        }
+        return true
+    }
+
+    fun readAloud() {
+        if (!consumeVoiceSlot()) return
+        val text = _state.value.messages.lastOrNull { it.role == "assistant" }?.content
+            ?.takeIf { it.isNotBlank() && !it.startsWith("[IMAGE:") }
+        if (text.isNullOrBlank()) {
+            _state.update { it.copy(error = "Nothing to read yet") }
+            return
+        }
+        val key = container.namedKeyStore.getActiveKey()
+            .ifBlank { container.settingsRepository.getApiKey() }
+        val settings = _state.value.settings
+        viewModelScope.launch {
+            try {
+                val dest = java.io.File(container.ctx.cacheDir, "tts_${System.currentTimeMillis()}.mp3")
+                withContext(Dispatchers.IO) {
+                    container.openAiClient.speakToFile(settings.baseUrl, key, text, dest)
+                }
+                _state.update { it.copy(isSpeaking = true) }
+                android.media.MediaPlayer().apply {
+                    setDataSource(dest.absolutePath)
+                    setOnCompletionListener {
+                        it.release()
+                        dest.delete()
+                        _state.update { st -> st.copy(isSpeaking = false) }
+                    }
+                    prepare()
+                    start()
+                    ttsPlayer?.release()
+                    ttsPlayer = this
+                }
+            } catch (e: java.util.concurrent.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(isSpeaking = false, error = "Read aloud failed: ${e.message?.take(80)}") }
+            }
+        }
+    }
+
+    fun stopAloud() {
+        ttsPlayer?.stop()
+        ttsPlayer?.release()
+        ttsPlayer = null
+        _state.update { it.copy(isSpeaking = false) }
+        container.openAiClient.cancel()
     }
 
     // C-022: export settings (no secrets) via SAF.
@@ -994,6 +1402,7 @@ class ChatViewModel(
 
     override fun onCleared() {
         stopStreaming()
+        stopAloud()
         container.connectivityObserver.unregister()
         connectivityJob?.cancel()
         super.onCleared()

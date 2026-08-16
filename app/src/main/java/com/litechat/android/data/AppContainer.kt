@@ -26,7 +26,11 @@ class AppContainer(context: Context) {
         "litechat.db"
     )
         // P-014/P-002: real migrations, never a wipe on known versions.
-        .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
+        .addMigrations(
+            AppDatabase.MIGRATION_1_2,
+            AppDatabase.MIGRATION_2_3,
+            AppDatabase.MIGRATION_3_4,
+        )
         .fallbackToDestructiveMigration().build()
 
     val secureStore = SecureStore(appContext)

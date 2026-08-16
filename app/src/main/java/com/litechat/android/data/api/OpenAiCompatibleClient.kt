@@ -24,6 +24,12 @@ import okhttp3.Response
 import android.util.Base64
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.add
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
+import java.io.FileOutputStream
+import java.net.URLEncoder
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -40,6 +46,15 @@ sealed class StreamEvent {
 data class ChatMessageDto(
     val role: String,
     val content: String,
+)
+
+/** P-013: extra request knobs. Null / default means "do not send". */
+data class ChatOptions(
+    val topP: Float? = null,
+    val presencePenalty: Float? = null,
+    val frequencyPenalty: Float? = null,
+    val maxTokens: Int? = null,
+    val promptCache: Boolean = false,
 )
 
 /**
@@ -84,6 +99,7 @@ class OpenAiCompatibleClient(
         temperature: Float,
         allowNonStreamFallback: Boolean = true,
         preferNonStream: Boolean = false,
+        options: ChatOptions = ChatOptions(),
     ): Flow<StreamEvent> = callbackFlow {
         // REVIEW: unqualified cancel() inside callbackFlow binds to
         // SendChannel.cancel() — it killed our own pipe instead of the
@@ -99,7 +115,7 @@ class OpenAiCompatibleClient(
 
         if (!preferNonStream) {
             try {
-                val response = executeChat(url, apiKey, model, messages, temperature, stream = true)
+                val response = executeChat(url, apiKey, model, messages, temperature, stream = true, options = options)
                 try {
                     if (!response.isSuccessful) {
                         val err = response.body?.string()?.take(500) ?: response.message
@@ -154,7 +170,7 @@ class OpenAiCompatibleClient(
 
             if (shouldFallback) {
                 try {
-                    val full = completeChat(baseUrl, apiKey, model, messages, temperature)
+                    val full = completeChat(baseUrl, apiKey, model, messages, temperature, options)
                     if (full.isNotEmpty()) {
                         trySend(StreamEvent.FallbackUsed)
                         trySend(StreamEvent.Delta(full))
@@ -186,9 +202,10 @@ class OpenAiCompatibleClient(
         model: String,
         messages: List<ChatMessageDto>,
         temperature: Float,
+        options: ChatOptions = ChatOptions(),
     ): String {
         val url = completionsUrl(baseUrl)
-        executeChat(url, apiKey, model, messages, temperature, stream = false).use { response ->
+        executeChat(url, apiKey, model, messages, temperature, stream = false, options = options).use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
                 throw IOException("HTTP ${response.code}: ${raw.take(400)}")
@@ -246,6 +263,155 @@ class OpenAiCompatibleClient(
             .timeout(15_000)
             .get()
         return doc.body().text().take(8_192)
+    }
+
+    /**
+     * P-005: DuckDuckGo HTML search. Returns a plain-text list of
+     * title + URL + snippet (top hits). No second HTTP client.
+     */
+    fun fetchSearch(query: String): String {
+        val q = URLEncoder.encode(query, "UTF-8")
+        val doc = org.jsoup.Jsoup.connect("https://html.duckduckgo.com/html/?q=$q")
+            .userAgent("LiteChat/0.1 (Android; BYOK)")
+            .timeout(15_000)
+            .get()
+        val hits = doc.select("div.result, div.web-result")
+        if (hits.isEmpty()) {
+            val titles = doc.select("a.result__a")
+            if (titles.isEmpty()) return "No search results."
+            return titles.take(5).mapIndexed { i, a ->
+                val href = a.absUrl("href").ifBlank { a.attr("href") }
+                "${i + 1}. ${a.text()}\n$href"
+            }.joinToString("\n\n")
+        }
+        return hits.take(5).mapIndexed { i, el ->
+            val a = el.selectFirst("a.result__a") ?: el.selectFirst("a")
+            val title = a?.text().orEmpty()
+            val href = a?.absUrl("href")?.ifBlank { a.attr("href") }.orEmpty()
+            val snip = el.selectFirst(".result__snippet, .result__body")?.text().orEmpty()
+            "${i + 1}. $title\n$href\n$snip"
+        }.joinToString("\n\n").ifBlank { "No search results." }
+    }
+
+    /**
+     * P-011: edit an existing image. Honest error if the host has no edits API.
+     */
+    fun editImage(
+        baseUrl: String,
+        apiKey: String,
+        imageFile: File,
+        prompt: String,
+    ): ByteArray {
+        val root = baseUrl.trim().trimEnd('/')
+        val url = if (root.contains("/v1/images")) {
+            root.replace("/generations", "/edits")
+        } else {
+            "$root/v1/images/edits"
+        }
+        val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart(
+                "image",
+                imageFile.name,
+                imageFile.asRequestBody("image/png".toMediaType()),
+            )
+            .addFormDataPart("prompt", prompt)
+            .addFormDataPart("n", "1")
+            .addFormDataPart("response_format", "b64_json")
+            .build()
+        val builder = Request.Builder().url(url).post(body)
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+        val call = client.newCall(builder.build())
+        activeCall = call
+        call.execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                val low = raw.lowercase()
+                if (response.code == 404 || response.code == 405 ||
+                    low.contains("unknown") || low.contains("not found") ||
+                    low.contains("not supported")
+                ) {
+                    throw IOException("This provider cannot edit images.")
+                }
+                throw IOException("HTTP ${response.code}: ${raw.take(400)}")
+            }
+            val rootObj = json.parseToJsonElement(raw).jsonObject
+            val data = rootObj["data"]?.jsonArray
+                ?: throw IOException("No data in image edit response")
+            if (data.isEmpty()) throw IOException("Empty image edit response")
+            val b64 = data[0].jsonObject["b64_json"]?.jsonPrimitive?.contentOrNull
+                ?: throw IOException("No b64_json in image edit response")
+            return Base64.decode(b64, Base64.DEFAULT)
+        }
+    }
+
+    /** P-001: Whisper-compatible transcription. */
+    fun transcribeAudio(baseUrl: String, apiKey: String, audioFile: File): String {
+        val root = baseUrl.trim().trimEnd('/')
+        val url = if (root.endsWith("/audio/transcriptions")) root
+        else "$root/audio/transcriptions".replace("/v1/v1/", "/v1/")
+        val finalUrl = if (url.contains("/audio/transcriptions")) url
+        else "$root/v1/audio/transcriptions"
+        val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart(
+                "file",
+                audioFile.name,
+                audioFile.asRequestBody("audio/m4a".toMediaType()),
+            )
+            .addFormDataPart("model", "whisper-1")
+            .build()
+        val builder = Request.Builder().url(finalUrl).post(body)
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+        val call = client.newCall(builder.build())
+        activeCall = call
+        call.execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw IOException("HTTP ${response.code}: ${raw.take(300)}")
+            }
+            return json.parseToJsonElement(raw).jsonObject["text"]
+                ?.jsonPrimitive?.contentOrNull
+                ?: throw IOException("No text in transcription")
+        }
+    }
+
+    /** P-001: TTS to a file (never a full ByteArray in heap). */
+    fun speakToFile(
+        baseUrl: String,
+        apiKey: String,
+        text: String,
+        dest: File,
+        voice: String = "alloy",
+    ) {
+        val root = baseUrl.trim().trimEnd('/')
+        val url = if (root.endsWith("/audio/speech")) root else "$root/audio/speech".let {
+            if (it.contains("/v1/audio/speech")) it else "$root/v1/audio/speech"
+        }
+        val payload = buildJsonObject {
+            put("model", "tts-1")
+            put("input", text.take(4096))
+            put("voice", voice)
+        }.toString()
+        val builder = Request.Builder()
+            .url(url)
+            .post(payload.toRequestBody(JSON))
+            .header("Accept", "audio/mpeg")
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+        val call = client.newCall(builder.build())
+        activeCall = call
+        call.execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("HTTP ${response.code}: ${response.body?.string()?.take(200)}")
+            }
+            val body = response.body ?: throw IOException("Empty speech body")
+            try {
+                FileOutputStream(dest).use { out ->
+                    body.byteStream().copyTo(out)
+                }
+            } catch (e: Exception) {
+                dest.delete()
+                throw e
+            }
+        }
     }
 
     /**
@@ -397,14 +563,35 @@ class OpenAiCompatibleClient(
         messages: List<ChatMessageDto>,
         temperature: Float,
         stream: Boolean,
+        options: ChatOptions = ChatOptions(),
     ): Response {
-        val body = ChatCompletionRequest(
-            model = model,
-            messages = messages.map { Msg(it.role, it.content) },
-            temperature = temperature,
-            stream = stream,
-        )
-        val payload = json.encodeToString(ChatCompletionRequest.serializer(), body)
+        val payload = buildJsonObject {
+            put("model", model)
+            put("temperature", temperature)
+            put("stream", stream)
+            put(
+                "messages",
+                kotlinx.serialization.json.buildJsonArray {
+                    messages.forEach { m ->
+                        add(
+                            buildJsonObject {
+                                put("role", m.role)
+                                put("content", m.content)
+                            },
+                        )
+                    }
+                },
+            )
+            val topP = options.topP
+            if (topP != null && topP != 1f) put("top_p", topP)
+            val pres = options.presencePenalty
+            if (pres != null && pres != 0f) put("presence_penalty", pres)
+            val freq = options.frequencyPenalty
+            if (freq != null && freq != 0f) put("frequency_penalty", freq)
+            val maxTok = options.maxTokens
+            if (maxTok != null && maxTok > 0) put("max_tokens", maxTok)
+            if (options.promptCache) put("prompt_cache_key", "byo-ai")
+        }.toString()
         val builder = Request.Builder()
             .url(url)
             .post(payload.toRequestBody(JSON))

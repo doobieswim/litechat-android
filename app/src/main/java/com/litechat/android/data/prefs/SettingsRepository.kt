@@ -35,6 +35,21 @@ data class AppSettings(
     val acceptableUseAccepted: Boolean = false,
     /** P-012: model reply language ("" = default). FREE — never gated (H-009). */
     val language: String = "",
+    /** P-004: when Pro was first turned on (0 = unknown). */
+    val proSinceMillis: Long = 0L,
+    /** P-010: selected persona pack id ("" = none). */
+    val activePersonaId: String = "",
+    /** P-013: extra model knobs. 0 / 1 / false = leave them off the request. */
+    val topP: Float = 1f,
+    val presencePenalty: Float = 0f,
+    val frequencyPenalty: Float = 0f,
+    val maxTokens: Int = 0,
+    val promptCache: Boolean = false,
+    /** P-003: user already dismissed the one backup reminder. */
+    val backupReminderDone: Boolean = false,
+    /** P-001: voice daily-limit bookkeeping (free = 1/day). */
+    val voiceDay: String = "",
+    val voiceUsedToday: Int = 0,
 )
 
 /** C-012: prompt template with dynamic [Variable] fields. */
@@ -68,6 +83,17 @@ class SettingsRepository(
         val NON_STREAM_EXPIRY = stringPreferencesKey("non_stream_expiry_map")
         val LANGUAGE = stringPreferencesKey("language")
         val DRAFTS = stringPreferencesKey("drafts_json")
+        val PRO_SINCE = stringPreferencesKey("pro_since_millis")
+        val PERSONA = stringPreferencesKey("active_persona_id")
+        val TOP_P = floatPreferencesKey("top_p")
+        val PRESENCE = floatPreferencesKey("presence_penalty")
+        val FREQUENCY = floatPreferencesKey("frequency_penalty")
+        val MAX_TOKENS = stringPreferencesKey("max_tokens")
+        val PROMPT_CACHE = booleanPreferencesKey("prompt_cache")
+        val BACKUP_REMINDER = booleanPreferencesKey("backup_reminder_done")
+        val VOICE_DAY = stringPreferencesKey("voice_day")
+        val VOICE_USED = stringPreferencesKey("voice_used_today")
+        val FOLDERS = stringPreferencesKey("folders_json")
     }
 
     /**
@@ -239,6 +265,16 @@ class SettingsRepository(
             isPro = p[Keys.IS_PRO] ?: false,
             acceptableUseAccepted = p[Keys.ACCEPTABLE_USE] ?: false,
             language = p[Keys.LANGUAGE] ?: "",
+            proSinceMillis = p[Keys.PRO_SINCE]?.toLongOrNull() ?: 0L,
+            activePersonaId = p[Keys.PERSONA] ?: "",
+            topP = p[Keys.TOP_P] ?: 1f,
+            presencePenalty = p[Keys.PRESENCE] ?: 0f,
+            frequencyPenalty = p[Keys.FREQUENCY] ?: 0f,
+            maxTokens = p[Keys.MAX_TOKENS]?.toIntOrNull() ?: 0,
+            promptCache = p[Keys.PROMPT_CACHE] ?: false,
+            backupReminderDone = p[Keys.BACKUP_REMINDER] ?: false,
+            voiceDay = p[Keys.VOICE_DAY] ?: "",
+            voiceUsedToday = p[Keys.VOICE_USED]?.toIntOrNull() ?: 0,
         )
     }
 
@@ -254,15 +290,41 @@ class SettingsRepository(
         isPro: Boolean? = null,
         acceptableUseAccepted: Boolean? = null,
         language: String? = null,
+        proSinceMillis: Long? = null,
+        activePersonaId: String? = null,
+        topP: Float? = null,
+        presencePenalty: Float? = null,
+        frequencyPenalty: Float? = null,
+        maxTokens: Int? = null,
+        promptCache: Boolean? = null,
+        backupReminderDone: Boolean? = null,
+        voiceDay: String? = null,
+        voiceUsedToday: Int? = null,
     ) {
         context.dataStore.edit { p ->
             baseUrl?.let { p[Keys.BASE_URL] = it.trim().trimEnd('/') }
             model?.let { p[Keys.MODEL] = it.trim() }
             temperature?.let { p[Keys.TEMPERATURE] = it.coerceIn(0f, 2f) }
             onboardingDone?.let { p[Keys.ONBOARDING] = it }
-            isPro?.let { p[Keys.IS_PRO] = it }
+            isPro?.let {
+                p[Keys.IS_PRO] = it
+                // P-004: stamp the first Pro day once.
+                if (it && (p[Keys.PRO_SINCE].isNullOrBlank() || p[Keys.PRO_SINCE] == "0")) {
+                    p[Keys.PRO_SINCE] = System.currentTimeMillis().toString()
+                }
+            }
             acceptableUseAccepted?.let { p[Keys.ACCEPTABLE_USE] = it }
             language?.let { p[Keys.LANGUAGE] = it.trim() }
+            proSinceMillis?.let { p[Keys.PRO_SINCE] = it.toString() }
+            activePersonaId?.let { p[Keys.PERSONA] = it }
+            topP?.let { p[Keys.TOP_P] = it.coerceIn(0f, 1f) }
+            presencePenalty?.let { p[Keys.PRESENCE] = it.coerceIn(-2f, 2f) }
+            frequencyPenalty?.let { p[Keys.FREQUENCY] = it.coerceIn(-2f, 2f) }
+            maxTokens?.let { p[Keys.MAX_TOKENS] = it.coerceAtLeast(0).toString() }
+            promptCache?.let { p[Keys.PROMPT_CACHE] = it }
+            backupReminderDone?.let { p[Keys.BACKUP_REMINDER] = it }
+            voiceDay?.let { p[Keys.VOICE_DAY] = it }
+            voiceUsedToday?.let { p[Keys.VOICE_USED] = it.toString() }
         }
     }
 
@@ -283,6 +345,45 @@ class SettingsRepository(
     }
 
     suspend fun clearDraft(conversationId: String) = saveDraft(conversationId, "")
+
+    // ── P-009: folders (DataStore JSON) ────────────────────────────
+
+    val folders: Flow<List<ChatFolder>> = context.dataStore.data.map { p ->
+        decodeFolders(p[Keys.FOLDERS])
+    }
+
+    suspend fun saveFolder(folder: ChatFolder) {
+        context.dataStore.edit { p ->
+            val list = decodeFolders(p[Keys.FOLDERS]).toMutableList()
+            val idx = list.indexOfFirst { it.id == folder.id }
+            if (idx >= 0) list[idx] = folder else list.add(folder)
+            p[Keys.FOLDERS] = encodeFolders(list)
+        }
+    }
+
+    suspend fun deleteFolder(id: String) {
+        context.dataStore.edit { p ->
+            p[Keys.FOLDERS] = encodeFolders(decodeFolders(p[Keys.FOLDERS]).filter { it.id != id })
+        }
+    }
+
+    // ── P-010: templates only (no secrets) ─────────────────────────
+
+    suspend fun exportTemplatesJson(): String {
+        val list = getTemplates()
+        return encodeTemplates(list)
+    }
+
+    suspend fun importTemplatesJson(json: String): String? {
+        return try {
+            val list = decodeTemplates(json)
+            if (list.isEmpty()) return "No templates in file"
+            context.dataStore.edit { p -> p[templateKey] = encodeTemplates(list) }
+            null
+        } catch (_: Exception) {
+            "Templates file is not valid"
+        }
+    }
 
     // ── C-022: Settings export/import (JSON — never secrets) ──────────
 
@@ -380,6 +481,29 @@ class SettingsRepository(
                 )
             }.getOrDefault(emptyMap())
         }
+
+        internal fun encodeFolders(list: List<ChatFolder>): String =
+            list.joinToString(prefix = "[", postfix = "]") { f ->
+                """{"id":${jsonQuote(f.id)},"name":${jsonQuote(f.name)}}"""
+            }
+
+        internal fun decodeFolders(raw: String?): List<ChatFolder> {
+            if (raw.isNullOrBlank()) return emptyList()
+            return try {
+                Json.parseToJsonElement(raw).jsonArray.map { el ->
+                    val obj = el.jsonObject
+                    ChatFolder(
+                        id = obj["id"]!!.jsonPrimitive.content,
+                        name = obj["name"]!!.jsonPrimitive.content,
+                    )
+                }
+            } catch (_: Exception) {
+                emptyList()
+            }
+        }
+
+        private fun jsonQuote(s: String): String =
+            "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
     }
 
     data class Preset(val name: String, val baseUrl: String, val model: String)
