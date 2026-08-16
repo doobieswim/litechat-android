@@ -92,6 +92,7 @@ import com.litechat.android.BuildConfig
 import com.litechat.android.LiteChatApp
 import com.litechat.android.R
 import com.litechat.android.data.db.MessageEntity
+import com.litechat.android.data.db.SearchHit
 import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.data.prefs.SettingsRepository
 import com.litechat.android.util.AgentLabGate
@@ -108,6 +109,7 @@ import kotlinx.coroutines.withContext
 fun LiteChatRoot(vm: ChatViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
     var showOnboarding by remember {
         mutableStateOf(!state.settings.onboardingDone)
     }
@@ -185,6 +187,10 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onClearMemory = vm::clearMemory,
             onSetLanguage = vm::setLanguage,
             overlayOn = overlayOn,
+            onOpenSearch = {
+                showSettings = false
+                showSearch = true
+            },
             onToggleOverlay = { enabled ->
                 if (enabled) {
                     // C-015 (REVIEW C5): check SYSTEM_ALERT_WINDOW first to avoid
@@ -207,9 +213,26 @@ fun LiteChatRoot(vm: ChatViewModel) {
                 }
             },
         )
+        showSearch -> SearchScreen(
+            state = state,
+            onBack = {
+                showSearch = false
+                vm.clearSearch()
+            },
+            onQuery = vm::searchChats,
+            onOpenHit = { hit ->
+                showSearch = false
+                vm.clearSearch()
+                vm.openSearchHit(hit)
+            },
+        )
         else -> ChatScreen(
             state = state,
             onOpenSettings = { showSettings = true },
+            onOpenSearch = {
+                if (!state.settings.isPro) vm.searchChats("")
+                else showSearch = true
+            },
             onFork = vm::forkFrom,
             onNewChat = vm::newChat,
             onSelect = vm::selectConversation,
@@ -254,6 +277,7 @@ fun LiteChatRoot(vm: ChatViewModel) {
 fun ChatScreen(
     state: ChatUiState,
     onOpenSettings: () -> Unit,
+    onOpenSearch: () -> Unit,
     onNewChat: () -> Unit,
     onSelect: (String) -> Unit,
     onDelete: (String) -> Unit,
@@ -289,8 +313,12 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(displayMessages.size, state.streamingText.length) {
-        if (displayMessages.isNotEmpty()) {
+    LaunchedEffect(displayMessages.size, state.streamingText.length, state.highlightMessageId) {
+        val highlight = state.highlightMessageId
+        if (highlight != null) {
+            val idx = displayMessages.indexOfFirst { it.id == highlight }
+            if (idx >= 0) listState.animateScrollToItem(idx)
+        } else if (displayMessages.isNotEmpty()) {
             listState.animateScrollToItem(displayMessages.lastIndex)
         }
     }
@@ -314,6 +342,12 @@ fun ChatScreen(
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("New chat")
+                }
+                TextButton(onClick = {
+                    onOpenSearch()
+                    scope.launch { drawerState.close() }
+                }) {
+                    Text("Search chats")
                 }
                 HorizontalDivider()
                 LazyColumn {
@@ -621,7 +655,11 @@ fun ChatScreen(
                         val isLastStreaming = state.isStreaming &&
                             msg.id == displayMessages.lastOrNull()?.id &&
                             msg.role == "assistant"
-                        MessageBubble(msg, onLongPress = { actionMsg = it })
+                        MessageBubble(
+                            msg,
+                            onLongPress = { actionMsg = it },
+                            highlighted = msg.id == state.highlightMessageId,
+                        )
                         if (isLastStreaming) {
                             val text = msg.content
                             val hasOpenBlock = text.contains("```") &&
@@ -719,7 +757,11 @@ fun ChatScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MessageBubble(msg: MessageEntity, onLongPress: (MessageEntity) -> Unit) {
+private fun MessageBubble(
+    msg: MessageEntity,
+    onLongPress: (MessageEntity) -> Unit,
+    highlighted: Boolean = false,
+) {
     val isUser = msg.role == "user"
 
     // C-011: render image messages with Coil AsyncImage.
@@ -788,8 +830,11 @@ private fun MessageBubble(msg: MessageEntity, onLongPress: (MessageEntity) -> Un
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
         Surface(
-            color = if (isUser) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-            else MaterialTheme.colorScheme.surfaceVariant,
+            color = when {
+                highlighted -> MaterialTheme.colorScheme.primaryContainer
+                isUser -> MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            },
             shape = RoundedCornerShape(
                 topStart = 16.dp,
                 topEnd = 16.dp,
@@ -968,6 +1013,7 @@ fun SettingsScreen(
     onClearMemory: () -> Unit,
     onSetLanguage: (String) -> Unit,
     overlayOn: Boolean,
+    onOpenSearch: () -> Unit,
     onToggleOverlay: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
@@ -1350,6 +1396,17 @@ fun SettingsScreen(
                             Text("Data", fontWeight = FontWeight.SemiBold)
                         }
                         item {
+                            TextButton(onClick = {
+                                if (!state.settings.isPro) {
+                                    billingMsg = "Search is a Pro feature — pay once to unlock"
+                                } else {
+                                    onOpenSearch()
+                                }
+                            }) {
+                                Text("Search chats")
+                            }
+                        }
+                        item {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TextButton(onClick = onExport) {
                                     Text("Backup chats")
@@ -1420,5 +1477,89 @@ fun SettingsScreen(
                 TextButton(onClick = { confirmClear = false }) { Text("Cancel") }
             },
         )
+    }
+}
+
+/** P-002: search every saved chat. Results grouped by conversation. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchScreen(
+    state: ChatUiState,
+    onBack: () -> Unit,
+    onQuery: (String) -> Unit,
+    onOpenHit: (SearchHit) -> Unit,
+) {
+    val grouped = state.searchResults.groupBy { it.conversationId }
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = { Text("Search chats") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.Close, contentDescription = "Back")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        LazyColumn(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                OutlinedTextField(
+                    value = state.searchQuery,
+                    onValueChange = onQuery,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Find a word in your chats") },
+                    singleLine = true,
+                )
+            }
+            if (state.searchQuery.isNotBlank() && state.searchResults.isEmpty()) {
+                item {
+                    Text(
+                        "No matches",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            grouped.forEach { (_, hits) ->
+                val title = hits.firstOrNull()?.conversationTitle ?: "Chat"
+                item {
+                    Text(
+                        title,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                hits.forEach { hit ->
+                    item(key = hit.messageId) {
+                        Surface(
+                            onClick = { onOpenHit(hit) },
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(
+                                    if (hit.role == "user") "You" else "Assistant",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    hit.content.take(160).ifBlank { "(empty)" },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 3,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

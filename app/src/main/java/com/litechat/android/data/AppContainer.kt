@@ -25,8 +25,8 @@ class AppContainer(context: Context) {
         AppDatabase::class.java,
         "litechat.db"
     )
-        // P-014: v1 → v2 adds `pinned` — a real migration, never a wipe.
-        .addMigrations(AppDatabase.MIGRATION_1_2)
+        // P-014/P-002: real migrations, never a wipe on known versions.
+        .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
         .fallbackToDestructiveMigration().build()
 
     val secureStore = SecureStore(appContext)
@@ -35,7 +35,11 @@ class AppContainer(context: Context) {
     /** C-023: encrypted named API keys per provider (Agora pattern). */
     val namedKeyStore = NamedKeyStore(appContext)
     val settingsRepository = SettingsRepository(appContext, secureStore)
-    val chatRepository = ChatRepository(database.conversationDao(), database.messageDao())
+    val chatRepository = ChatRepository(
+        database.conversationDao(),
+        database.messageDao(),
+        database.messageFtsDao(),
+    )
     val openAiClient = OpenAiCompatibleClient(
         client = OpenAiCompatibleClient.defaultClient(RetryInterceptor()),
     )

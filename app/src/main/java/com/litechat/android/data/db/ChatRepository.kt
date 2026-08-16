@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.map
 class ChatRepository(
     private val conversationDao: ConversationDao,
     private val messageDao: MessageDao,
+    private val messageFtsDao: MessageFtsDao,
 ) {
     fun observeConversations(): Flow<List<ConversationEntity>> =
         // P-014: pinned chats sort to the top (pure, unit-tested sort).
@@ -50,11 +51,13 @@ class ChatRepository(
     }
 
     suspend fun deleteConversation(id: String) {
+        messageFtsDao.deleteForConversation(id)
         messageDao.deleteForConversation(id)
         conversationDao.delete(id)
     }
 
     suspend fun clearAll() {
+        messageFtsDao.deleteAll()
         messageDao.deleteAll()
         conversationDao.deleteAll()
     }
@@ -67,7 +70,7 @@ class ChatRepository(
             content = content,
             createdAt = System.currentTimeMillis(),
         )
-        messageDao.insert(entity)
+        insertMessage(entity)
         touchConversation(conversationId)
         return entity
     }
@@ -96,7 +99,7 @@ class ChatRepository(
         )
         val now = System.currentTimeMillis()
         messages.forEachIndexed { i, msg ->
-            messageDao.insert(
+            insertMessage(
                 msg.copy(
                     id = UUID.randomUUID().toString(),
                     conversationId = branch.id,
@@ -111,8 +114,32 @@ class ChatRepository(
     suspend fun updateMessageContent(id: String, conversationId: String, content: String) {
         val list = messageDao.listForConversation(conversationId)
         val msg = list.find { it.id == id } ?: return
-        messageDao.update(msg.copy(content = content))
+        val updated = msg.copy(content = content)
+        messageDao.update(updated)
+        indexMessage(updated)
         touchConversation(conversationId)
+    }
+
+    /** P-002: search every saved message. Empty / junk queries return nothing. */
+    suspend fun searchMessages(raw: String, limit: Int = 80): List<SearchHit> {
+        val query = FtsQuery.escape(raw.take(200)) ?: return emptyList()
+        return messageFtsDao.search(query, limit)
+    }
+
+    private suspend fun insertMessage(entity: MessageEntity) {
+        messageDao.insert(entity)
+        indexMessage(entity)
+    }
+
+    private suspend fun indexMessage(entity: MessageEntity) {
+        messageFtsDao.deleteByMessageId(entity.id)
+        messageFtsDao.insert(
+            MessageFtsEntity(
+                messageId = entity.id,
+                conversationId = entity.conversationId,
+                content = entity.content,
+            )
+        )
     }
 
     suspend fun exportAsText(convId: String): String {

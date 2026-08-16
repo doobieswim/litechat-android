@@ -290,6 +290,16 @@ def main() -> int:
     ok("P-012 language in system prompt (free)", "setLanguage" in vm and "Reply in" in vm)
     ok("P-012 language picker in settings", "onSetLanguage" in screens and "Reply language" in screens)
 
+    # P-002 — full-text search across chats (Pro).
+    ftsq = (KT_ROOT / "com/litechat/android/data/db/FtsQuery.kt").read_text()
+    ok("P-002 FtsQuery escape", "object FtsQuery" in ftsq and "fun escape" in ftsq)
+    ok("P-002 FTS table", "@Fts4" in entities and "messages_fts" in entities)
+    ok("P-002 migration 2-3 not destructive", "MIGRATION_2_3" in entities and "CREATE VIRTUAL TABLE" in entities)
+    ok("P-002 index on insert + search", "indexMessage" in repo and "searchMessages" in repo)
+    ok("P-002 Pro gate", "Search is a Pro feature" in vm)
+    ok("P-002 SearchScreen + grouped", "fun SearchScreen" in screens and "Search chats" in screens)
+    ok("P-002 tap opens hit", "openSearchHit" in vm and "highlightMessageId" in vm)
+
     # Fastlane metadata is part of the build: F-Droid/Play read these files.
     # No Ruby gem. CI static-verify fails the job if listing copy is wrong.
     fl = ROOT / "fastlane" / "metadata" / "android" / "en-US"

@@ -372,14 +372,14 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Cost:** bills the user's own provider key (like chat); app itself stays $4.99 once
 
 ### P-002 — Full-text search across chats (Pro)
-- **Status:** Ready — H-008=A + PROOF queue Approve (2026-08-15)
+- **Status:** Done — WIRE 2026-08-16. Room FTS4 `messages_fts` (unicode61, content only) + real v2→v3 migration that backfills old messages (never a wipe). Every insert/update/fork/delete keeps the search table in sync. `FtsQuery.escape` strips quotes/dashes/stars so a typed search cannot become an FTS operator. Settings + drawer "Search chats" (Pro); results grouped by conversation; tap opens that chat and lands on the message. Files: `Entities.kt`, `FtsQuery.kt`, `ChatRepository.kt`, `AppContainer.kt`, `ChatViewModel.kt`, `Screens.kt`. Tests: `FtsQueryTest` (6). Verify: 145/145 static, foss unit tests 60/60.
 - **Goal:** Search every message. Room FTS4/5 virtual table (~0 KB).
 - **AC:**
-  - [ ] FTS table + sync on message insert (Room migration on upgrade)
-  - [ ] Search entry in Settings (or top bar) → results grouped by conversation
-  - [ ] Tap result opens the conversation at that message
-  - [ ] Pro gate
-  - [ ] FTS query-escaping unit test (quotes/dashes) + verify_static guards
+  - [x] FTS table + sync on message insert (Room migration on upgrade)
+  - [x] Search entry in Settings (or top bar) → results grouped by conversation
+  - [x] Tap result opens the conversation at that message
+  - [x] Pro gate
+  - [x] FTS query-escaping unit test (quotes/dashes) + verify_static guards
 - **Files:** `Entities.kt`, `ChatRepository.kt`, `ChatViewModel.kt`, `Screens.kt`
 - **Out of scope:** semantic/vector search, filters (per-conversation) in v1
 - **Research:** `docs/PRO-ROADMAP.md` row 3 · `docs/PRO-LATENT-WANTS.md` P-003

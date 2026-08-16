@@ -12,6 +12,7 @@ import com.litechat.android.data.connectivity.ConnectivityObserver
 import com.litechat.android.data.context.ContextTrimmer
 import com.litechat.android.data.db.ConversationEntity
 import com.litechat.android.data.db.MessageEntity
+import com.litechat.android.data.db.SearchHit
 import com.litechat.android.data.prefs.AppSettings
 import com.litechat.android.data.prefs.NamedKeyStore
 import com.litechat.android.data.prefs.PromptTemplate
@@ -55,6 +56,12 @@ data class ChatUiState(
     val lastCost: String? = null,
     /** C-023: named keys (encrypted) for multi-key per provider. */
     val namedKeys: List<NamedKeyStore.NamedKey> = emptyList(),
+    /** P-002: last search box text. */
+    val searchQuery: String = "",
+    /** P-002: hits grouped in the UI by conversation. */
+    val searchResults: List<SearchHit> = emptyList(),
+    /** P-002: scroll-to + highlight after opening a hit. */
+    val highlightMessageId: String? = null,
 )
 
 class ChatViewModel(
@@ -205,6 +212,37 @@ class ChatViewModel(
     /** P-014: pin/unpin a conversation (pinned chats sort to the top). */
     fun togglePin(id: String) {
         viewModelScope.launch { container.chatRepository.togglePin(id) }
+    }
+
+    /** P-002: search every saved message. Pro only. */
+    fun searchChats(raw: String) {
+        if (!container.isPro()) {
+            _state.update {
+                it.copy(error = "Search is a Pro feature — pay once to unlock")
+            }
+            return
+        }
+        _state.update { it.copy(searchQuery = raw) }
+        viewModelScope.launch {
+            val hits = withContext(Dispatchers.IO) {
+                container.chatRepository.searchMessages(raw)
+            }
+            _state.update { it.copy(searchResults = hits) }
+        }
+    }
+
+    /** P-002: open the chat and land on that message. */
+    fun openSearchHit(hit: SearchHit) {
+        selectConversation(hit.conversationId)
+        _state.update { it.copy(highlightMessageId = hit.messageId) }
+    }
+
+    fun clearSearch() {
+        _state.update { it.copy(searchQuery = "", searchResults = emptyList()) }
+    }
+
+    fun clearHighlight() {
+        _state.update { it.copy(highlightMessageId = null) }
     }
 
     /** P-012: reply-language setting — FREE, never gated (H-009). */
