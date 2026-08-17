@@ -39,6 +39,44 @@ class ImagesUrlTest {
     }
 }
 
+class VideoUrlTest {
+    private val gemini = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+    @Test
+    fun `gemini native root strips openai and does not double v1`() {
+        assertEquals(
+            "https://generativelanguage.googleapis.com/v1beta",
+            OpenAiCompatibleClient.geminiNativeRoot(gemini),
+        )
+        assertEquals(
+            "https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning",
+            OpenAiCompatibleClient.veoStartUrl(gemini, "veo-3.1-generate-preview"),
+        )
+        assertEquals(
+            "https://generativelanguage.googleapis.com/v1beta/operations/abc",
+            OpenAiCompatibleClient.veoPollUrl(gemini, "operations/abc"),
+        )
+        assertFalse(OpenAiCompatibleClient.veoStartUrl(gemini, "veo-3.1-generate-preview").contains("/openai"))
+        assertFalse(OpenAiCompatibleClient.veoStartUrl(gemini, "veo-3.1-generate-preview").contains("/v1/v1"))
+    }
+
+    @Test
+    fun `openai and xai video urls do not double v1`() {
+        assertEquals(
+            "https://api.openai.com/v1/videos",
+            OpenAiCompatibleClient.openaiVideosUrl("https://api.openai.com/v1"),
+        )
+        assertEquals(
+            "https://api.x.ai/v1/videos/generations",
+            OpenAiCompatibleClient.xaiVideoStartUrl("https://api.x.ai/v1"),
+        )
+        assertEquals(
+            "https://api.x.ai/v1/videos/req1",
+            OpenAiCompatibleClient.xaiVideoPollUrl("https://api.x.ai/v1", "req1"),
+        )
+    }
+}
+
 class FolderJsonTest {
     @Test
     fun `newline in name survives a save cycle`() {

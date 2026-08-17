@@ -237,4 +237,10 @@ object ProviderCatalog {
             else -> null
         }
     }
+
+    fun videoUsesNativeVeo(baseUrl: String): Boolean =
+        fromBaseUrl(baseUrl).id == "gemini"
+
+    fun videoUsesXaiImagine(baseUrl: String): Boolean =
+        fromBaseUrl(baseUrl).id == "xai"
 }

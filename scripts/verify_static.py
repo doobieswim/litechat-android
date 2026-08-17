@@ -194,7 +194,7 @@ def main() -> int:
     ok("Coil SingletonImageLoader", "SingletonImageLoader" in all_kt and "ImageCacheConfig" in all_kt)
 
     # C-027 video generation guards.
-    ok("createVideo in client", "createVideo" in api and "v1/videos" in api)
+    ok("createVideo in client", "fun createVideo" in api and "fun pollVideo" in api)
     ok("pollVideo in client", "pollVideo" in api and "job id" in api.lower())
     ok("/video handler in VM", "/video " in vm and "createVideo" in vm)
     ok("VideoView in Screens", "[VIDEO:" in screens and "VideoView" in screens)
@@ -279,6 +279,9 @@ def main() -> int:
     vm = (KT_ROOT / "com/litechat/android/ui/ChatViewModel.kt").read_text()
     ok("imagine no longer always gpt-image-2", "resolveImageModel(baseUrl)" in client)
     ok("video no longer always sora-2", "resolveVideoModel(baseUrl)" in client)
+    ok("gemini veo native door", "predictLongRunning" in client and "fun veoStartUrl" in client)
+    ok("openai video url no double v1", "fun openaiVideosUrl" in client)
+    ok("xai video generations door", "fun xaiVideoStartUrl" in client)
     ok("REVIEW parseEvent accepts stripped payloads", "takeIf { it.isNotEmpty() }" in sse)
     ok("REVIEW stream cancel qualified", "this@OpenAiCompatibleClient.cancel()" in client)
     ok("REVIEW trimmer keeps turn pairs", "keptTurns.size % 2" in trimmer)

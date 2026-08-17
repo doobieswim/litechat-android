@@ -480,18 +480,35 @@ class OpenAiCompatibleClient(
         val call = client.newCall(builder.build())
         activeCall = call
         call.execute().use { response ->
-            if (!response.isSuccessful) {
-                val err = response.body?.string()?.take(400).orEmpty()
-                throw IOException("HTTP ${response.code}: $err")
-            }
             val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw mediaHttpError("pictures", response.code, raw)
+            }
             val rootObj = json.parseToJsonElement(raw).jsonObject
             val data = rootObj["data"]?.jsonArray
-                ?: throw IOException("No data in image response")
-            if (data.isEmpty()) throw IOException("Empty image response")
-            val b64 = data[0].jsonObject["b64_json"]?.jsonPrimitive?.contentOrNull
-                ?: throw IOException("No b64_json in image response")
-            return Base64.decode(b64, Base64.DEFAULT)
+                ?: throw IOException("This provider cannot make pictures.")
+            if (data.isEmpty()) throw IOException("This provider cannot make pictures.")
+            val first = data[0].jsonObject
+            val b64 = first["b64_json"]?.jsonPrimitive?.contentOrNull
+            if (!b64.isNullOrBlank()) {
+                return Base64.decode(b64, Base64.DEFAULT)
+            }
+            val urlHit = first["url"]?.jsonPrimitive?.contentOrNull
+            if (!urlHit.isNullOrBlank()) {
+                return downloadImageBytes(urlHit, apiKey)
+            }
+            throw IOException("This provider cannot make pictures.")
+        }
+    }
+
+    private fun downloadImageBytes(url: String, apiKey: String): ByteArray {
+        val builder = Request.Builder().url(url).get()
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+        client.newCall(builder.build()).execute().use { r ->
+            if (!r.isSuccessful) {
+                throw mediaHttpError("pictures", r.code, r.body?.string().orEmpty())
+            }
+            return r.body?.bytes() ?: throw IOException("This provider cannot make pictures.")
         }
     }
 
@@ -506,10 +523,90 @@ class OpenAiCompatibleClient(
         seconds: Int = 8,
         size: String = "1280x720",
     ): String {
-        val root = baseUrl.trim().trimEnd('/')
         val model = ProviderCatalog.resolveVideoModel(baseUrl)
             ?: throw IOException("This provider cannot make videos.")
-        val url = if (root.contains("/v1/videos")) root else "$root/v1/videos"
+        return when {
+            ProviderCatalog.videoUsesNativeVeo(baseUrl) ->
+                createVeoVideo(baseUrl, apiKey, model, prompt)
+            ProviderCatalog.videoUsesXaiImagine(baseUrl) ->
+                createXaiVideo(baseUrl, apiKey, model, prompt, seconds)
+            else -> createSoraVideo(baseUrl, apiKey, model, prompt, seconds, size)
+        }
+    }
+
+    private fun createVeoVideo(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+        prompt: String,
+    ): String {
+        val url = veoStartUrl(baseUrl, model)
+        val body = buildJsonObject {
+            put(
+                "instances",
+                kotlinx.serialization.json.buildJsonArray {
+                    add(buildJsonObject { put("prompt", prompt) })
+                },
+            )
+        }
+        val builder = Request.Builder()
+            .url(url)
+            .post(body.toString().toRequestBody(JSON))
+            .header("Content-Type", "application/json")
+        if (apiKey.isNotBlank()) {
+            builder.header("Authorization", "Bearer $apiKey")
+            builder.header("x-goog-api-key", apiKey)
+        }
+        val call = client.newCall(builder.build())
+        activeCall = call
+        call.execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw mediaHttpError("videos", response.code, raw)
+            val obj = json.parseToJsonElement(raw).jsonObject
+            return obj["name"]?.jsonPrimitive?.content
+                ?: throw IOException("This Gemini key cannot make videos.")
+        }
+    }
+
+    private fun createXaiVideo(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+        prompt: String,
+        seconds: Int,
+    ): String {
+        val url = xaiVideoStartUrl(baseUrl)
+        val body = buildJsonObject {
+            put("model", model)
+            put("prompt", prompt)
+            put("duration", seconds)
+        }
+        val builder = Request.Builder()
+            .url(url)
+            .post(body.toString().toRequestBody(JSON))
+            .header("Content-Type", "application/json")
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+        val call = client.newCall(builder.build())
+        activeCall = call
+        call.execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw mediaHttpError("videos", response.code, raw)
+            val obj = json.parseToJsonElement(raw).jsonObject
+            return obj["request_id"]?.jsonPrimitive?.content
+                ?: obj["id"]?.jsonPrimitive?.content
+                ?: throw IOException("This Grok key cannot make videos.")
+        }
+    }
+
+    private fun createSoraVideo(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+        prompt: String,
+        seconds: Int,
+        size: String,
+    ): String {
+        val url = openaiVideosUrl(baseUrl)
         val body = buildJsonObject {
             put("model", model)
             put("prompt", prompt)
@@ -524,12 +621,11 @@ class OpenAiCompatibleClient(
         val call = client.newCall(builder.build())
         activeCall = call
         call.execute().use { response ->
-            if (!response.isSuccessful)
-                throw IOException("HTTP ${response.code}: ${response.body?.string()?.take(200)}")
             val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw mediaHttpError("videos", response.code, raw)
             val obj = json.parseToJsonElement(raw).jsonObject
             return obj["id"]?.jsonPrimitive?.content
-                ?: throw IOException("No job id in video response")
+                ?: throw IOException("This provider cannot make videos.")
         }
     }
 
@@ -546,51 +642,152 @@ class OpenAiCompatibleClient(
         destFile: java.io.File,
         timeout: Long = 300_000,
     ): java.io.File {
-        val root = baseUrl.trim().trimEnd('/')
+        return when {
+            ProviderCatalog.videoUsesNativeVeo(baseUrl) ->
+                pollVeoVideo(baseUrl, apiKey, jobId, destFile, timeout)
+            ProviderCatalog.videoUsesXaiImagine(baseUrl) ->
+                pollXaiVideo(baseUrl, apiKey, jobId, destFile, timeout)
+            else -> pollSoraVideo(baseUrl, apiKey, jobId, destFile, timeout)
+        }
+    }
+
+    private fun pollVeoVideo(
+        baseUrl: String,
+        apiKey: String,
+        jobId: String,
+        destFile: java.io.File,
+        timeout: Long,
+    ): java.io.File {
         val start = System.currentTimeMillis()
         while (System.currentTimeMillis() - start < timeout) {
-            val url = "$root/v1/videos/$jobId"
+            val url = veoPollUrl(baseUrl, jobId)
+            val builder = Request.Builder().url(url).get()
+            if (apiKey.isNotBlank()) {
+                builder.header("Authorization", "Bearer $apiKey")
+                builder.header("x-goog-api-key", apiKey)
+            }
+            val call = client.newCall(builder.build())
+            activeCall = call
+            val raw = call.execute().use { it.body?.string().orEmpty() }
+            val obj = json.parseToJsonElement(raw).jsonObject
+            val done = obj["done"].toString() == "true"
+            if (done) {
+                val uri = obj["response"]
+                    ?.jsonObject?.get("generateVideoResponse")
+                    ?.jsonObject?.get("generatedSamples")
+                    ?.jsonArray?.firstOrNull()
+                    ?.jsonObject?.get("video")
+                    ?.jsonObject?.get("uri")
+                    ?.jsonPrimitive?.contentOrNull
+                    ?: throw IOException("This Gemini key cannot make videos.")
+                streamUrlToFile(uri, apiKey, destFile, googleKey = true)
+                return destFile
+            }
+            Thread.sleep(10_000)
+        }
+        throw IOException("Video generation timed out")
+    }
+
+    private fun pollXaiVideo(
+        baseUrl: String,
+        apiKey: String,
+        jobId: String,
+        destFile: java.io.File,
+        timeout: Long,
+    ): java.io.File {
+        val start = System.currentTimeMillis()
+        while (System.currentTimeMillis() - start < timeout) {
+            val url = xaiVideoPollUrl(baseUrl, jobId)
             val builder = Request.Builder().url(url).get()
             if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
             val call = client.newCall(builder.build())
             activeCall = call
-            val response = call.execute()
-            val raw = response.body?.string().orEmpty()
-            response.close()
+            val raw = call.execute().use { it.body?.string().orEmpty() }
             val obj = json.parseToJsonElement(raw).jsonObject
-            val status = obj["status"]?.jsonPrimitive?.content ?: "unknown"
-            when (status) {
-                "completed" -> {
-                    // Stream MP4 to disk — never materialize the whole file in heap.
-                    val dlUrl = "$root/v1/videos/$jobId/content?variant=video"
-                    val dlBuilder = Request.Builder().url(dlUrl).get()
-                    if (apiKey.isNotBlank()) dlBuilder.header("Authorization", "Bearer $apiKey")
-                    val dlCall = client.newCall(dlBuilder.build())
-                    activeCall = dlCall
-                    try {
-                        dlCall.execute().use { r ->
-                            if (!r.isSuccessful) {
-                                throw IOException(
-                                    "HTTP ${r.code}: ${r.body?.string()?.take(200)}"
-                                )
-                            }
-                            val body = r.body ?: throw IOException("Empty video body")
-                            java.io.FileOutputStream(destFile).use { out ->
-                                body.byteStream().use { `in` -> `in`.copyTo(out) }
-                            }
-                        }
-                        return destFile
-                    } catch (e: Exception) {
-                        destFile.delete() // never leave a partial MP4 behind
-                        throw e
-                    }
+            when (obj["status"]?.jsonPrimitive?.contentOrNull ?: "unknown") {
+                "done" -> {
+                    val dl = obj["video"]?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
+                        ?: throw IOException("This Grok key cannot make videos.")
+                    streamUrlToFile(dl, apiKey, destFile, googleKey = false)
+                    return destFile
                 }
-                "failed" -> throw IOException("Video generation failed")
-                "queued", "in_progress" -> Thread.sleep(2_000) // poll
-                else -> throw IOException("Unknown video status: $status")
+                "failed", "expired" -> throw IOException("This Grok key cannot make videos.")
+                else -> Thread.sleep(5_000)
             }
         }
         throw IOException("Video generation timed out")
+    }
+
+    private fun pollSoraVideo(
+        baseUrl: String,
+        apiKey: String,
+        jobId: String,
+        destFile: java.io.File,
+        timeout: Long,
+    ): java.io.File {
+        val root = openaiVideosUrl(baseUrl)
+        val start = System.currentTimeMillis()
+        while (System.currentTimeMillis() - start < timeout) {
+            val url = "$root/$jobId"
+            val builder = Request.Builder().url(url).get()
+            if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+            val call = client.newCall(builder.build())
+            activeCall = call
+            val raw = call.execute().use { it.body?.string().orEmpty() }
+            val obj = json.parseToJsonElement(raw).jsonObject
+            when (obj["status"]?.jsonPrimitive?.content ?: "unknown") {
+                "completed" -> {
+                    streamUrlToFile(
+                        "$root/$jobId/content?variant=video",
+                        apiKey,
+                        destFile,
+                        googleKey = false,
+                    )
+                    return destFile
+                }
+                "failed" -> throw IOException("This provider cannot make videos.")
+                "queued", "in_progress" -> Thread.sleep(2_000)
+                else -> throw IOException("This provider cannot make videos.")
+            }
+        }
+        throw IOException("Video generation timed out")
+    }
+
+    private fun streamUrlToFile(
+        url: String,
+        apiKey: String,
+        destFile: java.io.File,
+        googleKey: Boolean,
+    ) {
+        val builder = Request.Builder().url(url).get()
+        if (apiKey.isNotBlank()) {
+            builder.header("Authorization", "Bearer $apiKey")
+            if (googleKey) builder.header("x-goog-api-key", apiKey)
+        }
+        val call = client.newCall(builder.build())
+        activeCall = call
+        try {
+            call.execute().use { r ->
+                if (!r.isSuccessful) {
+                    throw mediaHttpError("videos", r.code, r.body?.string().orEmpty())
+                }
+                val body = r.body ?: throw IOException("Empty video body")
+                java.io.FileOutputStream(destFile).use { out ->
+                    body.byteStream().use { input -> input.copyTo(out) }
+                }
+            }
+        } catch (e: Exception) {
+            destFile.delete()
+            throw e
+        }
+    }
+
+    private fun mediaHttpError(kind: String, code: Int, raw: String): IOException {
+        if (code == 404 || code == 405) {
+            return IOException("This provider cannot make $kind.")
+        }
+        val short = raw.replace('\n', ' ').take(120)
+        return IOException("HTTP $code: $short")
     }
 
     private fun executeChat(
@@ -690,6 +887,31 @@ class OpenAiCompatibleClient(
                 else -> "$root/images/$kind"
             }
         }
+
+        fun geminiNativeRoot(baseUrl: String): String {
+            var root = baseUrl.trim().trimEnd('/')
+            if (root.endsWith("/openai")) root = root.removeSuffix("/openai")
+            return root.trimEnd('/')
+        }
+
+        fun veoStartUrl(baseUrl: String, model: String): String =
+            "${geminiNativeRoot(baseUrl)}/models/$model:predictLongRunning"
+
+        fun veoPollUrl(baseUrl: String, operationName: String): String {
+            val name = operationName.trim().removePrefix("/")
+            return "${geminiNativeRoot(baseUrl)}/$name"
+        }
+
+        fun openaiVideosUrl(baseUrl: String): String {
+            val root = baseUrl.trim().trimEnd('/')
+            return if (root.endsWith("/videos")) root else "$root/videos"
+        }
+
+        fun xaiVideoStartUrl(baseUrl: String): String =
+            "${baseUrl.trim().trimEnd('/')}/videos/generations"
+
+        fun xaiVideoPollUrl(baseUrl: String, jobId: String): String =
+            "${baseUrl.trim().trimEnd('/')}/videos/$jobId"
 
         /**
          * Heuristic from numAi-plus MainActivity stream-failure detector.
