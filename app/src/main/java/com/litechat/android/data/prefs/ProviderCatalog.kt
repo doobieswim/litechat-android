@@ -51,9 +51,9 @@ object ProviderCatalog {
             keyUrl = "https://console.groq.com/keys",
             paid = false,
             models = listOf(
-                ModelOption("llama-3.3-70b-versatile", "Llama 3.3 70B — fast and free"),
                 ModelOption("llama-3.1-8b-instant", "Llama 3.1 8B — tiny and fast"),
-                ModelOption("gemma2-9b-it", "Gemma 2 9B — small"),
+                ModelOption("llama-3.3-70b-versatile", "Llama 3.3 70B — fast and free"),
+                ModelOption("openai/gpt-oss-20b", "GPT-OSS 20B — small"),
             ),
         ),
         ProviderOption(
@@ -65,9 +65,9 @@ object ProviderCatalog {
             keyUrl = "https://openrouter.ai/keys",
             paid = false,
             models = listOf(
-                ModelOption("meta-llama/llama-3.3-70b-instruct:free", "Llama 3.3 70B — free"),
-                ModelOption("google/gemini-2.0-flash-exp:free", "Gemini 2.0 Flash — free"),
-                ModelOption("openai/gpt-4o-mini", "GPT-4o mini — cheap"),
+                ModelOption("openrouter/free", "Auto — any free model"),
+                ModelOption("google/gemma-4-26b-a4b-it:free", "Gemma 4 — free"),
+                ModelOption("openai/gpt-oss-20b:free", "GPT-OSS 20B — free"),
             ),
         ),
         ProviderOption(
@@ -79,9 +79,9 @@ object ProviderCatalog {
             keyUrl = "https://huggingface.co/settings/tokens",
             paid = false,
             models = listOf(
-                ModelOption("Qwen/Qwen2.5-7B-Instruct", "Qwen 2.5 7B"),
-                ModelOption("meta-llama/Llama-3.1-8B-Instruct", "Llama 3.1 8B"),
-                ModelOption("mistralai/Mistral-7B-Instruct-v0.3", "Mistral 7B"),
+                ModelOption("openai/gpt-oss-20b", "GPT-OSS 20B"),
+                ModelOption("Qwen/Qwen3-8B", "Qwen 3 8B"),
+                ModelOption("openai/gpt-oss-120b", "GPT-OSS 120B"),
             ),
         ),
         ProviderOption(
@@ -94,9 +94,8 @@ object ProviderCatalog {
             paid = true,
             models = listOf(
                 ModelOption("grok-4.6", "Grok 4.6 — newest"),
-                ModelOption("grok-4", "Grok 4"),
+                ModelOption("grok-4.5", "Grok 4.5"),
                 ModelOption("grok-3-mini", "Grok 3 mini — cheaper"),
-                ModelOption("grok-3", "Grok 3"),
             ),
         ),
         ProviderOption(
@@ -108,9 +107,9 @@ object ProviderCatalog {
             keyUrl = "https://platform.openai.com/api-keys",
             paid = true,
             models = listOf(
-                ModelOption("gpt-4o-mini", "GPT-4o mini — cheap"),
-                ModelOption("gpt-4o", "GPT-4o — smarter"),
-                ModelOption("o4-mini", "o4-mini — good at thinking"),
+                ModelOption("gpt-5.6-luna", "GPT-5.6 Luna — cheap"),
+                ModelOption("gpt-5.6-terra", "GPT-5.6 Terra — mid"),
+                ModelOption("gpt-5.6-sol", "GPT-5.6 Sol — smarter"),
             ),
         ),
         ProviderOption(
@@ -122,8 +121,8 @@ object ProviderCatalog {
             keyUrl = "https://platform.deepseek.com/api_keys",
             paid = true,
             models = listOf(
-                ModelOption("deepseek-chat", "DeepSeek Chat"),
-                ModelOption("deepseek-reasoner", "DeepSeek Reasoner"),
+                ModelOption("deepseek-v4-flash", "DeepSeek V4 Flash — fast"),
+                ModelOption("deepseek-v4-pro", "DeepSeek V4 Pro — smarter"),
             ),
         ),
         ProviderOption(
@@ -136,7 +135,7 @@ object ProviderCatalog {
             paid = true,
             models = listOf(
                 ModelOption("mistral-small-latest", "Mistral Small"),
-                ModelOption("mistral-large-latest", "Mistral Large"),
+                ModelOption("mistral-medium-latest", "Mistral Medium"),
                 ModelOption("codestral-latest", "Codestral — code"),
             ),
         ),
@@ -150,7 +149,7 @@ object ProviderCatalog {
             paid = false,
             models = listOf(
                 ModelOption("llama3.2", "llama3.2"),
-                ModelOption("qwen2.5", "qwen2.5"),
+                ModelOption("qwen3", "qwen3"),
                 ModelOption("gemma3", "gemma3"),
             ),
         ),
@@ -179,7 +178,7 @@ object ProviderCatalog {
         PROVIDERS.firstOrNull { it.id == id } ?: PROVIDERS.first { it.id == "custom" }
 
     /**
-     * Old Gemini ids Google now rejects for new keys (404).
+     * Old model ids that hosts now reject or retired.
      * Map them so a saved pick still talks.
      */
     fun resolveModel(model: String): String {
@@ -190,6 +189,22 @@ object ProviderCatalog {
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite" -> "gemini-3.6-flash"
             "gemini-2.5-pro" -> "gemini-3.1-pro-preview"
+            "gemma2-9b-it" -> "openai/gpt-oss-20b"
+            "meta-llama/llama-3.3-70b-instruct:free",
+            "google/gemini-2.0-flash-exp:free",
+            "openai/gpt-4o-mini" -> "openrouter/free"
+            "Qwen/Qwen2.5-7B-Instruct",
+            "meta-llama/Llama-3.1-8B-Instruct",
+            "mistralai/Mistral-7B-Instruct-v0.3" -> "openai/gpt-oss-20b"
+            "grok-4",
+            "grok-3" -> "grok-4.6"
+            "gpt-4o-mini",
+            "gpt-4o",
+            "o4-mini" -> "gpt-5.6-luna"
+            "deepseek-chat" -> "deepseek-v4-flash"
+            "deepseek-reasoner" -> "deepseek-v4-pro"
+            "mistral-large-latest" -> "mistral-medium-latest"
+            "qwen2.5" -> "qwen3"
             else -> model.trim()
         }
     }

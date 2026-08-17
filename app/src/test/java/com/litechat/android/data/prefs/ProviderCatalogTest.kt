@@ -69,6 +69,10 @@ class ProviderCatalogTest {
         assertEquals("gemini-3.6-flash", ProviderCatalog.resolveModel("gemini-2.5-flash"))
         assertEquals("gemini-3.1-pro-preview", ProviderCatalog.resolveModel("gemini-2.5-pro"))
         assertEquals("gemini-3.1-pro-preview", ProviderCatalog.resolveModel("models/gemini-2.5-pro"))
+        assertEquals("gpt-5.6-luna", ProviderCatalog.resolveModel("gpt-4o-mini"))
+        assertEquals("openrouter/free", ProviderCatalog.resolveModel("openai/gpt-4o-mini"))
+        assertEquals("deepseek-v4-flash", ProviderCatalog.resolveModel("deepseek-chat"))
+        assertEquals("openai/gpt-oss-20b", ProviderCatalog.resolveModel("gemma2-9b-it"))
         assertEquals("gemini-3.6-flash", ProviderCatalog.resolveModel("gemini-3.6-flash"))
         assertEquals("custom-keep", ProviderCatalog.resolveModel("custom-keep"))
     }

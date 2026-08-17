@@ -27,7 +27,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("l
 
 data class AppSettings(
     val baseUrl: String = "https://api.openai.com/v1",
-    val model: String = "gpt-4o-mini",
+    val model: String = "gpt-5.6-luna",
     val temperature: Float = 0.7f,
     val onboardingDone: Boolean = false,
     val isPro: Boolean = false,
@@ -259,7 +259,7 @@ class SettingsRepository(
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
         AppSettings(
             baseUrl = p[Keys.BASE_URL] ?: "https://api.openai.com/v1",
-            model = p[Keys.MODEL] ?: "gpt-4o-mini",
+            model = p[Keys.MODEL] ?: "gpt-5.6-luna",
             temperature = p[Keys.TEMPERATURE] ?: 0.7f,
             onboardingDone = p[Keys.ONBOARDING] ?: false,
             isPro = p[Keys.IS_PRO] ?: false,
@@ -406,7 +406,7 @@ class SettingsRepository(
         val templates = decodeTemplates(s[templateKey])
         val dto = SettingsExportDto(
             baseUrl = s[Keys.BASE_URL] ?: "https://api.openai.com/v1",
-            model = s[Keys.MODEL] ?: "gpt-4o-mini",
+            model = s[Keys.MODEL] ?: "gpt-5.6-luna",
             temperature = s[Keys.TEMPERATURE] ?: 0.7f,
             templates = templates.map { TemplateDto(it.id, it.name, it.template, it.variables) },
         )
@@ -440,8 +440,8 @@ class SettingsRepository(
         /** C-004: how long a baseUrl stays flagged "prefer non-stream" (24h). */
         const val STREAM_BROKEN_TTL_MS = 24L * 60 * 60 * 1000
         val PRESETS = listOf(
-            Preset("OpenAI", "https://api.openai.com/v1", "gpt-4o-mini"),
-            Preset("OpenRouter", "https://openrouter.ai/api/v1", "openai/gpt-4o-mini"),
+            Preset("OpenAI", "https://api.openai.com/v1", "gpt-5.6-luna"),
+            Preset("OpenRouter", "https://openrouter.ai/api/v1", "openrouter/free"),
             Preset("Groq", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
             Preset("Ollama (local)", "http://127.0.0.1:11434/v1", "llama3.2"),
             Preset("Custom", "https://", "your-model-id"),
