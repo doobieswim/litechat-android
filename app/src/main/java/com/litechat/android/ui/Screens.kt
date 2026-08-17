@@ -111,9 +111,7 @@ fun LiteChatRoot(vm: ChatViewModel) {
     var showSettings by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     var backupPass by remember { mutableStateOf("") }
-    var showOnboarding by remember {
-        mutableStateOf(!state.settings.onboardingDone)
-    }
+    var dismissedSetup by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val activity = context as? Activity
     // C-028: scope for the share handler (getCurrentChatText is suspending now).
@@ -161,19 +159,21 @@ fun LiteChatRoot(vm: ChatViewModel) {
     // C-015: overlay toggle.
     var overlayOn by remember { mutableStateOf(false) }
 
-    LaunchedEffect(state.settings.onboardingDone) {
-        if (!state.settings.onboardingDone) showOnboarding = true
-    }
+    val needSetup = SetupGate.showOnboarding(state.settingsReady, state.settings.onboardingDone) &&
+        !dismissedSetup
 
     when {
-        showOnboarding -> OnboardingScreen(
+        !state.settingsReady -> {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { }
+        }
+        needSetup -> OnboardingScreen(
             initialKey = (LocalContext.current.applicationContext as LiteChatApp)
                 .container.settingsRepository.getApiKey(),
             initialBase = state.settings.baseUrl,
             initialModel = state.settings.model,
             onDone = { key, base, model ->
                 vm.saveSettings(key, base, model, state.settings.temperature, finishOnboarding = true)
-                showOnboarding = false
+                dismissedSetup = true
             }
         )
         showSettings -> SettingsScreen(

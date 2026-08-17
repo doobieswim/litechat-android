@@ -76,6 +76,8 @@ data class ChatUiState(
     val isSpeaking: Boolean = false,
     /** P-003: one quiet backup reminder. */
     val showBackupReminder: Boolean = false,
+    /** False until DataStore has emitted once. Do not treat defaults as "never set up". */
+    val settingsReady: Boolean = false,
 )
 
 class ChatViewModel(
@@ -108,16 +110,23 @@ class ChatViewModel(
                     container.settingsRepository.update(isPro = true)
                 }
                 val merged = settings.copy(isPro = FeatureFlags.isPro)
+                val prevActive = _state.value.activeConversationId
+                val nextActive = SetupGate.restoreConversationId(
+                    prevActive,
+                    convos.map { c -> c.id },
+                )
                 _state.update {
                     it.copy(
                         settings = merged,
+                        settingsReady = true,
                         conversations = convos,
                         apiKeyPresent = container.settingsRepository.getApiKey().isNotBlank(),
                         showBackupReminder = merged.isPro && !merged.backupReminderDone,
-                        activeConversationId = it.activeConversationId?.takeIf { id ->
-                            convos.any { c -> c.id == id }
-                        },
+                        activeConversationId = nextActive,
                     )
+                }
+                if (nextActive != null && nextActive != prevActive) {
+                    selectConversation(nextActive)
                 }
             }
         }

@@ -282,6 +282,8 @@ def main() -> int:
     ok("gemini picture uses generateContent", "fun geminiGenerateContentUrl" in client and "generateContent" in client)
     ok("gemini picture reads inlineData", "fun firstInlineImageB64" in client)
     ok("gemini picture key is x-goog-api-key only", "fun Request.Builder.geminiKey" in client and "friendlyMediaError" in client)
+    ok("setup waits for DataStore", "object SetupGate" in (KT_ROOT / "com/litechat/android/ui/SetupGate.kt").read_text())
+    ok("root uses SetupGate", "SetupGate.showOnboarding" in screens)
     ok("gemini veo native door", "predictLongRunning" in client and "fun veoStartUrl" in client)
     ok("openai video url no double v1", "fun openaiVideosUrl" in client)
     ok("xai video generations door", "fun xaiVideoStartUrl" in client)
