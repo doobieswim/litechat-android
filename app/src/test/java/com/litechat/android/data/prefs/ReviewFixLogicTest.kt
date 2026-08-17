@@ -61,6 +61,31 @@ class VideoUrlTest {
     }
 
     @Test
+    fun `gemini picture uses generateContent not openai images`() {
+        assertEquals(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent",
+            OpenAiCompatibleClient.geminiGenerateContentUrl(gemini, "gemini-3.1-flash-image"),
+        )
+        assertFalse(
+            OpenAiCompatibleClient.geminiGenerateContentUrl(gemini, "gemini-3.1-flash-image")
+                .contains("/openai"),
+        )
+        assertEquals(
+            "abc123",
+            OpenAiCompatibleClient.firstInlineImageB64(
+                """{"candidates":[{"content":{"parts":[{"text":"ok"},{"inlineData":{"mimeType":"image/png","data":"abc123"}}]}}]}""",
+            ),
+        )
+        assertEquals(
+            "snake",
+            OpenAiCompatibleClient.firstInlineImageB64(
+                """{"candidates":[{"content":{"parts":[{"inline_data":{"data":"snake"}}]}}]}""",
+            ),
+        )
+        assertEquals(null, OpenAiCompatibleClient.firstInlineImageB64("""{"candidates":[]}"""))
+    }
+
+    @Test
     fun `openai and xai video urls do not double v1`() {
         assertEquals(
             "https://api.openai.com/v1/videos",

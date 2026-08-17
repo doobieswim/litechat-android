@@ -92,6 +92,8 @@ class ProviderCatalogTest {
         assertEquals("grok-imagine-video-1.5", ProviderCatalog.resolveVideoModel(xai))
         assertEquals(null, ProviderCatalog.resolveVideoModel(groq))
         assertTrue(ProviderCatalog.imageModelFallbacks(gemini).contains("gemini-2.5-flash-image"))
+        assertTrue(ProviderCatalog.imageUsesNativeGenerate(gemini))
+        assertFalse(ProviderCatalog.imageUsesNativeGenerate(openai))
         assertTrue(ProviderCatalog.videoUsesNativeVeo(gemini))
         assertFalse(ProviderCatalog.videoUsesNativeVeo(openai))
         assertTrue(ProviderCatalog.videoUsesXaiImagine(xai))

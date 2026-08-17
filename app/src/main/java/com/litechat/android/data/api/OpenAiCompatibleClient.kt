@@ -439,9 +439,14 @@ class OpenAiCompatibleClient(
             ?: throw IOException("This provider cannot make pictures.")
         val tries = listOf(chosen) + ProviderCatalog.imageModelFallbacks(baseUrl)
         var last: IOException? = null
+        val native = ProviderCatalog.imageUsesNativeGenerate(baseUrl)
         for (id in tries.distinct()) {
             try {
-                return generateImageOnce(baseUrl, apiKey, prompt, id, size)
+                return if (native) {
+                    generateGeminiImage(baseUrl, apiKey, prompt, id)
+                } else {
+                    generateImageOnce(baseUrl, apiKey, prompt, id, size)
+                }
             } catch (e: IOException) {
                 last = e
                 val msg = e.message.orEmpty()
@@ -451,6 +456,61 @@ class OpenAiCompatibleClient(
             }
         }
         throw last ?: IOException("This provider cannot make pictures.")
+    }
+
+    private fun generateGeminiImage(
+        baseUrl: String,
+        apiKey: String,
+        prompt: String,
+        model: String,
+    ): ByteArray {
+        val url = geminiGenerateContentUrl(baseUrl, model)
+        val body = buildJsonObject {
+            put(
+                "contents",
+                kotlinx.serialization.json.buildJsonArray {
+                    add(
+                        buildJsonObject {
+                            put(
+                                "parts",
+                                kotlinx.serialization.json.buildJsonArray {
+                                    add(buildJsonObject { put("text", prompt) })
+                                },
+                            )
+                        },
+                    )
+                },
+            )
+            put(
+                "generationConfig",
+                buildJsonObject {
+                    put(
+                        "responseModalities",
+                        kotlinx.serialization.json.buildJsonArray {
+                            add(kotlinx.serialization.json.JsonPrimitive("TEXT"))
+                            add(kotlinx.serialization.json.JsonPrimitive("IMAGE"))
+                        },
+                    )
+                },
+            )
+        }
+        val builder = Request.Builder()
+            .url(url)
+            .post(body.toString().toRequestBody(JSON))
+            .header("Content-Type", "application/json")
+        if (apiKey.isNotBlank()) {
+            builder.header("Authorization", "Bearer $apiKey")
+            builder.header("x-goog-api-key", apiKey)
+        }
+        val call = client.newCall(builder.build())
+        activeCall = call
+        call.execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw mediaHttpError("pictures", response.code, raw)
+            val b64 = firstInlineImageB64(raw)
+                ?: throw IOException("This provider cannot make pictures.")
+            return Base64.decode(b64, Base64.DEFAULT)
+        }
     }
 
     private fun generateImageOnce(
@@ -892,6 +952,25 @@ class OpenAiCompatibleClient(
             var root = baseUrl.trim().trimEnd('/')
             if (root.endsWith("/openai")) root = root.removeSuffix("/openai")
             return root.trimEnd('/')
+        }
+
+        fun geminiGenerateContentUrl(baseUrl: String, model: String): String =
+            "${geminiNativeRoot(baseUrl)}/models/$model:generateContent"
+
+        fun firstInlineImageB64(raw: String): String? {
+            val obj = Json { ignoreUnknownKeys = true }.parseToJsonElement(raw).jsonObject
+            val parts = obj["candidates"]?.jsonArray?.firstOrNull()
+                ?.jsonObject?.get("content")
+                ?.jsonObject?.get("parts")
+                ?.jsonArray ?: return null
+            for (el in parts) {
+                val part = el.jsonObject
+                val blob = part["inlineData"]?.jsonObject
+                    ?: part["inline_data"]?.jsonObject
+                val data = blob?.get("data")?.jsonPrimitive?.contentOrNull
+                if (!data.isNullOrBlank()) return data
+            }
+            return null
         }
 
         fun veoStartUrl(baseUrl: String, model: String): String =

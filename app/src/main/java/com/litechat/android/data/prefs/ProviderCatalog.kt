@@ -222,11 +222,18 @@ object ProviderCatalog {
     /** Extra Gemini picture ids to try if the first 404s. */
     fun imageModelFallbacks(baseUrl: String): List<String> {
         return if (fromBaseUrl(baseUrl).id == "gemini") {
-            listOf("gemini-2.5-flash-image", "gemini-3-pro-image")
+            listOf(
+                "gemini-3.1-flash-image-preview",
+                "gemini-2.5-flash-image",
+                "gemini-3-pro-image",
+            )
         } else {
             emptyList()
         }
     }
+
+    fun imageUsesNativeGenerate(baseUrl: String): Boolean =
+        fromBaseUrl(baseUrl).id == "gemini"
 
     /** Video model for /video. Null = this host cannot make videos this way. */
     fun resolveVideoModel(baseUrl: String): String? {

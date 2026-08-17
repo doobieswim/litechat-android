@@ -279,6 +279,8 @@ def main() -> int:
     vm = (KT_ROOT / "com/litechat/android/ui/ChatViewModel.kt").read_text()
     ok("imagine no longer always gpt-image-2", "resolveImageModel(baseUrl)" in client)
     ok("video no longer always sora-2", "resolveVideoModel(baseUrl)" in client)
+    ok("gemini picture uses generateContent", "fun geminiGenerateContentUrl" in client and "generateContent" in client)
+    ok("gemini picture reads inlineData", "fun firstInlineImageB64" in client)
     ok("gemini veo native door", "predictLongRunning" in client and "fun veoStartUrl" in client)
     ok("openai video url no double v1", "fun openaiVideosUrl" in client)
     ok("xai video generations door", "fun xaiVideoStartUrl" in client)
