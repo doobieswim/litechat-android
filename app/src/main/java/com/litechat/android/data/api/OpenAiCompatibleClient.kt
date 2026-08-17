@@ -431,8 +431,34 @@ class OpenAiCompatibleClient(
         baseUrl: String,
         apiKey: String,
         prompt: String,
-        model: String = "gpt-image-2",
+        model: String? = null,
         size: String = "1024x1024",
+    ): ByteArray {
+        val chosen = model?.takeIf { it.isNotBlank() }
+            ?: ProviderCatalog.resolveImageModel(baseUrl)
+            ?: throw IOException("This provider cannot make pictures.")
+        val tries = listOf(chosen) + ProviderCatalog.imageModelFallbacks(baseUrl)
+        var last: IOException? = null
+        for (id in tries.distinct()) {
+            try {
+                return generateImageOnce(baseUrl, apiKey, prompt, id, size)
+            } catch (e: IOException) {
+                last = e
+                val msg = e.message.orEmpty()
+                val notFound = msg.contains("404") || msg.contains("NOT_FOUND", ignoreCase = true) ||
+                    msg.contains("not found", ignoreCase = true)
+                if (!notFound) throw e
+            }
+        }
+        throw last ?: IOException("This provider cannot make pictures.")
+    }
+
+    private fun generateImageOnce(
+        baseUrl: String,
+        apiKey: String,
+        prompt: String,
+        model: String,
+        size: String,
     ): ByteArray {
         val root = baseUrl.trim().trimEnd('/')
         val url = imagesUrl(root, "generations")
@@ -481,9 +507,11 @@ class OpenAiCompatibleClient(
         size: String = "1280x720",
     ): String {
         val root = baseUrl.trim().trimEnd('/')
+        val model = ProviderCatalog.resolveVideoModel(baseUrl)
+            ?: throw IOException("This provider cannot make videos.")
         val url = if (root.contains("/v1/videos")) root else "$root/v1/videos"
         val body = buildJsonObject {
-            put("model", "sora-2")
+            put("model", model)
             put("prompt", prompt)
             put("seconds", seconds)
             put("size", size)

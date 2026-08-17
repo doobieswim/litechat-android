@@ -268,6 +268,8 @@ def main() -> int:
     ok("gemini picker dropped 2.5-pro option", 'ModelOption("gemini-2.5-pro"' not in catalog)
     ok("gemini picker dropped 2.0-flash option", 'ModelOption("gemini-2.0-flash"' not in catalog)
     ok("gemini resolve remaps dead ids", "fun resolveModel" in catalog)
+    ok("imagine picks host picture model", "fun resolveImageModel" in catalog and "gemini-3.1-flash-image" in catalog)
+    ok("video picks host video model", "fun resolveVideoModel" in catalog and "veo-3.1-generate-preview" in catalog)
 
     # 2026-08-15 REVIEW fixes — regression guards for the confirmed bugs.
     sse = (KT_ROOT / "com/litechat/android/data/api/ChatSseParser.kt").read_text()
@@ -275,6 +277,8 @@ def main() -> int:
     trimmer = (KT_ROOT / "com/litechat/android/data/context/ContextTrimmer.kt").read_text()
     nks = (KT_ROOT / "com/litechat/android/data/prefs/NamedKeyStore.kt").read_text()
     vm = (KT_ROOT / "com/litechat/android/ui/ChatViewModel.kt").read_text()
+    ok("imagine no longer always gpt-image-2", "resolveImageModel(baseUrl)" in client)
+    ok("video no longer always sora-2", "resolveVideoModel(baseUrl)" in client)
     ok("REVIEW parseEvent accepts stripped payloads", "takeIf { it.isNotEmpty() }" in sse)
     ok("REVIEW stream cancel qualified", "this@OpenAiCompatibleClient.cancel()" in client)
     ok("REVIEW trimmer keeps turn pairs", "keptTurns.size % 2" in trimmer)

@@ -208,4 +208,33 @@ object ProviderCatalog {
             else -> model.trim()
         }
     }
+
+    /** Picture model for /imagine. Null = this host cannot make pictures. */
+    fun resolveImageModel(baseUrl: String): String? {
+        return when (fromBaseUrl(baseUrl).id) {
+            "gemini" -> "gemini-3.1-flash-image"
+            "xai" -> "grok-imagine-image-2.0"
+            "openai", "openrouter", "custom" -> "gpt-image-2"
+            else -> null
+        }
+    }
+
+    /** Extra Gemini picture ids to try if the first 404s. */
+    fun imageModelFallbacks(baseUrl: String): List<String> {
+        return if (fromBaseUrl(baseUrl).id == "gemini") {
+            listOf("gemini-2.5-flash-image", "gemini-3-pro-image")
+        } else {
+            emptyList()
+        }
+    }
+
+    /** Video model for /video. Null = this host cannot make videos this way. */
+    fun resolveVideoModel(baseUrl: String): String? {
+        return when (fromBaseUrl(baseUrl).id) {
+            "gemini" -> "veo-3.1-generate-preview"
+            "xai" -> "grok-imagine-video-1.5"
+            "openai", "openrouter", "custom" -> "sora-2"
+            else -> null
+        }
+    }
 }

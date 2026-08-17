@@ -78,6 +78,23 @@ class ProviderCatalogTest {
     }
 
     @Test
+    fun `imagine and video pick the host picture or video name not openai only`() {
+        val gemini = "https://generativelanguage.googleapis.com/v1beta/openai/"
+        val groq = "https://api.groq.com/openai/v1"
+        val openai = "https://api.openai.com/v1"
+        val xai = "https://api.x.ai/v1"
+        assertEquals("gemini-3.1-flash-image", ProviderCatalog.resolveImageModel(gemini))
+        assertEquals("gpt-image-2", ProviderCatalog.resolveImageModel(openai))
+        assertEquals("grok-imagine-image-2.0", ProviderCatalog.resolveImageModel(xai))
+        assertEquals(null, ProviderCatalog.resolveImageModel(groq))
+        assertEquals("veo-3.1-generate-preview", ProviderCatalog.resolveVideoModel(gemini))
+        assertEquals("sora-2", ProviderCatalog.resolveVideoModel(openai))
+        assertEquals("grok-imagine-video-1.5", ProviderCatalog.resolveVideoModel(xai))
+        assertEquals(null, ProviderCatalog.resolveVideoModel(groq))
+        assertTrue(ProviderCatalog.imageModelFallbacks(gemini).contains("gemini-2.5-flash-image"))
+    }
+
+    @Test
     fun `free-key providers stay marked not paid`() {
         for (id in listOf("gemini", "groq", "openrouter")) {
             val p = ProviderCatalog.PROVIDERS.first { it.id == id }
