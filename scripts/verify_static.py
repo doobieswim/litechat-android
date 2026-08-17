@@ -261,6 +261,13 @@ def main() -> int:
     ok("C-033 onboarding uses picker", "ProviderSetupFields(" in screens)
     ok("C-033 settings uses picker", screens.count("ProviderSetupFields(") >= 2)
     ok("C-033 URL hidden except custom", "isCustom" in picker)
+    ok("gemini picker is 3.6/3.7/3.1",
+       'ModelOption("gemini-3.6-flash"' in catalog
+       and 'ModelOption("gemini-3.7-flash"' in catalog
+       and 'ModelOption("gemini-3.1-pro-preview"' in catalog)
+    ok("gemini picker dropped 2.5-pro option", 'ModelOption("gemini-2.5-pro"' not in catalog)
+    ok("gemini picker dropped 2.0-flash option", 'ModelOption("gemini-2.0-flash"' not in catalog)
+    ok("gemini resolve remaps dead ids", "fun resolveModel" in catalog)
 
     # 2026-08-15 REVIEW fixes — regression guards for the confirmed bugs.
     sse = (KT_ROOT / "com/litechat/android/data/api/ChatSseParser.kt").read_text()

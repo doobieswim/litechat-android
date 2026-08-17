@@ -32,6 +32,7 @@ import java.io.FileOutputStream
 import java.net.URLEncoder
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import com.litechat.android.data.prefs.ProviderCatalog
 
 sealed class StreamEvent {
     data class Delta(val text: String) : StreamEvent()
@@ -574,7 +575,7 @@ class OpenAiCompatibleClient(
         options: ChatOptions = ChatOptions(),
     ): Response {
         val payload = buildJsonObject {
-            put("model", model)
+            put("model", ProviderCatalog.resolveModel(model))
             put("temperature", temperature)
             put("stream", stream)
             put(

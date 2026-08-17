@@ -37,9 +37,9 @@ object ProviderCatalog {
             keyUrl = "https://aistudio.google.com/apikey",
             paid = false,
             models = listOf(
-                ModelOption("gemini-2.0-flash", "Gemini 2.0 Flash — fast, free tier"),
-                ModelOption("gemini-2.5-flash", "Gemini 2.5 Flash — newer"),
-                ModelOption("gemini-2.5-pro", "Gemini 2.5 Pro — smarter"),
+                ModelOption("gemini-3.6-flash", "Gemini 3.6 Flash — fast, free key"),
+                ModelOption("gemini-3.7-flash", "Gemini 3.7 Flash — newest"),
+                ModelOption("gemini-3.1-pro-preview", "Gemini 3.1 Pro — smarter"),
             ),
         ),
         ProviderOption(
@@ -177,4 +177,20 @@ object ProviderCatalog {
 
     fun byId(id: String): ProviderOption =
         PROVIDERS.firstOrNull { it.id == id } ?: PROVIDERS.first { it.id == "custom" }
+
+    /**
+     * Old Gemini ids Google now rejects for new keys (404).
+     * Map them so a saved pick still talks.
+     */
+    fun resolveModel(model: String): String {
+        val id = model.trim().removePrefix("models/")
+        return when (id) {
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-001",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite" -> "gemini-3.6-flash"
+            "gemini-2.5-pro" -> "gemini-3.1-pro-preview"
+            else -> model.trim()
+        }
+    }
 }

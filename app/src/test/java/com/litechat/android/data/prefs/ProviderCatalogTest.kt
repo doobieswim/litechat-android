@@ -53,6 +53,27 @@ class ProviderCatalogTest {
     }
 
     @Test
+    fun `gemini picker lists current 3-series models not shut 2-series`() {
+        val gemini = ProviderCatalog.PROVIDERS.first { it.id == "gemini" }
+        val ids = gemini.models.map { it.id }
+        assertEquals(
+            listOf("gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.1-pro-preview"),
+            ids,
+        )
+        assertFalse(ids.any { it.startsWith("gemini-2.") })
+    }
+
+    @Test
+    fun `old gemini ids remap so a saved pick still works`() {
+        assertEquals("gemini-3.6-flash", ProviderCatalog.resolveModel("gemini-2.0-flash"))
+        assertEquals("gemini-3.6-flash", ProviderCatalog.resolveModel("gemini-2.5-flash"))
+        assertEquals("gemini-3.1-pro-preview", ProviderCatalog.resolveModel("gemini-2.5-pro"))
+        assertEquals("gemini-3.1-pro-preview", ProviderCatalog.resolveModel("models/gemini-2.5-pro"))
+        assertEquals("gemini-3.6-flash", ProviderCatalog.resolveModel("gemini-3.6-flash"))
+        assertEquals("custom-keep", ProviderCatalog.resolveModel("custom-keep"))
+    }
+
+    @Test
     fun `free-key providers stay marked not paid`() {
         for (id in listOf("gemini", "groq", "openrouter")) {
             val p = ProviderCatalog.PROVIDERS.first { it.id == id }
