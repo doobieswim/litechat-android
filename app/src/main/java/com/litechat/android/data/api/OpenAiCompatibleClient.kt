@@ -498,10 +498,7 @@ class OpenAiCompatibleClient(
             .url(url)
             .post(body.toString().toRequestBody(JSON))
             .header("Content-Type", "application/json")
-        if (apiKey.isNotBlank()) {
-            builder.header("Authorization", "Bearer $apiKey")
-            builder.header("x-goog-api-key", apiKey)
-        }
+            .geminiKey(apiKey)
         val call = client.newCall(builder.build())
         activeCall = call
         call.execute().use { response ->
@@ -613,10 +610,7 @@ class OpenAiCompatibleClient(
             .url(url)
             .post(body.toString().toRequestBody(JSON))
             .header("Content-Type", "application/json")
-        if (apiKey.isNotBlank()) {
-            builder.header("Authorization", "Bearer $apiKey")
-            builder.header("x-goog-api-key", apiKey)
-        }
+            .geminiKey(apiKey)
         val call = client.newCall(builder.build())
         activeCall = call
         call.execute().use { response ->
@@ -721,11 +715,7 @@ class OpenAiCompatibleClient(
         val start = System.currentTimeMillis()
         while (System.currentTimeMillis() - start < timeout) {
             val url = veoPollUrl(baseUrl, jobId)
-            val builder = Request.Builder().url(url).get()
-            if (apiKey.isNotBlank()) {
-                builder.header("Authorization", "Bearer $apiKey")
-                builder.header("x-goog-api-key", apiKey)
-            }
+            val builder = Request.Builder().url(url).get().geminiKey(apiKey)
             val call = client.newCall(builder.build())
             activeCall = call
             val raw = call.execute().use { it.body?.string().orEmpty() }
@@ -821,8 +811,7 @@ class OpenAiCompatibleClient(
     ) {
         val builder = Request.Builder().url(url).get()
         if (apiKey.isNotBlank()) {
-            builder.header("Authorization", "Bearer $apiKey")
-            if (googleKey) builder.header("x-goog-api-key", apiKey)
+            if (googleKey) builder.geminiKey(apiKey) else builder.header("Authorization", "Bearer $apiKey")
         }
         val call = client.newCall(builder.build())
         activeCall = call
@@ -843,11 +832,13 @@ class OpenAiCompatibleClient(
     }
 
     private fun mediaHttpError(kind: String, code: Int, raw: String): IOException {
-        if (code == 404 || code == 405) {
-            return IOException("This provider cannot make $kind.")
-        }
-        val short = raw.replace('\n', ' ').take(120)
-        return IOException("HTTP $code: $short")
+        return IOException(friendlyMediaError(kind, code, raw))
+    }
+
+    /** Gemini native doors reject Authorization: Bearer + an API key (401 OAuth). */
+    private fun Request.Builder.geminiKey(apiKey: String): Request.Builder {
+        if (apiKey.isNotBlank()) header("x-goog-api-key", apiKey)
+        return this
     }
 
     private fun executeChat(
@@ -936,6 +927,17 @@ class OpenAiCompatibleClient(
 
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
+
+        fun friendlyMediaError(kind: String, code: Int, raw: String): String {
+            if (code == 404 || code == 405) return "This provider cannot make $kind."
+            val blob = raw.replace('\n', ' ')
+            if (blob.contains("API keys are not supported", ignoreCase = true) ||
+                blob.contains("Expected OAuth2", ignoreCase = true)
+            ) {
+                return "Google will not take this key on the $kind door. Pick Gemini and paste an AI Studio key. Not Vertex or Cloud."
+            }
+            return "HTTP $code: ${blob.take(120)}"
+        }
 
         /** Catalog baseUrl already ends in /v1. Never emit /v1/v1/…. */
         fun imagesUrl(baseUrl: String, kind: String): String {

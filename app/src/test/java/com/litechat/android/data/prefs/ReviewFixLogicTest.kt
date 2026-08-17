@@ -86,6 +86,17 @@ class VideoUrlTest {
     }
 
     @Test
+    fun `oauth 401 is plain english not google json`() {
+        val msg = OpenAiCompatibleClient.friendlyMediaError(
+            "pictures",
+            401,
+            """{ "error": { "code": 401, "message": "API keys are not supported by this API. Expected OAuth2 access token or" } }""",
+        )
+        assertTrue(msg.contains("AI Studio"))
+        assertFalse(msg.contains("HTTP 401"))
+    }
+
+    @Test
     fun `openai and xai video urls do not double v1`() {
         assertEquals(
             "https://api.openai.com/v1/videos",
