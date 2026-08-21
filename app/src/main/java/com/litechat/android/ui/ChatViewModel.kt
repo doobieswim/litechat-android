@@ -1115,6 +1115,11 @@ class ChatViewModel(
             _state.update { it.copy(error = "Chat backup is a Pro feature — pay once to unlock") }
             return
         }
+        if (passphrase.isBlank()) {
+            // B-005: empty pass used to copy the live SQLite file. Never do that.
+            _state.update { it.copy(error = "Type a backup password first.") }
+            return
+        }
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -1124,11 +1129,7 @@ class ChatViewModel(
                         .use { it.moveToFirst() }
                     container.ctx.contentResolver.openOutputStream(uri)?.use { out ->
                         dbFile.inputStream().use { inn ->
-                            if (passphrase.isNotBlank()) {
-                                BackupCrypto.encryptTo(inn, passphrase, out)
-                            } else {
-                                inn.copyTo(out)
-                            }
+                            BackupCrypto.encryptTo(inn, passphrase, out)
                         }
                     }
                 }
@@ -1279,8 +1280,12 @@ class ChatViewModel(
         }
     }
 
-    // C-020: clear all stored memory facts.
+    // C-020: clear all stored memory facts. B-008: Pro-only.
     fun clearMemory() {
+        if (!container.isPro()) {
+            _state.update { it.copy(error = "Memory is a Pro feature — pay once to unlock") }
+            return
+        }
         container.memoryManager.clear()
         refreshMemories()
         _state.update { it.copy(error = "Memory cleared") }

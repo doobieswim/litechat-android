@@ -96,6 +96,41 @@ PROOF grades → this file
 
 # Log (newest first)
 
+## Research review — 2026-08-21 — DIG unseen audit (R-021–R-024)
+
+**Scope:** `docs/audit/DIG-unseen-2026-08-21.md` + BACKLOG **R-021, R-022, R-023, R-024** only. Read-only except this file. No Gradle. No `app/**`. No DIG-essay edit. No Ready flip.
+**Role:** `LITECHAT-PROOF`
+
+**Verdict: Approve**
+
+### Checklist
+
+1. **Scope — pass.** DIG stayed in the audit file + four Research tickets. Status lines say waiting PROOF / no Ready. Working-tree `OverlayService.kt` is a sibling lifecycle-API tweak, not this DIG.
+2. **Grounding — pass (3 searches claimed, re-opened).**
+   - OpenAI deprecations: Videos API + `sora-2` / `sora-2-pro` shut **2026-09-24**, replacement `---`. Code `SORA_SUNSET_MS = 1_790_208_000_000` is that midnight UTC (34 days from 2026-08-21).
+   - Gemini models page: `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.1-pro-preview` are live 3-series endpoints. Picker matches.
+   - OpenRouter: non-`:free` `google/gemma-4-26b-a4b-it` is **$0.07 / $0.34 per M**. Label “Gemma 4 — free” is unproven; ticket AC is the right check (exact `:free` slug on the $0 list that day).
+   - Unopened ids (gpt-5.6 / grok-4.6 / DeepSeek V4) marked **catalog-current, URL-unverified**. Honest. (Same OpenAI deprecations page lists `gpt-5.6-luna` / `terra` / `sol` as replacements — DIG under-claimed, not a fail.)
+3. **Product laws — pass.** No 7B / WebView / SoftRAM. Do not invent a post-Sora OpenAI id. Do not Pro-gate `/imagine` or `/video`. Do not mark Gemini/Groq hosts `paid=true` for quota.
+4. **Cost flags — pass.** Paid hosts already warn. Gaps named: empty-prefs default `gpt-5.6-luna`, OpenRouter pictures `openai/gpt-image-2` with `paid=false`, Gemma “free”, `/video` with no money line. R-022 cost line: getting flags wrong bills the **user**. Test `free-key providers stay marked not paid` really locks OpenRouter `paid=false` — AC tells WIRE to update it on purpose.
+5. **Theme — pass.** `strings.xml` / fastlane / Play draft everyday. XDA “Why this over the official ChatGPT app?” is a named-enemy near-miss; folded into R-021. `COMPETITIVE-DIFFERENTIATION.md` unstamped “power user / vim of AI” + Markdown ✅ (C-008 reverted) folded into R-024. Play listing draft correctly left alone.
+6. **Ticket AC — pass.** Each has why, checkbox AC, files, out of scope, research link, cost. Catalog ids, dead `PRESETS` (one definition, zero callers), Pollinations 0 in `*.kt`, ARCHITECTURE “no imagine/voice” + targetSdk 35 vs gradle 36, VIDEO-MONETIZATION “likely replacement” + Pro-gate video — all match code/docs.
+7. **Usefulness — pass.** WIRE can sweep lists, fix cost flags, add a calendar line, and delete leftover `PRESETS`. Not a pure essay.
+
+### Issues
+
+None.
+
+### Nits (not Issues)
+
+- R-021 Why lumps README with **LM Studio**; README Features says custom, not LM Studio. Fastlane/XDA do. AC is precise.
+- `docs/LAUNCH-PACK.md` still has the old four-name list. Optional extra file; not required to re-open.
+- README still says “Four-agent team.” DIG noted it; no AC box. Harmless.
+
+**Next:** DIG or human may stamp **R-021, R-022, R-023, R-024 Ready**. Then `LITECHAT-WIRE`. I do not flip Ready.
+
+---
+
 ## Research review — 2026-08-21 — R-020 (xAI /edit JSON)
 
 **Scope:** `docs/DIG-DOORS-LEFTOVERS-2026-08-21.md` + BACKLOG **R-020**. Read-only except this file. No Gradle. No `app/**`. No Ready flip.

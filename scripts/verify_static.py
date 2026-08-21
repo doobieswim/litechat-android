@@ -386,6 +386,20 @@ def main() -> int:
     ok("REVIEW D search uses activeCall", "fun fetchSearch" in client and "activeCall = call" in client.split("fun fetchSearch")[1].split("fun editImage")[0])
     ok("P-011 /edit", '"/edit "' in vm and "editImage" in (KT_ROOT / "com/litechat/android/data/api/OpenAiCompatibleClient.kt").read_text())
 
+    export_fn = vm.split("fun exportChats")[1].split("fun importChats")[0] if "fun exportChats" in vm else ""
+    poll = client.split("fun pollVideo")[1].split("fun streamUrlToFile")[0] if "fun pollVideo" in client else ""
+    ok("B-005 refuse blank backup pass", "Type a backup password first." in vm and "Type a backup password first." in screens)
+    ok("B-005 no live-db copyTo", "inn.copyTo(out)" not in export_fn)
+    ok("B-005 always encryptTo", "BackupCrypto.encryptTo" in export_fn)
+    ok("B-006 named key masked", "PasswordVisualTransformation" in screens.split("Key name")[1][:800] if "Key name" in screens else False)
+    ok("B-006 backup pass masked", "PasswordVisualTransformation" in screens.split("Backup password")[1][:400] if "Backup password" in screens else False)
+    ok("B-006 backup pass not optional", "Backup password (optional)" not in screens)
+    ok("B-007 video poll delay", "delay(" in poll and "Thread.sleep" not in poll)
+    ok("B-007 poll fails non-2xx", "isSuccessful" in poll and "mediaHttpError" in poll)
+    ok("B-007 pollVideo is suspend", "suspend fun pollVideo" in client)
+    ok("B-008 clearMemory Pro", "Memory is a Pro feature" in vm.split("fun clearMemory")[1][:400] if "fun clearMemory" in vm else False)
+    ok("B-008 confirm memory wipe", "Clear memory?" in screens)
+
     # Fastlane metadata is part of the build: F-Droid/Play read these files.
     # No Ruby gem. CI static-verify fails the job if listing copy is wrong.
     fl = ROOT / "fastlane" / "metadata" / "android" / "en-US"

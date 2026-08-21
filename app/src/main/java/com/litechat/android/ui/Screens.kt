@@ -78,6 +78,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
@@ -1154,6 +1155,7 @@ fun SettingsScreen(
     var model by remember { mutableStateOf(state.settings.model) }
     var temp by remember { mutableStateOf(state.settings.temperature.toString()) }
     var confirmClear by remember { mutableStateOf(false) }
+    var confirmClearMemory by remember { mutableStateOf(false) }
     var billingMsg by remember { mutableStateOf<String?>(null) }
     var showMatrix by remember { mutableStateOf(false) }
     var showAgentLab by remember { mutableStateOf(false) }
@@ -1477,6 +1479,7 @@ fun SettingsScreen(
                     newKeyValue, { newKeyValue = it },
                     label = { Text("API key") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
                 )
             }
             item {
@@ -1586,6 +1589,8 @@ fun SettingsScreen(
                                 TextButton(onClick = {
                                     if (!state.settings.isPro) {
                                         billingMsg = "Chat backup is a Pro feature — pay once to unlock"
+                                    } else if (backupPass.isBlank()) {
+                                        billingMsg = "Type a backup password first."
                                     } else {
                                         onExport()
                                     }
@@ -1609,7 +1614,8 @@ fun SettingsScreen(
                                 onValueChange = onBackupPass,
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
-                                label = { Text("Backup password (optional)") },
+                                label = { Text("Backup password") },
+                                visualTransformation = PasswordVisualTransformation(),
                             )
                         }
                         item {
@@ -1640,7 +1646,13 @@ fun SettingsScreen(
                         }
                         // C-020: persistent memory (Pro) — clear stored facts.
                         item {
-                            TextButton(onClick = onClearMemory) {
+                            TextButton(onClick = {
+                                if (!state.settings.isPro) {
+                                    billingMsg = "Memory is a Pro feature — pay once to unlock"
+                                } else {
+                                    confirmClearMemory = true
+                                }
+                            }) {
                                 Text("Clear memory", color = MaterialTheme.colorScheme.error)
                             }
                         }
@@ -1686,6 +1698,22 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmClear = false }) { Text("Cancel") }
+            },
+        )
+    }
+    if (confirmClearMemory) {
+        AlertDialog(
+            onDismissRequest = { confirmClearMemory = false },
+            title = { Text("Clear memory?") },
+            text = { Text("This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onClearMemory()
+                    confirmClearMemory = false
+                }) { Text("Clear") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearMemory = false }) { Text("Cancel") }
             },
         )
     }

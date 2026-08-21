@@ -27,18 +27,76 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Log:** `docs/BUGS.md` B-001
 
 ### B-002 — Compose buttons/fields miss accessibility click and type
-- **Status:** Research — DEBUG 2026-08-21. Not Ready (cause not a single proven line).
+- **Status:** Research — DEBUG 2026-08-21. Not Ready (cause not a single proven line). Hunt 2026-08-21: still Research. Composer attach/voice `Modifier.size(40.dp)` (`Screens.kt:566-568`) is under 48.dp — extra hint, not enough for Ready.
 - **Notes:** Continue `Button` (`Screens.kt:1097-1100`): tree `clickable=false` on the label; parent click failed; coordinate tap worked. API key + Message: `/type` → no focused input. Android 16 + M3. Need semantics pass, not a guess.
 - **Log:** `docs/BUGS.md` B-002
 
 ### B-003 — Gboard paste can add extra letters (`v/imagine`, lone ⁶)
-- **Status:** Research — DEBUG 2026-08-21. IME, not send() logic. `/imagine` prefix check is `ChatViewModel.kt:652-654`.
+- **Status:** Research — DEBUG 2026-08-21. IME, not send() logic. Peel landed in `SlashInput.kt` (`send()` at `ChatViewModel.kt:417`); ticket stays Research.
 - **Log:** `docs/BUGS.md` B-003
 
 ### B-004 — Stop, memory wipe, hide key (REVIEW 2026-08-21 fan-out)
 - **Status:** Done — WIRE 2026-08-21 (human LITECHAT-WIRE after full-project Issues). Files: `ChatViewModel.kt`, `Screens.kt`, `ProviderSetupFields.kt`, `MemoryManager.kt`, `OverlayService.kt`, `NamedKeyStore.kt`, `OpenAiCompatibleClient.kt`, `ConnectivityObserver.kt`, `ReviewFixLogicTest.kt`.
 - **Goal:** Stop cancels browse/pictures/video; memory does not wipe; key is hidden; overlay does not crash on Compose lifecycle.
 - **Out of scope:** Room destructive fallback, attach `readBytes`, ContextTrimmer pair walk, video poll HTTP, new APK.
+
+### B-005 — Backup with empty password writes plaintext chat DB
+- **Status:** Done — WIRE 2026-08-21. Blank pass refuses with “Type a backup password first.” Always `encryptTo`. No live-DB `copyTo`. Files: `ChatViewModel.kt`, `Screens.kt`, `VoiceAndBackupTest.kt`, `verify_static.py`.
+- **Goal:** Chat backup is never a raw SQLite file.
+- **Cause:** `Screens.kt:1612` label “Backup password (optional)”. `ChatViewModel.kt:1126-1130` `inn.copyTo(out)` when pass is blank.
+- **AC:**
+  - [ ] Empty/blank password refuses export (everyday line), or encryption is required
+  - [ ] No `copyTo` of the live DB to the SAF uri
+  - [ ] Process death after the picker must not write plaintext
+- **Files:** `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** new APK unless asked; changing restore of old plaintext files (import may still accept them)
+- **Log:** `docs/BUGS.md` B-005
+
+### B-006 — Named-key and backup-password fields show secrets
+- **Status:** Done — WIRE 2026-08-21. `PasswordVisualTransformation` on named-key add row and backup password. Main paste box unchanged. Files: `Screens.kt`, `verify_static.py`.
+- **Goal:** Dots on every secret box. Do not re-open B-004 main key mask.
+- **Cause:** `Screens.kt:1476-1480` named-key value; `Screens.kt:1607-1613` backup password. No `PasswordVisualTransformation`.
+- **AC:**
+  - [ ] Named-key “API key” field uses `PasswordVisualTransformation`
+  - [ ] Backup password field uses `PasswordVisualTransformation`
+  - [ ] Main provider key box stays masked (`ProviderSetupFields.kt:119`)
+- **Files:** `Screens.kt`
+- **Out of scope:** overlay; Test error text
+- **Log:** `docs/BUGS.md` B-006
+
+### B-007 — `/video` poll sleep ignores Stop and bad HTTP
+- **Status:** Done — WIRE 2026-08-21. `pollVideo` is suspend; waits use `delay`; non-2xx throws `mediaHttpError`. Files: `OpenAiCompatibleClient.kt`, `verify_static.py`.
+- **Goal:** Stop ends `/video` now. HTTP 4xx/5xx on poll fails now, not after 5 min.
+- **Cause:** `Thread.sleep` in `OpenAiCompatibleClient.kt:817` (Veo), `:846` (xAI), `:880` (Sora). Veo poll `:802` ignores `isSuccessful`. Called from `ChatViewModel.kt:638-644`.
+- **AC:**
+  - [ ] Poll wait is cancellable (`delay` in a suspend function, or equivalent)
+  - [ ] Non-2xx poll throws an honest line (no key dump)
+  - [ ] Stop during poll clears `isGeneratingImage` / `isStreaming`
+- **Files:** `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`
+- **Out of scope:** new APK unless asked; `/imagine` ByteArray heap
+- **Log:** `docs/BUGS.md` B-007
+
+### B-008 — Clear memory has no Pro gate and no confirm
+- **Status:** Done — WIRE 2026-08-21. `clearMemory()` requires Pro. Settings asks first (`Clear memory?`). Files: `ChatViewModel.kt`, `Screens.kt`, `verify_static.py`.
+- **Goal:** Memory wipe is Pro-only and asks first.
+- **Cause:** `ChatViewModel.kt:1283-1286` no `isPro`. `Screens.kt:1642-1645` always shown. Unlike chat clear (`Screens.kt:1676`).
+- **AC:**
+  - [ ] `clearMemory()` returns unless Pro
+  - [ ] Settings shows Clear memory only for Pro (or tapping tells them to pay once)
+  - [ ] Confirm dialog before wipe
+- **Files:** `ChatViewModel.kt`, `Screens.kt`
+- **Out of scope:** B-004 memory JSON encode/decode
+- **Log:** `docs/BUGS.md` B-008
+
+### B-009 — Overlay Send / keyboard (FLAG_NOT_FOCUSABLE)
+- **Status:** Research — DEBUG 2026-08-21. Not Ready (needs phone).
+- **Notes:** Send exists (`OverlayService.kt:139-207`). Window flags `:224-225`. Empty Send no-ops `:141-142`. Fail path `:199` uses `e.message`.
+- **Log:** `docs/BUGS.md` B-009
+
+### B-010 — `(empty response)` when SSE has no delta.content
+- **Status:** Research — DEBUG 2026-08-21. Not Ready (no live stream this hunt).
+- **Notes:** Fallback needs `streamErr != null` (`OpenAiCompatibleClient.kt:169-171`). Bubble `ChatViewModel.kt:1024-1026`. Parser `ChatSseParser.kt:71-78`.
+- **Log:** `docs/BUGS.md` B-010
 
 ### C-032 — Play compliance: in-app AI-content reporting + acceptable-use (policy-mandated)
 - **Status:** Done — WIRE 2026-08-15. PROOF approved Research B 2026-08-15 (this ticket was flagged for pre-PROOF Ready; re-affirmed post-approval). Not a product choice: Play rejects apps that generate AI content without in-app reporting. Independent of H-008.
@@ -579,6 +637,61 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Out of scope:** Gemini native image-edit; Sora sunset; OpenRouter picker reshuffle; new APK
 - **Cost:** xAI Imagine is paid (~$0.04/image on their page). Do not hide that.
 - **Also found (not Ready):** Sora Videos API shuts **2026-09-24** (OpenAI docs). Groq Compound chat id is real but **web search costs $5/1000**. OpenRouter `openrouter/free` stays the safest free chat pick.
+
+### R-021 — User-facing provider lists still describe the old 5 presets
+- **Status:** Research — waiting `LITECHAT-PROOF` (no Ready)
+- **Deliverable:** `docs/audit/DIG-unseen-2026-08-21.md` §1, §4
+- **Why:** Live picker is Gemini → Groq → OpenRouter → HF → Grok → OpenAI → DeepSeek → Mistral → Ollama → Custom (`ProviderCatalog.kt`). README Features, README example table, F-Droid `full_description.txt`, and XDA template still say OpenAI / OpenRouter / Groq / Ollama / **LM Studio**. LM Studio is Custom-only. Gemini (free-key on-ramp) is missing from those lists. XDA also names ChatGPT as the rival (“why this over the official app”) — theme law: everyday words, no named enemies.
+- **AC (for WIRE after PROOF Approve):**
+  - [ ] README preset + example table match the catalog names (Gemini first among free keys)
+  - [ ] `fastlane/metadata/android/en-US/full_description.txt` same; LM Studio only as “or a Custom URL (LM Studio, etc.)”
+  - [ ] XDA template same; drop the ChatGPT-rival heading; `/browse` and attach marked Pro if listed
+  - [ ] Play listing draft stays as-is unless a provider list is added — then catalog-true
+  - [ ] Everyday words only (`docs/THEME-SHOW-DONT-TELL.md`)
+- **Files:** `README.md`, `fastlane/metadata/android/en-US/full_description.txt`, `docs/DISTRIBUTION-XDA-TEMPLATE.md` (optional `ARCHITECTURE.md` in R-024)
+- **Out of scope:** changing picker ids; new APK; Play upload
+- **Cost:** $0
+
+### R-022 — Cost flags: OpenRouter pictures, “free” Gemma, default paid model, `/video` money line
+- **Status:** Research — waiting `LITECHAT-PROOF` (no Ready)
+- **Deliverable:** `docs/audit/DIG-unseen-2026-08-21.md` §2
+- **Why:** xAI/OpenAI/DeepSeek/Mistral already say “can cost money.” Gaps: (1) DataStore default model is `gpt-5.6-luna` (paid) while onboarding leads free-key; (2) OpenRouter `paid=false` but `/imagine` uses `openai/gpt-image-2`; (3) picker label “Gemma 4 — free” — OpenRouter compare for the non-`:free` slug is priced; DIG-DOORS did not see `:free` on the $0 first screen; (4) `/video` has no cost line (Sora was ~$1/10s in an old doc; xAI Imagine is paid). Groq Compound row already warns — keep it.
+- **AC (for WIRE after PROOF Approve):**
+  - [ ] Empty-prefs default model is a **free-key** catalog id (Gemini 3.6 Flash or `openrouter/free`), not `gpt-5.6-luna`
+  - [ ] OpenRouter: either a pictures-can-cost line, or `paid` reflects that pictures bill — update `ProviderCatalogTest` if the flag changes
+  - [ ] Gemma row: only say “free” if the exact `:free` slug is on OpenRouter’s $0 list that day; else drop `:free` or the word free
+  - [ ] Quiet `/video` (and `/imagine` if host bills) “can cost money” line, everyday words
+  - [ ] Do not mark Gemini/Groq hosts `paid=true` just because a quota exists
+- **Files:** `ProviderCatalog.kt`, `SettingsRepository.kt`, `ProviderSetupFields.kt` / `Screens.kt`, `ProviderCatalogTest.kt`
+- **Out of scope:** new hosts; Pro-gating `/imagine` or `/video`; Sora replacement id
+- **Cost:** getting this wrong bills the **user**. App stays $0 / $4.99 once.
+
+### R-023 — Sora sunset: user-facing calendar line (no new model id)
+- **Status:** Research — waiting `LITECHAT-PROOF` (no Ready)
+- **Deliverable:** `docs/audit/DIG-unseen-2026-08-21.md` §3
+- **Why:** Official OpenAI deprecations: Videos API + `sora-2` / `sora-2-pro` shut **2026-09-24**, replacement `---`. Code already returns null after `SORA_SUNSET_MS`. Users who pick OpenAI today get no date. `VIDEO-MONETIZATION.md` still says OpenAI will “likely” ship a replacement — that is a guess; do not use it in UI.
+- **AC (for WIRE after PROOF Approve):**
+  - [ ] Before 2026-09-24, OpenAI (and Custom-as-OpenAI) `/video` or setup shows a short everyday line: video on this host ends 24 Sep 2026
+  - [ ] On/after that instant, keep “OpenAI cannot make videos. Switch to Google Gemini.” — no invented Sora-3 id
+  - [ ] Stamp or strike the “likely replacement” sentence in `docs/VIDEO-MONETIZATION.md` (BACKSTAGE / do not use)
+  - [ ] Existing sunset unit test stays
+- **Files:** `ProviderCatalog.kt` and/or `ChatViewModel.kt` / `Screens.kt`, `docs/VIDEO-MONETIZATION.md`, tests
+- **Out of scope:** Veo/xAI doors; Pro-gating video; new APK unless human asks
+- **Cost:** $0 app-side. OpenAI video until sunset still bills the key.
+
+### R-024 — Stale Done-docs and dead `PRESETS` list
+- **Status:** Research — waiting `LITECHAT-PROOF` (no Ready)
+- **Deliverable:** `docs/audit/DIG-unseen-2026-08-21.md` §6
+- **Why:** Overlay / memory / named keys / forks / settings JSON are **wired** (do not re-open as dead). Real leftovers: `SettingsRepository.PRESETS` has **zero callers** (old 5-name list); C-011 Pollinations optional AC never built (`grep` 0 in kt); `ARCHITECTURE.md` still says no imagine/voice, ~2–5 MB, Together/Fireworks presets, targetSdk 35; `COMPETITIVE-DIFFERENTIATION.md` claims Markdown ✅ (C-008 reverted) and has unstamped “power user / vim of AI.”
+- **AC (for WIRE after PROOF Approve):**
+  - [ ] Remove or stop exporting unused `PRESETS` (UI stays on `ProviderCatalog`)
+  - [ ] ARCHITECTURE: measured APK sizes, catalog hosts, imagine/voice exist, targetSdk 36, or mark the file historical
+  - [ ] COMPETITIVE-DIFFERENTIATION: BACKSTAGE stamp + markdown = no; no banned theme words
+  - [ ] BACKLOG C-011: note Pollinations was optional and **not** shipped — do not advertise it
+  - [ ] Do not Pro-gate `/video` to match `VIDEO-MONETIZATION.md`
+- **Files:** `SettingsRepository.kt` (WIRE), `ARCHITECTURE.md`, `docs/COMPETITIVE-DIFFERENTIATION.md`, `docs/BACKLOG.md` C-011 note
+- **Out of scope:** rebuilding markdown (C-008); Pollinations host; Ready flips
+- **Cost:** $0
 
 ---
 

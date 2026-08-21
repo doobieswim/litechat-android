@@ -1,5 +1,38 @@
 # LiteChat — Code review log
 
+## Review — 2026-08-21 — B-005–B-008
+
+**Scope:** last WIRE batch still **uncommitted**. Files: `ChatViewModel.kt` (export + clearMemory), `Screens.kt` (mask + backup refuse + memory confirm), `OpenAiCompatibleClient.kt` (`pollVideo` suspend + `delay` + `pollBodyOrThrow`), `VoiceAndBackupTest.kt`, `verify_static.py`. Overlay ViewTree was already dirty — **not this batch**.
+**Role:** `LITECHAT-REVIEW`. Read-only. Did not edit `app/**`. No Gradle.
+**This-review check:** `python3 scripts/verify_static.py` → **233/233**. Hard-constraint grep (WebView / trust-all / RN / Flutter) empty.
+
+**Verdict: Approve**
+
+Independent check of B-005–B-008 against BACKLOG AC. Do not re-open leftover 1–8, B-001, B-004, Overlay `.set`, B-002, B-003, B-009.
+
+### AC check
+
+1. **B-005 never plaintext DB** — `ChatViewModel.kt:1118-1132`: blank pass returns “Type a backup password first.” Then only `BackupCrypto.encryptTo`. No `inn.copyTo(out)` on export. Settings refuses before the picker (`Screens.kt:1593`). Process death after SAF: `pendingBackupPass` is empty → same refuse. Empty encrypt test in `VoiceAndBackupTest.kt`.
+2. **B-006 dots on secrets** — named-key add row `Screens.kt:1482`; backup password `:1618`. Main paste box still masked (`ProviderSetupFields.kt:119`). Label no longer says optional (`:1617`).
+3. **B-007 Stop + bad HTTP on `/video`** — `pollVideo` is `suspend` (`OpenAiCompatibleClient.kt:774`). Waits are `delay` (`:826`, `:855`, `:889`). `pollBodyOrThrow` (`:790-794`) throws `mediaHttpError` on non-2xx. Call still on IO (`ChatViewModel.kt:638-644`). Stop cancels `streamJob` → `delay` throws; `finally` `:656-657` clears `isGeneratingImage` / `isStreaming`.
+4. **B-008 memory wipe** — `clearMemory()` returns unless Pro (`ChatViewModel.kt:1285-1287`). Free tap gets “pay once to unlock” (`Screens.kt:1648-1650`). Pro gets “Clear memory?” dialog (`:1704-1717`) before wipe.
+
+### Issues
+
+None for this batch.
+
+### Nits (not Issues)
+
+- Backup file name is still `litechat_backup.db` even though the bytes are encrypted. Import still accepts old plaintext (ticket said that is OK).
+- Clear memory button stays on screen for free users; tap explains. AC allowed that.
+- `friendlyMediaError` may show 120 chars of HTTP body. Unlikely to contain the key. Same as other media doors.
+- Overlay ViewTree extension is still uncommitted from an earlier pass. Not B-005–B-008.
+- Whole tree of app fixes is **uncommitted**. Lost on a crash. Not on the phone.
+
+**Next:** do not bake unless asked. Say **WIRE** if you want this committed. Then a new play-debug APK only if you ask.
+
+---
+
 ## Review — 2026-08-21 — leftover 1–8 (wipe / RAM / trim / peel / labels)
 
 **Scope:** last WIRE batch still **uncommitted** on `b90a21e`. Files: `AppContainer.kt`, `OpenAiCompatibleClient.kt` (`downloadImageBytes`, `streamUrlToFile`), `ChatViewModel.kt` (`attachImage`, `send`), `ContextTrimmer.kt`, `SlashInput.kt`, `ProviderCatalog.kt`, `README.md`, tests, `verify_static.py`.
@@ -969,5 +1002,65 @@ No new blocking bugs in this commit.
 
 No WIRE needed unless you want the process-death backup nit or the old leftover nits.
 
+---
+
+## Review — 2026-08-21 — FULL TREE addendum (independent)
+
+**Scope:** whole `app/**` at HEAD `1860467` plus uncommitted `OverlayService.kt` (ViewTree lifecycle extensions). Read-only. No Gradle. `python3 scripts/verify_static.py` → **222/222**. Hard-constraint grep (WebView / trust-all / RN / Flutter) empty.
+**Role:** `LITECHAT-REVIEW`
+
+**Do not re-open:** B-001, B-004, R-019, R-020, leftover 1–8 (Approve), A–I (Approve).
+
+**Verdict: Issues**
+
+Already-fixed classes still look right in this tree (destructive Room fallback gone, picture URL streams to disk, attach has a 32k budget loop, `streamJob` is set on chat / `/browse` / `/search` / `/imagine` / `/video` / `/edit`, keys in EncryptedSharedPreferences, folders/templates/named keys use kotlinx JSON, `imagesUrl` does not emit `/v1/v1`). Overlay compile fix (`setViewTreeLifecycleOwner` extensions) is in the working tree and is **uncommitted**.
+
+### New Issues
+
+1. **`Screens.kt:1253`** — Fetch models always runs `LanDetector.scan()` first. If any box on `192.168.0.1–10` / `192.168.1.1–10` / `10.0.0.1–10` answers Ollama, it **overwrites** the base URL and never lists this provider’s models.
+   - Why: a Gemini/OpenAI user taps Fetch and can get silently pointed at a LAN box. Worst case the scan is 30 serial 1.5s TCP waits (`LanDetector.kt:18-28`) — the button says “Fetching…” for a long time.
+   - Fix: only scan when the picker is Custom/Ollama. Never replace a non-empty saved host. Cap the scan (parallel + short deadline, or `127.0.0.1` only).
+
+2. **`OverlayService.kt:224`** — overlay window is `FLAG_NOT_FOCUSABLE` (plus `FLAG_ALT_FOCUSABLE_IM`).
+   - Why: Compose `OutlinedTextField` needs window focus. On many phones the Ask box will not take taps or open the keyboard, so overlay send is a dead control.
+   - Fix: drop `FLAG_NOT_FOCUSABLE`. Use `FLAG_NOT_TOUCH_MODAL` so taps outside still reach the app underneath.
+
+3. **`OpenAiCompatibleClient.kt:268`** — `/browse` still uses `Jsoup.connect(...).get()`. That stack is not `activeCall`.
+   - Why: Stop cancels `streamJob` and OkHttp. The page fetch keeps going up to 15s. The person tapped Stop and the phone is still on the network.
+   - Fix: same path as `/search` — OkHttp GET, set `activeCall`, parse HTML with Jsoup after.
+
+4. **`OverlayService.kt:145`** + **`OpenAiCompatibleClient.kt:1123`** — overlay Send has no Stop, and the one shared client has `readTimeout(0)`.
+   - Why: `completeChat` can wait forever. Overlay `busy` stays true with no Close button. Test/Fetch models use the same client, so a stuck host leaves “Testing…” / “Fetching…” forever.
+   - Fix: give overlay a cancel that calls `openAiClient.cancel()`. Put a finite read timeout on non-stream calls (or a second client). SSE can keep `readTimeout(0)`.
+
+5. **`ChatViewModel.kt:142`** — `connectivityObserver.state.observeForever { … }` is never removed.
+   - Why: `AppContainer` lives for the process. The lambda holds the ViewModel after `onCleared`. Every rotate/recreate leaks a VM. The launch job also finishes right after register, so cancelling `connectivityJob` does nothing.
+   - Fix: `callbackFlow` / `observe` with a LifecycleOwner, or `removeObserver` in `onCleared`.
+
+6. **`network_security_config.xml:4`** — `<base-config cleartextTrafficPermitted="true" />` for the whole app.
+   - Why: product law is cleartext for LAN Ollama only. A custom `http://` host on the public net ships the key in the clear. This is not trust-all TLS, but it is wider than LAN.
+   - Fix: allow cleartext only for localhost + RFC1918 domain-config. Keep HTTPS as the default.
+
+### Passes (hunt list)
+
+- No `fallbackToDestructiveMigration` in `AppContainer.kt`.
+- No `body.bytes()` left (comment only). Video/picture GET streams to a file.
+- `streamJob` assigned on the send paths that show Stop.
+- Primary + failover + named keys go through EncryptedSharedPreferences.
+- No hand-rolled `jsonQuote` / StringBuilder JSON in prefs.
+- Attach downscales until b64 fits the 32k budget (mime vs jpeg-prefix mismatch is a nit).
+- `imagesUrl` / video helpers do not emit `/v1/v1`.
+- No WebView / trust-all / RN / Flutter in `app/src`.
+
+### Nits (not Issues)
+
+- Video poll loops still ignore HTTP status (old full-project #11). Not re-opened as new.
+- `RetryInterceptor` sleeps and retries `IOException` with no `call.isCanceled()` check. After Stop the OkHttp thread can sit ~3s. Unlikely to send a second paid call if cancel sticks.
+- Overlay FGS `specialUse` has no `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` (Play form / Android 14+).
+- Mic button uses the Send icon (`Screens.kt:560`).
+- `ChatViewModel.shareChat` is unused; the UI shares via `getCurrentChatText()`.
+- Imagine fallback still treats body text `not found` as “try next model” (`OpenAiCompatibleClient.kt:525`). Edit path was fixed to HTTP 404/405 only.
+
+**Next:** WIRE the six Issues if you want them in the tree. Commit the Overlay ViewTree fix so it is not lost. Do not bake an APK unless asked.
 
 

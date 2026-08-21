@@ -1,0 +1,1 @@
+Backup needs a password. Secrets stay hidden. Stop works while a video is making. Clear memory asks first.

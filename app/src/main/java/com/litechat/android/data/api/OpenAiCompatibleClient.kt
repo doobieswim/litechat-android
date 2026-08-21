@@ -3,6 +3,7 @@ package com.litechat.android.data.api
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
@@ -770,7 +771,7 @@ class OpenAiCompatibleClient(
      * `body.bytes()` — a full 5-20MB ByteArray). Streams with Okio/byteStream
      * and returns the file. Throws if job failed, not found, or timed out.
      */
-    fun pollVideo(
+    suspend fun pollVideo(
         baseUrl: String,
         apiKey: String,
         jobId: String,
@@ -786,7 +787,15 @@ class OpenAiCompatibleClient(
         }
     }
 
-    private fun pollVeoVideo(
+    private fun pollBodyOrThrow(call: okhttp3.Call): String {
+        return call.execute().use { r ->
+            val body = r.body?.string().orEmpty()
+            if (!r.isSuccessful) throw mediaHttpError("videos", r.code, body)
+            body
+        }
+    }
+
+    private suspend fun pollVeoVideo(
         baseUrl: String,
         apiKey: String,
         jobId: String,
@@ -799,7 +808,7 @@ class OpenAiCompatibleClient(
             val builder = Request.Builder().url(url).get().geminiKey(apiKey)
             val call = client.newCall(builder.build())
             activeCall = call
-            val raw = call.execute().use { it.body?.string().orEmpty() }
+            val raw = pollBodyOrThrow(call)
             val obj = json.parseToJsonElement(raw).jsonObject
             val done = obj["done"].toString() == "true"
             if (done) {
@@ -814,12 +823,12 @@ class OpenAiCompatibleClient(
                 streamUrlToFile(uri, apiKey, destFile, googleKey = true)
                 return destFile
             }
-            Thread.sleep(10_000)
+            delay(10_000)
         }
         throw IOException("Video generation timed out")
     }
 
-    private fun pollXaiVideo(
+    private suspend fun pollXaiVideo(
         baseUrl: String,
         apiKey: String,
         jobId: String,
@@ -833,7 +842,7 @@ class OpenAiCompatibleClient(
             if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
             val call = client.newCall(builder.build())
             activeCall = call
-            val raw = call.execute().use { it.body?.string().orEmpty() }
+            val raw = pollBodyOrThrow(call)
             val obj = json.parseToJsonElement(raw).jsonObject
             when (obj["status"]?.jsonPrimitive?.contentOrNull ?: "unknown") {
                 "done" -> {
@@ -843,13 +852,13 @@ class OpenAiCompatibleClient(
                     return destFile
                 }
                 "failed", "expired" -> throw IOException("This Grok key cannot make videos.")
-                else -> Thread.sleep(5_000)
+                else -> delay(5_000)
             }
         }
         throw IOException("Video generation timed out")
     }
 
-    private fun pollSoraVideo(
+    private suspend fun pollSoraVideo(
         baseUrl: String,
         apiKey: String,
         jobId: String,
@@ -864,7 +873,7 @@ class OpenAiCompatibleClient(
             if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
             val call = client.newCall(builder.build())
             activeCall = call
-            val raw = call.execute().use { it.body?.string().orEmpty() }
+            val raw = pollBodyOrThrow(call)
             val obj = json.parseToJsonElement(raw).jsonObject
             when (obj["status"]?.jsonPrimitive?.content ?: "unknown") {
                 "completed" -> {
@@ -877,7 +886,7 @@ class OpenAiCompatibleClient(
                     return destFile
                 }
                 "failed" -> throw IOException("This provider cannot make videos.")
-                "queued", "in_progress" -> Thread.sleep(2_000)
+                "queued", "in_progress" -> delay(2_000)
                 else -> throw IOException("This provider cannot make videos.")
             }
         }

@@ -36,6 +36,11 @@ class BackupCryptoTest {
         BackupCrypto.decrypt(blob, "wrong")
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun `empty password refuses encrypt`() {
+        BackupCrypto.encrypt("x".toByteArray(), "")
+    }
+
     @Test
     fun `stream round trip keeps a bigger payload`() {
         val plain = ByteArray(64 * 1024) { it.toByte() }

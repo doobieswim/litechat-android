@@ -14,8 +14,8 @@ android {
         applicationId = "com.byoai.chat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 9
+        versionName = "1.0.9-wire"
         resourceConfigurations += listOf("en")
         // Replace with your AdMob unit IDs before Play release.
         buildConfigField("String", "ADMOB_BANNER_ID", "\"ca-app-pub-3940256099942544/6300978111\"")
