@@ -186,6 +186,21 @@ object ProviderCatalog {
         return PROVIDERS.first { it.id == "custom" }
     }
 
+    /**
+     * Host GET /models lists everything. Keep chat picks; drop speech, pictures,
+     * video, embeddings, guards. Cap so a 4GB phone dropdown stays usable.
+     */
+    fun chatModelIds(ids: List<String>): List<String> {
+        val skip = listOf(
+            "whisper", "tts", "embed", "rerank", "imagen",
+            "veo", "sora", "guard", "orpheus", "live", "-image",
+        )
+        return ids.filter { id ->
+            val n = id.lowercase()
+            skip.none { n.contains(it) }
+        }.distinct().take(80)
+    }
+
     fun byId(id: String): ProviderOption =
         PROVIDERS.firstOrNull { it.id == id } ?: PROVIDERS.first { it.id == "custom" }
 

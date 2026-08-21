@@ -117,6 +117,20 @@ class ProviderCatalogTest {
     }
 
     @Test
+    fun `chatModelIds drops speech pictures and guards`() {
+        val ids = ProviderCatalog.chatModelIds(
+            listOf(
+                "openai/gpt-oss-20b",
+                "whisper-large-v3",
+                "gemini-3.1-flash-image",
+                "google/gemma-4-31b-it:free",
+                "text-embedding-3-small",
+            ),
+        )
+        assertEquals(listOf("openai/gpt-oss-20b", "google/gemma-4-31b-it:free"), ids)
+    }
+
+    @Test
     fun `free-key providers stay marked not paid`() {
         for (id in listOf("gemini", "groq", "openrouter")) {
             val p = ProviderCatalog.PROVIDERS.first { it.id == id }

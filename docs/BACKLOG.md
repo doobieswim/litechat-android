@@ -98,6 +98,28 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Notes:** Fallback needs `streamErr != null` (`OpenAiCompatibleClient.kt:169-171`). Bubble `ChatViewModel.kt:1024-1026`. Parser `ChatSseParser.kt:71-78`.
 - **Log:** `docs/BUGS.md` B-010
 
+### B-011 — Gemini `/imagine` shows Max retries exhausted while Test works
+- **Status:** Done — WIRE 2026-08-21. Human-named after 1.0.9-wire. Last 429/5xx is returned to the caller. Pictures/video show an everyday line, not “Max retries (3) exhausted.” Files: `RetryInterceptor.kt`, `OpenAiCompatibleClient.kt`, `ReviewFixLogicTest.kt`, `verify_static.py`.
+- **Goal:** Phone shows why pictures failed. Test-ok + picture-fail is quota/busy on the picture door, not a dead key.
+- **Cause:** `RetryInterceptor` closed 429/5xx bodies and threw `Max retries (3) exhausted` (`RetryInterceptor.kt:49`). `/imagine` never saw Google’s code.
+- **AC:**
+  - [x] After 3 retryable HTTP answers, return the last response (do not throw Max retries)
+  - [x] `friendlyMediaError` 429 / 5xx is everyday English, no key
+  - [x] JVM test for 429 pictures line
+- **Out of scope:** new APK unless asked; switching generateContent `v1beta` → `v1`
+- **Log:** phone 2026-08-21, Test green, `/imagine` max retries
+
+### B-012 — Groq Test Connected, chat HTTP 401 invalid_api_key
+- **Status:** Done — WIRE 2026-08-21. Human-named. Chat/overlay/TTS use the Settings saved key only. Named **Use** copies into that store. Test result clears when key/host/model change.
+- **Goal:** Groq chat uses the Groq key they just pasted, not a leftover Gemini named key. Test does not stay green after a switch.
+- **Cause:** `send()` preferred `namedKeyStore.getActiveKey()` (`ChatViewModel.kt`). Test used the Settings box. A Gemini named key marked active rode to Groq. `testMsg` lived inside the button and never cleared.
+- **AC:**
+  - [x] `send` / overlay / TTS use `settingsRepository.getApiKey()` only
+  - [x] Named **Use** copies that key into SecureStore
+  - [x] Switching key/host/model clears Test text
+- **Out of scope:** new APK unless asked; Test still uses GET `/models` (OpenRouter can still lie)
+- **Log:** phone 2026-08-21 Groq Test success + stream 401 invalid_api_key
+
 ### C-032 — Play compliance: in-app AI-content reporting + acceptable-use (policy-mandated)
 - **Status:** Done — WIRE 2026-08-15. PROOF approved Research B 2026-08-15 (this ticket was flagged for pre-PROOF Ready; re-affirmed post-approval). Not a product choice: Play rejects apps that generate AI content without in-app reporting. Independent of H-008.
 - **Fixed (2026-08-15):** long-press → "Report content" on every bubble (text, [IMAGE:], [VIDEO:]) → reason picker → mailto to litechat@proton.me (zero server); one-time acceptable-use dialog after onboarding (no dismiss path); EEA/UK non-personalized ads via RequestConfiguration.PublisherPrivacyPersonalizationState.DISABLED (play-services-ads 23.x removed npa/setNonPersonalizedAds — zero UMP SDK); "no ads in overlay" guard comment. Files: `Screens.kt`, `ChatViewModel.kt`, `SettingsRepository.kt`, `AdMobLazyInit.kt` (play), `OverlayService.kt`. Verify: 92/92 static, both flavors compile, unit tests pass, foss debug APK built.

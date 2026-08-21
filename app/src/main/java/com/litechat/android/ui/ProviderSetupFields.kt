@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.litechat.android.data.prefs.ModelOption
 import com.litechat.android.data.prefs.ProviderCatalog
 import com.litechat.android.data.prefs.ProviderOption
 
@@ -42,6 +43,7 @@ fun ProviderSetupFields(
     onBaseChange: (String) -> Unit,
     model: String,
     onModelChange: (String) -> Unit,
+    hostModels: List<String> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -135,7 +137,13 @@ fun ProviderSetupFields(
         }
 
         Text("3. Pick a model", style = MaterialTheme.typography.labelLarge)
-        if (isCustom || provider.models.isEmpty()) {
+        val mergedModels = buildList {
+            addAll(provider.models)
+            ProviderCatalog.chatModelIds(hostModels).forEach { id ->
+                if (none { it.id == id }) add(ModelOption(id, id))
+            }
+        }
+        if (isCustom && mergedModels.isEmpty()) {
             OutlinedTextField(
                 value = model,
                 onValueChange = onModelChange,
@@ -144,7 +152,7 @@ fun ProviderSetupFields(
                 singleLine = true,
             )
         } else {
-            val label = provider.models.firstOrNull { it.id == model }?.label ?: model
+            val label = mergedModels.firstOrNull { it.id == model }?.label ?: model
             ExposedDropdownMenuBox(
                 expanded = showModels,
                 onExpandedChange = { showModels = it },
@@ -163,7 +171,7 @@ fun ProviderSetupFields(
                     expanded = showModels,
                     onDismissRequest = { showModels = false },
                 ) {
-                    provider.models.forEach { m ->
+                    mergedModels.forEach { m ->
                         DropdownMenuItem(
                             text = { Text(m.label) },
                             onClick = {

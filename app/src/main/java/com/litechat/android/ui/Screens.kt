@@ -96,6 +96,7 @@ import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.db.SearchHit
 import com.litechat.android.data.prefs.ApiKeySanitizer
 import com.litechat.android.data.prefs.PromptTemplate
+import com.litechat.android.data.prefs.ProviderCatalog
 import com.litechat.android.data.prefs.SettingsRepository
 import com.litechat.android.util.AgentLabGate
 import com.litechat.android.util.DeviceCompat
@@ -1038,9 +1039,27 @@ fun OnboardingScreen(
     var key by remember { mutableStateOf(initialKey) }
     var base by remember { mutableStateOf(initialBase) }
     var model by remember { mutableStateOf(initialModel) }
+    var hostModels by remember { mutableStateOf<List<String>>(emptyList()) }
     val ctx = LocalContext.current
     val snap = remember(ctx) { DeviceCompat.snapshot(ctx) }
     val scroll = rememberScrollState()
+    val onboardApp = ctx.applicationContext as LiteChatApp
+    LaunchedEffect(base, key) {
+        val local = base.contains("127.0.0.1") || base.contains("localhost")
+        if (key.isBlank() && !local) {
+            hostModels = emptyList()
+            return@LaunchedEffect
+        }
+        hostModels = try {
+            withContext(Dispatchers.IO) {
+                ProviderCatalog.chatModelIds(
+                    onboardApp.container.openAiClient.listModels(base, key),
+                )
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -1092,6 +1111,7 @@ fun OnboardingScreen(
                         onBaseChange = { base = it },
                         model = model,
                         onModelChange = { model = it },
+                        hostModels = hostModels,
                     )
                 }
             }
@@ -1164,12 +1184,35 @@ fun SettingsScreen(
     var modelsMsg by remember { mutableStateOf<String?>(null) }
     var modelsLoading by remember { mutableStateOf(false) }
     var showModelsMenu by remember { mutableStateOf(false) }
+    var testMsg by remember { mutableStateOf<String?>(null) }
+    var testing by remember { mutableStateOf(false) }
     // C-023: add-key form state (declared here — composable calls can't live
     // directly inside the LazyColumn scope).
     var newKeyName by remember { mutableStateOf("") }
     var newKeyValue by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val snap = remember(context) { DeviceCompat.snapshot(context) }
+    LaunchedEffect(base, key, model) {
+        testMsg = null
+        val local = base.contains("127.0.0.1") || base.contains("localhost")
+        if (key.isBlank() && !local) {
+            fetchedModels = emptyList()
+            return@LaunchedEffect
+        }
+        modelsLoading = true
+        try {
+            val ids = withContext(Dispatchers.IO) {
+                app.container.openAiClient.listModels(base, key)
+            }
+            fetchedModels = ids
+            modelsMsg = if (ids.isEmpty()) null else "${ids.size} models from host"
+        } catch (_: Exception) {
+            fetchedModels = emptyList()
+            modelsMsg = null
+        } finally {
+            modelsLoading = false
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -1237,6 +1280,7 @@ fun SettingsScreen(
                     onBaseChange = { base = it },
                     model = model,
                     onModelChange = { model = it },
+                    hostModels = fetchedModels.orEmpty(),
                 )
             }
             // C-005: optional GET /models picker — failures show a short message, never crash.
@@ -1252,19 +1296,13 @@ fun SettingsScreen(
                                                                         scope.launch {
                                                                             try {
                                                                             // REVIEW: listModels is blocking HTTP — never on Main.
-                                                                            val lanBase = withContext(Dispatchers.IO) { LanDetector.scan() }
-                                                                            if (lanBase != null) {
-                                                                                base = lanBase
-                                                                                modelsMsg = "LAN Ollama found"
-                                                                            } else {
-                                                                                val ids = withContext(Dispatchers.IO) {
-                                                                                    app.container.openAiClient.listModels(base, key)
-                                                                                }
-                                                                                fetchedModels = ids
-                                                                                modelsMsg = when {
-                                                                                    ids.isEmpty() -> "No models returned (check base URL)"
-                                                                                    else -> "${ids.size} models found"
-                                                                                }
+                                                                            val ids = withContext(Dispatchers.IO) {
+                                                                                app.container.openAiClient.listModels(base, key)
+                                                                            }
+                                                                            fetchedModels = ids
+                                                                            modelsMsg = when {
+                                                                                ids.isEmpty() -> "No models returned (check base URL)"
+                                                                                else -> "${ids.size} models from host"
                                                                             }
                                                                             } catch (_: Exception) {
                                                                                 modelsMsg = "Could not fetch models"
@@ -1276,10 +1314,7 @@ fun SettingsScreen(
                                                                     enabled = !modelsLoading,
                                                                 ) {
                                                                     Text(if (modelsLoading) "Fetching…" else "Fetch models")
-                                                                }
-                                // C-019: Test Connection button — quick validation before saving.
-                                var testMsg by remember { mutableStateOf<String?>(null) }
-                                var testing by remember { mutableStateOf(false) }
+                                }
                                 TextButton(
                                     onClick = {
                                         testing = true
@@ -1308,43 +1343,6 @@ fun SettingsScreen(
                                 modelsMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                             }
                         }
-            fetchedModels?.let { ids ->
-                if (ids.isNotEmpty()) {
-                    item {
-                        ExposedDropdownMenuBox(
-                            expanded = showModelsMenu,
-                            onExpandedChange = { showModelsMenu = it },
-                        ) {
-                            OutlinedTextField(
-                                value = model,
-                                onValueChange = { model = it },
-                                label = { Text("Pick a model") },
-                                readOnly = true,
-                                trailingIcon = {
-                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = showModelsMenu)
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .menuAnchor(),
-                            )
-                            ExposedDropdownMenu(
-                                expanded = showModelsMenu,
-                                onDismissRequest = { showModelsMenu = false },
-                            ) {
-                                ids.forEach { id ->
-                                    DropdownMenuItem(
-                                        text = { Text(id, maxLines = 1) },
-                                        onClick = {
-                                            model = id
-                                            showModelsMenu = false
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
             item {
                 OutlinedTextField(temp, { temp = it }, label = { Text("Temperature") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             }

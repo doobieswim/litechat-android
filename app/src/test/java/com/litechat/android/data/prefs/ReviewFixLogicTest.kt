@@ -209,6 +209,29 @@ class ApiKeySanitizerTest {
     }
 }
 
+class FriendlyMediaErrorTest {
+    @Test
+    fun `429 pictures is everyday not max retries`() {
+        val line = OpenAiCompatibleClient.friendlyMediaError(
+            "pictures",
+            429,
+            "RESOURCE_EXHAUSTED quota",
+        )
+        assertEquals(
+            "This key cannot make pictures right now. Wait, or check the host.",
+            line,
+        )
+        assertFalse(line.contains("Max retries"))
+        assertFalse(line.contains("RESOURCE_EXHAUSTED"))
+    }
+
+    @Test
+    fun `500 pictures is everyday`() {
+        val line = OpenAiCompatibleClient.friendlyMediaError("pictures", 503, "backend")
+        assertEquals("The host is busy making pictures. Try again in a minute.", line)
+    }
+}
+
 class BrowseUrlTest {
     @Test
     fun `bare host gets https`() {

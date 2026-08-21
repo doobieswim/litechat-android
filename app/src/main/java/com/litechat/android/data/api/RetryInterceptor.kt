@@ -35,7 +35,11 @@ class RetryInterceptor : Interceptor {
                 if (response.isSuccessful || !isRetryable(response.code)) {
                     return response
                 }
-                // Retryable: close body and retry after delay
+                // Last 429/5xx: hand the body to the caller. Do not throw
+                // "Max retries exhausted" with the Google/OpenAI words gone.
+                if (attempt >= MAX_ATTEMPTS) {
+                    return response
+                }
                 response.close()
                 val delay = delayMs(response.code, attempt)
                 if (delay > 0) Thread.sleep(delay)

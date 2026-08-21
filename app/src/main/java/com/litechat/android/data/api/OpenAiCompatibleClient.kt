@@ -1034,6 +1034,8 @@ class OpenAiCompatibleClient(
 
         fun friendlyMediaError(kind: String, code: Int, raw: String): String {
             if (code == 404 || code == 405) return "This provider cannot make $kind."
+            if (code == 429) return "This key cannot make $kind right now. Wait, or check the host."
+            if (code in 500..599) return "The host is busy making $kind. Try again in a minute."
             val blob = raw.replace('\n', ' ')
             if (blob.contains("API keys are not supported", ignoreCase = true) ||
                 blob.contains("Expected OAuth2", ignoreCase = true)

@@ -147,8 +147,7 @@ class OverlayService : Service() {
                                                 if (!container.isPro()) {
                                                     "Floating overlay is a Pro feature — upgrade in Settings."
                                                 } else {
-                                                    val key = container.namedKeyStore.getActiveKey()
-                                                        .ifBlank { container.settingsRepository.getApiKey() }
+                                                    val key = container.settingsRepository.getApiKey()
                                                     if (key.isBlank()) {
                                                         "Add an API key in Settings first."
                                                     } else {

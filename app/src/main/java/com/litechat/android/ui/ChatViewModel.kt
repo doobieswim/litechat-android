@@ -423,9 +423,9 @@ class ChatViewModel(
             return
         }
 
-        // C-023: an active named key overrides the primary key (Agora pattern).
-        val key = container.namedKeyStore.getActiveKey()
-            .ifBlank { container.settingsRepository.getApiKey() }
+        // Settings box is the live key. A named "active" Gemini key must not
+        // ride along after they paste Groq and tap Back (B-012).
+        val key = container.settingsRepository.getApiKey()
         val settings = _state.value.settings
         val localEndpoint = settings.baseUrl.contains("127.0.0.1") ||
             settings.baseUrl.contains("localhost")
@@ -1352,8 +1352,7 @@ class ChatViewModel(
             return
         }
         if (!consumeVoiceSlot()) return
-        val key = container.namedKeyStore.getActiveKey()
-            .ifBlank { container.settingsRepository.getApiKey() }
+        val key = container.settingsRepository.getApiKey()
         val settings = _state.value.settings
         viewModelScope.launch {
             try {
@@ -1424,13 +1423,19 @@ class ChatViewModel(
     }
 
     // C-023: named keys per provider (encrypted, Agora pattern).
-    fun saveNamedKey(name: String, key: String, setActive: Boolean = true) {
+    fun saveNamedKey(name: String, key: String, setActive: Boolean = false) {
         val trimmed = name.trim()
         if (trimmed.isEmpty() || key.isBlank()) {
             _state.update { it.copy(error = "Key name and value are required") }
             return
         }
         container.namedKeyStore.save(NamedKeyStore.NamedKey(trimmed, key, setActive))
+        if (setActive) {
+            viewModelScope.launch {
+                container.settingsRepository.setApiKey(key)
+                _state.update { it.copy(apiKeyPresent = key.isNotBlank()) }
+            }
+        }
         refreshNamedKeys()
     }
 
@@ -1440,8 +1445,11 @@ class ChatViewModel(
     }
 
     fun setActiveNamedKey(name: String) {
-        container.namedKeyStore.getAll().find { it.name == name }?.let {
-            container.namedKeyStore.save(it.copy(isActive = true))
+        val found = container.namedKeyStore.getAll().find { it.name == name } ?: return
+        container.namedKeyStore.save(found.copy(isActive = true))
+        viewModelScope.launch {
+            container.settingsRepository.setApiKey(found.key)
+            _state.update { it.copy(apiKeyPresent = found.key.isNotBlank()) }
         }
         refreshNamedKeys()
     }

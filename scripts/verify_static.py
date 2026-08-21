@@ -261,6 +261,7 @@ def main() -> int:
     ok("C-033 onboarding uses picker", "ProviderSetupFields(" in screens)
     ok("C-033 settings uses picker", screens.count("ProviderSetupFields(") >= 2)
     ok("C-033 URL hidden except custom", "isCustom" in picker)
+    ok("host models fill picker", "hostModels" in picker and "fun chatModelIds" in catalog)
     ok("gemini picker is 3.6/3.7/3.1",
        'ModelOption("gemini-3.6-flash"' in catalog
        and 'ModelOption("gemini-3.7-flash"' in catalog
@@ -399,6 +400,13 @@ def main() -> int:
     ok("B-007 pollVideo is suspend", "suspend fun pollVideo" in client)
     ok("B-008 clearMemory Pro", "Memory is a Pro feature" in vm.split("fun clearMemory")[1][:400] if "fun clearMemory" in vm else False)
     ok("B-008 confirm memory wipe", "Clear memory?" in screens)
+    retry_kt = (KT_ROOT / "com/litechat/android/data/api/RetryInterceptor.kt").read_text()
+    ok("B-011 last 429 returned", "attempt >= MAX_ATTEMPTS" in retry_kt and "return response" in retry_kt.split("Last 429")[-1][:500])
+    ok("B-011 429 everyday media", "This key cannot make $kind right now" in client)
+    ok("B-011 no swallow last 429", 'throw lastException ?: IOException("Max retries' in retry_kt)
+    ok("B-012 chat not named override", "getActiveKey()" not in vm)
+    ok("B-012 overlay not named override", "getActiveKey()" not in overlay_kt)
+    ok("B-012 Test wipes on switch", "LaunchedEffect(base, key, model)" in screens and "testMsg = null" in screens)
 
     # Fastlane metadata is part of the build: F-Droid/Play read these files.
     # No Ruby gem. CI static-verify fails the job if listing copy is wrong.
