@@ -96,6 +96,40 @@ PROOF grades → this file
 
 # Log (newest first)
 
+## Research review — 2026-08-21 — unnamed `LITECHAT-PROOF` (latest DIG drop)
+
+**Scope:** Human said only `LITECHAT-PROOF`. Default = latest Research tickets + their docs. That is **R-021, R-022, R-023, R-024** + `docs/audit/DIG-unseen-2026-08-21.md`. No newer DIG file after 08:28. Prior verdict on this drop (same day, this file) was **Approve**. This is a re-check, not a new essay.
+**Role:** `LITECHAT-PROOF`. Read-only except this file. No Gradle. No `app/**`. No DIG rewrite. No Ready flip.
+
+**Verdict: Approve** — stands. No ungraded DIG remains.
+
+### Checklist
+
+1. **Scope — pass.** No new DIG since the first R-021–R-024 grade. Groq Test-vs-chat 401 is **B-012** (DEBUG/WIRE), not an R-ticket. Wrong role to grade that here.
+2. **Grounding — pass (re-opened).**
+   - OpenAI deprecations: Videos API + `sora-2` / `sora-2-pro` still shut **2026-09-24**, replacement `---`.
+   - Gemini models page (updated 2026-08-14): `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.1-pro-preview` still listed. Picker ids still match.
+   - OpenRouter: `google/gemma-4-26b-a4b-it:free` page now exists and shows **Price: Free**. Non-`:free` slug is still priced (~$0.07 / $0.34). DIG’s AC (“only say free if the exact `:free` slug is free that day”) is still the right check. Picker already uses the `:free` id.
+3. **Product laws — pass.** No 7B / WebView / SoftRAM. Do not invent a post-Sora OpenAI id. Do not Pro-gate `/imagine` or `/video`.
+4. **Cost flags — pass.** Default DataStore model is still `gpt-5.6-luna` (`SettingsRepository.kt`). README / F-Droid / XDA still list the old 5 names. Tickets still useful.
+5. **Theme — pass.** Play draft left alone. XDA ChatGPT-rival line still folded into R-021.
+6. **Ticket AC — pass.** Unchanged since first Approve.
+7. **Usefulness — pass.** WIRE can sweep lists, cost flags, calendar line, dead `PRESETS`.
+
+### Issues
+
+None.
+
+### Nits (not Issues)
+
+- BACKLOG rows for R-021–R-024 still say “waiting LITECHAT-PROOF.” Stale. DIG/human may stamp **Ready**. PROOF does not.
+- Same stale “waiting PROOF” on R-014 / R-015 / R-017 / R-018 — already graded 2026-08-15.
+- DIG §6 still says named-key `getActiveKey()` on send **WORKS**. Later phone bug **B-012** (not this DIG). Do not reopen R-024 for that.
+
+**Next:** DIG or human may stamp **R-021, R-022, R-023, R-024 Ready**. Then `LITECHAT-WIRE`. I do not flip Ready. If they wanted Groq Test graded, that is DEBUG/WIRE, not PROOF.
+
+---
+
 ## Research review — 2026-08-21 — DIG unseen audit (R-021–R-024)
 
 **Scope:** `docs/audit/DIG-unseen-2026-08-21.md` + BACKLOG **R-021, R-022, R-023, R-024** only. Read-only except this file. No Gradle. No `app/**`. No DIG-essay edit. No Ready flip.
