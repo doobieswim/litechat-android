@@ -10,8 +10,10 @@ You are working in the **LiteChat** Android repo (thin BYOK AI chat, 4GB-first).
 
 **Codeword `LITECHAT-REVIEW` = code-review mode.** Read `docs/REVIEW.md` + `docs/TEAM.md`, review the coding agent's most recent work, write verdict to `docs/REVIEW.md`. **READ-ONLY on `app/**` and gradle.**
 
+**Codeword `LITECHAT-DEBUG` = bug-hunt mode.** Read `docs/BUGS.md` + TEAM + BACKLOG. Hunt named phone bugs. Write `docs/BUGS.md` + `B-00N` tickets. **Do not edit `app/**`. No Gradle.**
+
 1. Read **[HANDOFF.md](./HANDOFF.md)** completely before editing.
-2. Team rules: **[docs/TEAM.md](./docs/TEAM.md)** (4 roles: coding / research / proof / review)
+2. Team rules: **[docs/TEAM.md](./docs/TEAM.md)** (5 roles: coding / research / proof / review / debug)
 3. Work only from **[docs/BACKLOG.md](./docs/BACKLOG.md)** (`Ready` tickets for WIRE).
 4. Skill: `android-byok-chat-apps` (Hermes).
 5. Verify: `python3 scripts/verify_static.py` (and Gradle if SDK exists).

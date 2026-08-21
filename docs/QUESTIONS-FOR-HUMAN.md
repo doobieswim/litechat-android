@@ -111,3 +111,10 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
   - **C) Flat $2.99** — one global price, simpler than B, still above PPP for the poorest markets.
 - **Recommendation:** **B** — honest per-market "one small ask"; theme-compliant (H-004 promise "built for a $30 phone" implies a price a $30-phone owner can pay). Add as a Play-launch checklist item.
 - **Decision:** _(human fills)_
+
+### H-011 — Fifth agent: debug
+- **From:** human (APK builds, features buggy)
+- **Decision needed:** Add a hunt-only debug role without reopening H-007’s four-agent lock as a rewrite.
+- **Options:** keep four roles and paste a one-off debug brief · add `LITECHAT-DEBUG` as a fifth role
+- **Recommendation:** Fifth role. Owns `docs/BUGS.md`. Does not edit `app/**`. No Gradle. Proven `B-00N` bugs may go Ready without PROOF.
+- **Decision:** **Yes — `LITECHAT-DEBUG`** (human 2026-08-21). Bible: `docs/BUGS.md`.

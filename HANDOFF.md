@@ -12,7 +12,7 @@ If the human says that word (alone or in a sentence), you are the **coding agent
 | GitHub | **public**: `github.com/doobieswim/litechat-android` (CI: `.github/workflows/build.yml` — static-verify + assembleRelease + 20MB APK gate). Old `flamingspade1995-coder` account is lost; do not push there. |
 | Package | `com.litechat.android` |
 | Skill (patterns) | Hermes skill `android-byok-chat-apps` |
-| Sister role | **DIG** writes `docs/` + Research tickets. **PROOF** (`LITECHAT-PROOF`) grades those docs → `docs/RESEARCH-REVIEW.md`; Ready only after Approve. **REVIEW** (`LITECHAT-REVIEW`) grades your code → `docs/REVIEW.md`. **You** implement Ready tickets and fix code-review issues. |
+| Sister role | **DIG** writes `docs/` + Research tickets. **PROOF** (`LITECHAT-PROOF`) grades those docs → `docs/RESEARCH-REVIEW.md`; Ready only after Approve. **REVIEW** (`LITECHAT-REVIEW`) grades your code → `docs/REVIEW.md`. **DEBUG** (`LITECHAT-DEBUG`) hunts phone bugs → `docs/BUGS.md` + `B-00N` (Ready only if cause is proven). **You** implement Ready tickets and fix code-review / debug issues. |
 | Team protocol | [`docs/TEAM.md`](./docs/TEAM.md) |
 | Ticket queue | [`docs/BACKLOG.md`](./docs/BACKLOG.md) |
 | Architecture | [`ARCHITECTURE.md`](./ARCHITECTURE.md) · research notes [`RESEARCH.md`](./RESEARCH.md) |
@@ -231,6 +231,22 @@ Read docs/REVIEW.md + docs/TEAM.md + docs/BACKLOG.md.
 Review ticket <ID> (or most recent Done).
 You are READ-ONLY: do not edit app/** or any source file.
 Write your verdict (Approve / Issues) to docs/REVIEW.md.
+```
+
+---
+
+## Prompt paste for debug session (human → debug agent)
+
+```
+LITECHAT-DEBUG
+Repo: /opt/data/workspace/byok-chat-android
+GitHub: https://github.com/doobieswim/litechat-android
+Read docs/BUGS.md + docs/TEAM.md + docs/BACKLOG.md + HANDOFF.md.
+Load skills android-byok-chat-apps and systematic-debugging.
+Hunt bugs. Do not edit app/**. Do not run Gradle.
+Write the log to docs/BUGS.md. Add B-00N tickets (Ready only if cause is proven).
+Phone bugs:
+<paste 2–5 things that are wrong>
 ```
 
 ---

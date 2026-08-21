@@ -1,10 +1,11 @@
 # LiteChat backlog
 
-Single task queue for the four-agent team.  
+Single task queue for the five-agent team.  
 Statuses: `Idea` · `Research` · `Ready` · `Doing` · `Done` · `Blocked`
 
 Flow: **DIG (Research) → PROOF Approve → Ready → WIRE → Done → REVIEW**  
-Every research ticket needs `LITECHAT-PROOF` Approve before Ready (human may override in one written line).
+Bug lane: **DEBUG → `B-00N` in `docs/BUGS.md` → Ready if cause proven (no PROOF) → WIRE → REVIEW**  
+Every **research** ticket needs `LITECHAT-PROOF` Approve before Ready (human may override in one written line).
 
 Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finish with `Done`.
 
