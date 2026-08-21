@@ -120,6 +120,14 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Out of scope:** new APK unless asked; Test still uses GET `/models` (OpenRouter can still lie)
 - **Log:** phone 2026-08-21 Groq Test success + stream 401 invalid_api_key
 
+### C-036 — Free test pictures (Pollinations, no key)
+- **Status:** Done — WIRE 2026-08-21. Human asked for a free way to test `/imagine` with no credits. Settings toggle "Free test pictures (no key)" (default ON, labeled bubbles). `/imagine` with blank key or a host that cannot make pictures → Pollinations GET (no key). If the real host errors and the toggle is on → Pollinations fallback, labeled "[Free test picture — the host could not make it]". Onboarding adds a free-starter hint (Gemini = free chat + pictures, Groq = chat only, OpenRouter free models busy). Files: `ProviderCatalog.kt` (pollinationsUrl), `OpenAiCompatibleClient.kt` (pollinationsImage), `ChatViewModel.kt` (keyless /imagine + label + setFreeTestImages), `SettingsRepository.kt` (freeTestImages), `Screens.kt` (toggle + hint), `ProviderCatalogTest.kt`, `verify_static.py`. Verify: **244/244**. Cost: $0 — Pollinations is a free public endpoint (verified HTTP 200 image 2026-08-21).
+- **AC:**
+  - [x] `/imagine` works with no key when the toggle is on
+  - [x] Free-test bubbles are labeled, never silent substitution
+  - [x] With a working key the real host still runs
+  - [x] Static guards + JVM test for the URL
+
 ### C-032 — Play compliance: in-app AI-content reporting + acceptable-use (policy-mandated)
 - **Status:** Done — WIRE 2026-08-15. PROOF approved Research B 2026-08-15 (this ticket was flagged for pre-PROOF Ready; re-affirmed post-approval). Not a product choice: Play rejects apps that generate AI content without in-app reporting. Independent of H-008.
 - **Fixed (2026-08-15):** long-press → "Report content" on every bubble (text, [IMAGE:], [VIDEO:]) → reason picker → mailto to litechat@proton.me (zero server); one-time acceptable-use dialog after onboarding (no dismiss path); EEA/UK non-personalized ads via RequestConfiguration.PublisherPrivacyPersonalizationState.DISABLED (play-services-ads 23.x removed npa/setNonPersonalizedAds — zero UMP SDK); "no ads in overlay" guard comment. Files: `Screens.kt`, `ChatViewModel.kt`, `SettingsRepository.kt`, `AdMobLazyInit.kt` (play), `OverlayService.kt`. Verify: 92/92 static, both flavors compile, unit tests pass, foss debug APK built.

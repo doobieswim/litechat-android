@@ -325,4 +325,15 @@ object ProviderCatalog {
 
     fun videoUsesXaiImagine(baseUrl: String): Boolean =
         fromBaseUrl(baseUrl).id == "xai"
+
+    /**
+     * Free /imagine test door: Pollinations AI returns an image via GET,
+     * no API key, no credits. Used only when the "Free test pictures" toggle
+     * is on; bubbles are labeled "[Free test picture…]" so nobody mistakes
+     * it for the real host model.
+     */
+    fun pollinationsUrl(prompt: String, width: Int = 512, height: Int = 512): String {
+        val q = java.net.URLEncoder.encode(prompt.trim(), "UTF-8")
+        return "https://image.pollinations.ai/prompt/$q?width=$width&height=$height&nologo=true"
+    }
 }

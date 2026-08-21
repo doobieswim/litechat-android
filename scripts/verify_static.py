@@ -374,9 +374,9 @@ def main() -> int:
     ok("R-019 imagine catch not raw e.message", "Image generation failed: ${e.message" not in vm)
     ok("browse bare url", "BrowseUrl.normalize" in vm)
     ok("browse fetch uses normalize", "BrowseUrl.normalize" in client)
-    ok("stop imagine job", "streamJob = viewModelScope.launch" in vm.split('text.startsWith("/imagine ")')[1][:800] if 'text.startsWith("/imagine ")' in vm else False)
-    ok("stop video job", "streamJob = viewModelScope.launch" in vm.split('text.startsWith("/video ")')[1][:800] if 'text.startsWith("/video ")' in vm else False)
-    ok("stop browse job", "streamJob = viewModelScope.launch" in vm.split('text.startsWith("/browse ")')[1][:800] if 'text.startsWith("/browse ")' in vm else False)
+    ok("stop imagine job", "streamJob = viewModelScope.launch" in vm.split('text.startsWith("/imagine ")) {')[1][:800] if 'text.startsWith("/imagine ")) {' in vm else False)
+    ok("stop video job", "streamJob = viewModelScope.launch" in vm.split('text.startsWith("/video ")) {')[1][:800] if 'text.startsWith("/video ")) {' in vm else False)
+    ok("stop browse job", "streamJob = viewModelScope.launch" in vm.split('text.startsWith("/browse ")) {')[1][:800] if 'text.startsWith("/browse ")) {' in vm else False)
     ok("FAB stops generate", "isGeneratingImage) onStop()" in screens)
     ok("key field masked", "PasswordVisualTransformation" in (KT_ROOT / "com/litechat/android/ui/ProviderSetupFields.kt").read_text())
     ok("memory decode missing hitCount", "hitCount" in (KT_ROOT / "com/litechat/android/data/context/MemoryManager.kt").read_text() and "decodeList" in (KT_ROOT / "com/litechat/android/data/context/MemoryManager.kt").read_text())
@@ -407,6 +407,10 @@ def main() -> int:
     ok("B-012 chat not named override", "getActiveKey()" not in vm)
     ok("B-012 overlay not named override", "getActiveKey()" not in overlay_kt)
     ok("B-012 Test wipes on switch", "LaunchedEffect(base, key, model)" in screens and "testMsg = null" in screens)
+    ok("free test toggle in settings", "Free test pictures (no key)" in screens and "onSetFreeTestImages" in screens)
+    ok("free test door in client", "fun pollinationsImage" in client and "image.pollinations.ai" in catalog)
+    ok("free test labeled not silent", "Free test picture" in vm and "Free test picture" in screens)
+    ok("imagine may run keyless", "imagineFreeOk" in vm)
 
     # Fastlane metadata is part of the build: F-Droid/Play read these files.
     # No Ruby gem. CI static-verify fails the job if listing copy is wrong.

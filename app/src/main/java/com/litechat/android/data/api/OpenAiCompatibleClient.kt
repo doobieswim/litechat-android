@@ -638,7 +638,7 @@ class OpenAiCompatibleClient(
         }
     }
 
-    private fun downloadImageBytes(url: String, apiKey: String): ByteArray {
+    private fun downloadImageBytes(url: String, apiKey: *** ByteArray {
         val tmp = java.io.File.createTempFile("pic", ".bin")
         try {
             streamUrlToFile(url, apiKey, tmp, googleKey = false)
@@ -650,6 +650,14 @@ class OpenAiCompatibleClient(
             tmp.delete()
         }
     }
+
+    /**
+     * Free /imagine test: Pollinations GET, no key, no credits.
+     * Blank key → no Authorization header (streamUrlToFile only adds one
+     * when the key is non-blank). Labeled "Free test" by the caller.
+     */
+    fun pollinationsImage(prompt: String, width: Int = 512, height: Int = 512): ByteArray =
+        downloadImageBytes(ProviderCatalog.pollinationsUrl(prompt, width, height), "")
 
     /**
      * C-027: Create a video generation job via Sora-compatible API.

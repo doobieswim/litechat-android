@@ -57,6 +57,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -211,6 +212,7 @@ fun LiteChatRoot(vm: ChatViewModel) {
             onSetKnobs = vm::setModelKnobs,
             onEditMemory = vm::editMemory,
             onDeleteMemory = vm::deleteMemory,
+            onSetFreeTestImages = vm::setFreeTestImages,
             onExportTemplates = { templatesExportLauncher.launch("byoai_templates.json") },
             onImportTemplates = { templatesImportLauncher.launch(arrayOf("application/json")) },
             backupPass = backupPass,
@@ -1113,6 +1115,13 @@ fun OnboardingScreen(
                         onModelChange = { model = it },
                         hostModels = hostModels,
                     )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Free starter: Google Gemini — free key, free chat and free pictures. " +
+                            "Groq is free chat only. OpenRouter free models can be busy.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 
@@ -1162,6 +1171,7 @@ fun SettingsScreen(
     onDeleteMemory: (String) -> Unit = {},
     onExportTemplates: () -> Unit = {},
     onImportTemplates: () -> Unit = {},
+    onSetFreeTestImages: (Boolean) -> Unit = {},
     backupPass: String = "",
     onBackupPass: (String) -> Unit = {},
 ) {
@@ -1343,6 +1353,25 @@ fun SettingsScreen(
                                 modelsMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                             }
                         }
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Free test pictures (no key)")
+                        Text(
+                            "Uses Pollinations and says \"Free test\" on the bubble. No credits needed.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = state.settings.freeTestImages,
+                        onCheckedChange = onSetFreeTestImages,
+                    )
+                }
+            }
             item {
                 OutlinedTextField(temp, { temp = it }, label = { Text("Temperature") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             }

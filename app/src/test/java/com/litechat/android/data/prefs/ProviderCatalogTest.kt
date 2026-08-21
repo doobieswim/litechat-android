@@ -131,6 +131,16 @@ class ProviderCatalogTest {
     }
 
     @Test
+    fun `pollinationsUrl encodes prompt and keeps params`() {
+        val url = ProviderCatalog.pollinationsUrl("a small red apple", 512, 512)
+        assertTrue(url.startsWith("https://image.pollinations.ai/prompt/"))
+        assertTrue(url.contains("a%20small%20red%20apple"))
+        assertTrue(url.contains("width=512"))
+        assertTrue(url.contains("height=512"))
+        assertTrue(url.contains("nologo=true"))
+    }
+
+    @Test
     fun `free-key providers stay marked not paid`() {
         for (id in listOf("gemini", "groq", "openrouter")) {
             val p = ProviderCatalog.PROVIDERS.first { it.id == id }

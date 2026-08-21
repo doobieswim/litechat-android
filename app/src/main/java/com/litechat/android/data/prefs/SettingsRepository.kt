@@ -50,6 +50,8 @@ data class AppSettings(
     /** P-001: voice daily-limit bookkeeping (free = 1/day). */
     val voiceDay: String = "",
     val voiceUsedToday: Int = 0,
+    /** Free /imagine test via Pollinations (no key, labeled "Free test"). */
+    val freeTestImages: Boolean = true,
 )
 
 /** C-012: prompt template with dynamic [Variable] fields. */
@@ -94,6 +96,7 @@ class SettingsRepository(
         val VOICE_DAY = stringPreferencesKey("voice_day")
         val VOICE_USED = stringPreferencesKey("voice_used_today")
         val FOLDERS = stringPreferencesKey("folders_json")
+        val FREE_TEST_IMAGES = booleanPreferencesKey("free_test_images")
     }
 
     /**
@@ -275,6 +278,7 @@ class SettingsRepository(
             backupReminderDone = p[Keys.BACKUP_REMINDER] ?: false,
             voiceDay = p[Keys.VOICE_DAY] ?: "",
             voiceUsedToday = p[Keys.VOICE_USED]?.toIntOrNull() ?: 0,
+            freeTestImages = p[Keys.FREE_TEST_IMAGES] ?: true,
         )
     }
 
@@ -300,6 +304,7 @@ class SettingsRepository(
         backupReminderDone: Boolean? = null,
         voiceDay: String? = null,
         voiceUsedToday: Int? = null,
+        freeTestImages: Boolean? = null,
     ) {
         context.dataStore.edit { p ->
             baseUrl?.let { p[Keys.BASE_URL] = it.trim().trimEnd('/') }
@@ -325,6 +330,7 @@ class SettingsRepository(
             backupReminderDone?.let { p[Keys.BACKUP_REMINDER] = it }
             voiceDay?.let { p[Keys.VOICE_DAY] = it }
             voiceUsedToday?.let { p[Keys.VOICE_USED] = it.toString() }
+            freeTestImages?.let { p[Keys.FREE_TEST_IMAGES] = it }
         }
     }
 

@@ -18,6 +18,7 @@ import com.litechat.android.data.db.SearchHit
 import com.litechat.android.data.prefs.ApiKeySanitizer
 import com.litechat.android.data.prefs.AppSettings
 import com.litechat.android.data.prefs.NamedKeyStore
+import com.litechat.android.data.prefs.ProviderCatalog
 import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.data.prefs.SettingsRepository
 import com.litechat.android.data.api.ChatOptions
@@ -429,7 +430,9 @@ class ChatViewModel(
         val settings = _state.value.settings
         val localEndpoint = settings.baseUrl.contains("127.0.0.1") ||
             settings.baseUrl.contains("localhost")
-        if (key.isBlank() && !localEndpoint) {
+        // /imagine may run keyless when the free-test toggle is on (Pollinations).
+        val imagineFreeOk = text.startsWith("/imagine ") && settings.freeTestImages
+        if (key.isBlank() && !localEndpoint && !imagineFreeOk) {
             _state.update { it.copy(error = "Add an API key in Settings") }
             return
         }
@@ -684,14 +687,41 @@ class ChatViewModel(
                 // P-014: text consumed — no draft left behind.
                 viewModelScope.launch { container.settingsRepository.clearDraft(convId) }
                 try {
-                    // C-028: network + decode + compress all on IO, never Main.
-                    val imageBytes = withContext(Dispatchers.IO) {
-                        container.openAiClient.generateImage(
-                            baseUrl = settings.baseUrl,
-                            apiKey = key,
-                            prompt = prompt,
-                            model = settings.model,
-                        )
+                    val freeTest = settings.freeTestImages
+                    val hostModel = ProviderCatalog.resolveImageModel(settings.baseUrl)
+                    var freeLabel: String? = null
+                    val imageBytes: ByteArray = if (key.isBlank() || hostModel == null) {
+                        if (!freeTest) {
+                            throw java.io.IOException(
+                                if (key.isBlank()) "Add an API key in Settings"
+                                else ProviderCatalog.cannotMakePicturesLine(settings.baseUrl)
+                            )
+                        }
+                        freeLabel = "[Free test picture — no key needed]"
+                        // C-028: network on IO, never Main.
+                        withContext(Dispatchers.IO) {
+                            container.openAiClient.pollinationsImage(prompt)
+                        }
+                    } else {
+                        try {
+                            // C-028: network + decode + compress all on IO, never Main.
+                            withContext(Dispatchers.IO) {
+                                container.openAiClient.generateImage(
+                                    baseUrl = settings.baseUrl,
+                                    apiKey = key,
+                                    prompt = prompt,
+                                    model = settings.model,
+                                )
+                            }
+                        } catch (e: java.util.concurrent.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            if (!freeTest) throw e
+                            freeLabel = "[Free test picture — the host could not make it]"
+                            withContext(Dispatchers.IO) {
+                                container.openAiClient.pollinationsImage(prompt)
+                            }
+                        }
                     }
                     // Save to cache dir, downscaled for weak devices.
                     val maxDim = ImageCacheConfig.maxSaveDimension(
@@ -720,9 +750,10 @@ class ChatViewModel(
                     }
                     // C-029: FIFO cleanup after every successful generation.
                     MediaCleanup.run(container.ctx)
+                    val label = freeLabel?.let { "$it\n" } ?: ""
                     container.chatRepository.addMessage(
                         convId, "assistant",
-                        "[IMAGE:${file.absolutePath}]"
+                        "${label}[IMAGE:${file.absolutePath}]"
                     )
                 } catch (e: java.util.concurrent.CancellationException) {
                     throw e
@@ -1277,6 +1308,13 @@ class ChatViewModel(
     fun acceptAcceptableUse() {
         viewModelScope.launch {
             container.settingsRepository.update(acceptableUseAccepted = true)
+        }
+    }
+
+    /** Free /imagine test via Pollinations (no key). Bubbles stay labeled. */
+    fun setFreeTestImages(on: Boolean) {
+        viewModelScope.launch {
+            container.settingsRepository.update(freeTestImages = on)
         }
     }
 
