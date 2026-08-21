@@ -1,6 +1,6 @@
 # Draft — request to xAI for a SuperGrok OAuth client (BYO AI)
 
-**Status:** Draft for the human to send (H-012, 2026-08-21). Not sent by any agent.
+**Status:** ~~Draft for the human to send (H-012, 2026-08-21). Not sent by any agent.~~ **BLOCKED 2026-08-21 — waiting on human's Gmail address + app password.** Human said "i set the email" but the credentials never reached the session. Send steps are at the bottom of this file.
 **Send to:** xAI developer support / API team (support@x.ai or console.x.ai help) — human picks the channel.
 **Re-check before sending:** `https://docs.x.ai` for any new "register your app / OAuth client" page. If xAI now has a self-serve app-registration portal, use it instead of this email.
 
@@ -26,3 +26,53 @@ I'm the developer of **BYO AI** (`com.byoai.chat`), a lightweight Android chat c
 Thank you for considering this — happy to answer any questions.
 
 — BYO AI developer
+
+---
+
+## How to send (for a future session — run AFTER the human pastes two lines: their Gmail address + a 16-letter Gmail app password)
+
+`himalaya` v2.1.0 is installed at `~/.local/bin/himalaya` (export PATH). Config: `~/.config/himalaya/config.toml` (chmod 600). Gmail app password: 2-Step Verification must be ON (myaccount.google.com → Security → App passwords).
+
+```toml
+[accounts.personal]
+email = "YOU@GMAIL.COM"
+display-name = "BYO AI developer"
+default = true
+
+backend.type = "imap"
+backend.host = "imap.gmail.com"
+backend.port = 993
+backend.encryption.type = "tls"
+backend.login = "YOU@GMAIL.COM"
+backend.auth.type = "password"
+backend.auth.cmd = "cat /opt/data/.gmail-app-pass"
+
+message.send.backend.type = "smtp"
+message.send.backend.host = "smtp.gmail.com"
+message.send.backend.port = 587
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.login = "YOU@GMAIL.COM"
+message.send.backend.auth.type = "password"
+message.send.backend.auth.cmd = "cat /opt/data/.gmail-app-pass"
+
+folder.aliases.inbox = "INBOX"
+folder.aliases.sent = "[Gmail]/Sent Mail"
+folder.aliases.drafts = "[Gmail]/Drafts"
+folder.aliases.trash = "[Gmail]/Trash"
+```
+
+Then send the draft body above with:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+cat << 'EOF' | himalaya template send
+From: YOU@GMAIL.COM
+To: support@x.ai
+Subject: OAuth device-code client request for a thin Android BYOK client (SuperGrok quota login)
+
+<paste the draft body from the top of this file>
+EOF
+```
+
+**Do NOT:** store the real Google password (app password only, in `/opt/data/.gmail-app-pass`, chmod 600); print the app password into chat; use Hermes's `client_id`; enable the OAuth build until xAI issues **this app** its own client.
+
