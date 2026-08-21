@@ -411,6 +411,7 @@ def main() -> int:
     ok("free test door in client", "fun pollinationsImage" in client and "image.pollinations.ai" in catalog)
     ok("free test labeled not silent", "Free test picture" in vm and "Free test picture" in screens)
     ok("imagine may run keyless", "imagineFreeOk" in vm)
+    ok("video free-test honesty", "Video needs a provider key" in vm)
 
     # Fastlane metadata is part of the build: F-Droid/Play read these files.
     # No Ruby gem. CI static-verify fails the job if listing copy is wrong.

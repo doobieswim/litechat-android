@@ -433,7 +433,12 @@ class ChatViewModel(
         // /imagine may run keyless when the free-test toggle is on (Pollinations).
         val imagineFreeOk = text.startsWith("/imagine ") && settings.freeTestImages
         if (key.isBlank() && !localEndpoint && !imagineFreeOk) {
-            _state.update { it.copy(error = "Add an API key in Settings") }
+            val line = if (text.startsWith("/video ")) {
+                "Video needs a provider key — free test covers pictures only. Gemini or Grok can make videos."
+            } else {
+                "Add an API key in Settings"
+            }
+            _state.update { it.copy(error = line) }
             return
         }
 

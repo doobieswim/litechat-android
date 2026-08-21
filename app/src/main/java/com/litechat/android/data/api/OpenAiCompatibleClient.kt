@@ -638,7 +638,7 @@ class OpenAiCompatibleClient(
         }
     }
 
-    private fun downloadImageBytes(url: String, apiKey: *** ByteArray {
+    private fun downloadImageBytes(url: String, apiKey: String): ByteArray {
         val tmp = java.io.File.createTempFile("pic", ".bin")
         try {
             streamUrlToFile(url, apiKey, tmp, googleKey = false)
