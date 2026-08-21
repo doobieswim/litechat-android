@@ -888,36 +888,51 @@ private fun MessageBubble(
 ) {
     val isUser = msg.role == "user"
 
-    // C-011: render image messages with Coil AsyncImage.
-    if (!isUser && msg.content.startsWith("[IMAGE:")) {
-        val path = msg.content.removePrefix("[IMAGE:").removeSuffix("]")
+    // C-011: render image messages with Coil AsyncImage. The marker can be
+    // mid-content (C-036 free-test labels sit before it), so find it, not
+    // just startsWith.
+    if (!isUser && msg.content.contains("[IMAGE:")) {
+        val imgStart = msg.content.indexOf("[IMAGE:")
+        val label = msg.content.substring(0, imgStart).trim()
+        val marker = msg.content.substring(imgStart)
+        val path = marker.removePrefix("[IMAGE:").removeSuffix("]")
         val file = File(path)
         if (file.exists()) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .widthIn(max = 520.dp)
-                        .combinedClickable(onClick = {}, onLongClick = { onLongPress(msg) }),
-                ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(file)
-                            .crossfade(true)
-                            // C-030: band-tuned decode size — never decode larger than the
-                            // device's free-RAM band needs (was a hardcoded 540x540).
-                            .size(ImageCacheConfig.displaySize(
-                                DeviceCompat.snapshot(LocalContext.current).band
-                            ))
-                            .build(),
-                        contentDescription = "Generated image",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.FillWidth,
+            Column(Modifier.fillMaxWidth()) {
+                if (label.isNotEmpty()) {
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 2.dp),
                     )
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .widthIn(max = 520.dp)
+                            .combinedClickable(onClick = {}, onLongClick = { onLongPress(msg) }),
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(file)
+                                .crossfade(true)
+                                // C-030: band-tuned decode size — never decode larger than the
+                                // device's free-RAM band needs (was a hardcoded 540x540).
+                                .size(ImageCacheConfig.displaySize(
+                                    DeviceCompat.snapshot(LocalContext.current).band
+                                ))
+                                .build(),
+                            contentDescription = "Generated image",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.FillWidth,
+                        )
+                    }
                 }
             }
             return

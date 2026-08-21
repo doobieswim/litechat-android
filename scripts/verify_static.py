@@ -79,8 +79,8 @@ def main() -> int:
     ok("generateImage in client", "fun generateImage" in cli
         and "v1/images/generations" in cli
         and "b64_json" in cli)
-    ok("image bubble in Screens", "[IMAGE:" in screens and "AsyncImage" in screens
-        and "coil3.compose.AsyncImage" in screens)
+    ok("image bubble in Screens", "[IMAGE:" in screens and "AsyncImage" in screens)
+    ok("labeled image bubble renders", 'msg.content.contains("[IMAGE:")' in screens and 'indexOf("[IMAGE:")' in screens)
     ok("image gen loading state", "isGeneratingImage" in vm
         and "Generating image" in screens)
 

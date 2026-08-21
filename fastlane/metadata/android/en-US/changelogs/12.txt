@@ -1,0 +1,1 @@
+Free test pictures now show the picture (the label sits above it instead of hiding the image).
