@@ -118,3 +118,13 @@ Agents must not guess these. Answer briefly; research/coding will update BACKLOG
 - **Options:** keep four roles and paste a one-off debug brief · add `LITECHAT-DEBUG` as a fifth role
 - **Recommendation:** Fifth role. Owns `docs/BUGS.md`. Does not edit `app/**`. No Gradle. Proven `B-00N` bugs may go Ready without PROOF.
 - **Decision:** **Yes — `LITECHAT-DEBUG`** (human 2026-08-21). Bible: `docs/BUGS.md`.
+
+### H-012 — SuperGrok OAuth (ask xAI for a client_id)
+- **From:** human (2026-08-21: "can you add supergrok oauth", then "yes" to drafting the ask)
+- **Decision needed:** Send the request to xAI, or leave the track-note only.
+- **Facts:** Thin client cannot copy Hermes's `client_id` (impersonation; xAI can 403/revoke; honesty law). xAI has no public app-registration path; Hermes got its OAuth client via the xAI+Nous partnership. One-tap SuperGrok login in BYO AI is possible **only if xAI issues THIS app its own OAuth client** (device-code flow, PKCE, `com.byoai.chat`).
+- **Options:**
+  - **A) Send the drafted request** — email/support to xAI developers asking for a device-code OAuth client for `com.byoai.chat` (SuperGrok/X Premium+ quota). Outcome unknown; if yes, the OAuth build becomes real.
+  - **B) Track only** — note it in BACKLOG + this file; a future session re-checks xAI docs before re-asking. Nothing sent.
+- **Recommendation:** **A** — one message, zero risk, and it makes the button honest if xAI says yes. Until they answer, Grok stays paste-key with the money line.
+- **Decision:** **A — send the draft** (human 2026-08-21). Draft is in `docs/XAI-OAUTH-REQUEST-DRAFT.md`; reply goes here.

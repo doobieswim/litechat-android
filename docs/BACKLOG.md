@@ -121,12 +121,18 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 - **Log:** phone 2026-08-21 Groq Test success + stream 401 invalid_api_key
 
 ### C-036 — Free test pictures (Pollinations, no key)
-- **Status:** Done — WIRE 2026-08-21. Human asked for a free way to test `/imagine` with no credits. Settings toggle "Free test pictures (no key)" (default ON, labeled bubbles). `/imagine` with blank key or a host that cannot make pictures → Pollinations GET (no key). If the real host errors and the toggle is on → Pollinations fallback, labeled "[Free test picture — the host could not make it]". Onboarding adds a free-starter hint (Gemini = free chat + pictures, Groq = chat only, OpenRouter free models busy). Files: `ProviderCatalog.kt` (pollinationsUrl), `OpenAiCompatibleClient.kt` (pollinationsImage), `ChatViewModel.kt` (keyless /imagine + label + setFreeTestImages), `SettingsRepository.kt` (freeTestImages), `Screens.kt` (toggle + hint), `ProviderCatalogTest.kt`, `verify_static.py`. Verify: **244/244**. Cost: $0 — Pollinations is a free public endpoint (verified HTTP 200 image 2026-08-21).
-- **AC:**
-  - [x] `/imagine` works with no key when the toggle is on
-  - [x] Free-test bubbles are labeled, never silent substitution
-  - [x] With a working key the real host still runs
-  - [x] Static guards + JVM test for the URL
+- **Status:** Done — WIRE 2026-08-21. Human asked for a free way to test `/imagine` with no credits. Settings toggle "Free test pictures (no key)" (default ON, labeled bubbles). `/imagine` with blank key or a host that cannot make pictures → Pollinations GET (no key). If the real host errors and the toggle is on → Pollinations fallback, labeled "[Free test picture — the host could not make it]". Onboarding adds a free-starter hint (Gemini = free chat + pictures, Groq = chat only, OpenRouter free models busy). Files: `ProviderCatalog.kt` (pollinationsUrl), `OpenAiCompatibleClient.kt` (pollinationsImage), `ChatViewModel.kt` (keyless /imagine + label + setFreeTestImages), `SettingsRepository.kt` (freeTestImages), `Screens.kt` (toggle + hint), `ProviderCatalogTest.kt`, `verify_static.py`. Verify: **245/245** (after REVIEW fix: `downloadImageBytes` signature — the `***` redaction trap; video honesty line). Cost: $0 — Pollinations is a free public endpoint (verified HTTP 200 image 2026-08-21).
+
+### R-025 — SuperGrok OAuth via xAI client (track, do not build yet)
+- **Status:** Research — H-012 (human 2026-08-21) chose **A: send the drafted ask**. Draft: `docs/XAI-OAUTH-REQUEST-DRAFT.md`. Do not build OAuth until xAI issues **this app** its own `client_id` (device-code, PKCE, `com.byoai.chat`).
+- **Why:** Thin client must not copy Hermes's `client_id` (impersonation; 403/revoke; honesty law). xAI has no public app-registration path (checked 2026-08-21). One-tap SuperGrok login is possible only with our own client.
+- **AC (when xAI answers):**
+  - [ ] Re-check `docs.x.ai` for a self-serve app-registration portal before emailing
+  - [ ] If a client is granted: device-code flow + PKCE, browser consent, "Sign in with Grok" only after the client exists
+  - [ ] Paste-key Grok stays the fallback with the "can cost money" line
+  - [ ] Note SuperGrok-tier 403 caveat (issue #26847) in the gating
+- **Out of scope:** copying Hermes's client_id; bundling Hermes/Termux for OAuth; a fake sign-in button.
+- **Cost:** $0 to ask. If xAI grants a client, OAuth build is a new ticket with its own cost note.
 
 ### C-032 — Play compliance: in-app AI-content reporting + acceptable-use (policy-mandated)
 - **Status:** Done — WIRE 2026-08-15. PROOF approved Research B 2026-08-15 (this ticket was flagged for pre-PROOF Ready; re-affirmed post-approval). Not a product choice: Play rejects apps that generate AI content without in-app reporting. Independent of H-008.
