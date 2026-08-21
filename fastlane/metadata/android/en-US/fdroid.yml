@@ -10,10 +10,10 @@ Categories:
 License: MIT
 AuthorName: BYO AI
 AuthorEmail: litechat@proton.me
-WebSite: https://github.com/flamingspade1995-coder/litechat-android
-SourceCode: https://github.com/flamingspade1995-coder/litechat-android
-IssueTracker: https://github.com/flamingspade1995-coder/litechat-android/issues
-Changelog: https://github.com/flamingspade1995-coder/litechat-android/releases
+WebSite: https://github.com/doobieswim/litechat-android
+SourceCode: https://github.com/doobieswim/litechat-android
+IssueTracker: https://github.com/doobieswim/litechat-android/issues
+Changelog: https://github.com/doobieswim/litechat-android/releases
 
 AutoName: BYO AI
 Summary: Thin BYOK AI chat client for Android. Bring your own OpenAI-compatible key.
@@ -37,7 +37,7 @@ Description: |
   This build has no ads, no Google Play services, and no billing. Free forever.
 
 RepoType: git
-Repo: https://github.com/flamingspade1995-coder/litechat-android
+Repo: https://github.com/doobieswim/litechat-android
 
 Builds:
   - versionName: '1.0.0'

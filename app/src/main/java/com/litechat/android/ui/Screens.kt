@@ -1545,7 +1545,7 @@ fun SettingsScreen(
                 )
             }
             item {
-                val privacyUrl = "https://flamingspade1995-coder.github.io/litechat-android/privacy.html"
+                val privacyUrl = "https://doobieswim.github.io/litechat-android/privacy.html"
                 TextButton(onClick = {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(privacyUrl))
                     context.startActivity(intent)

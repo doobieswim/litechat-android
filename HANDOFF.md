@@ -9,7 +9,7 @@ If the human says that word (alone or in a sentence), you are the **coding agent
 |-------|--------|
 | Product | **LiteChat** — thin BYOK OpenAI-compatible chat for weak Android phones |
 | Repo root | `/opt/data/workspace/byok-chat-android` |
-| GitHub | **public**: `github.com/flamingspade1995-coder/litechat-android` (CI: `.github/workflows/build.yml` — static-verify + assembleRelease + 20MB APK gate) |
+| GitHub | **public**: `github.com/doobieswim/litechat-android` (CI: `.github/workflows/build.yml` — static-verify + assembleRelease + 20MB APK gate). Old `flamingspade1995-coder` account is lost; do not push there. |
 | Package | `com.litechat.android` |
 | Skill (patterns) | Hermes skill `android-byok-chat-apps` |
 | Sister role | **DIG** writes `docs/` + Research tickets. **PROOF** (`LITECHAT-PROOF`) grades those docs → `docs/RESEARCH-REVIEW.md`; Ready only after Approve. **REVIEW** (`LITECHAT-REVIEW`) grades your code → `docs/REVIEW.md`. **You** implement Ready tickets and fix code-review issues. |

@@ -40,7 +40,7 @@ Sub is about running modern software on old Android — this fits exactly. Post 
 > - Open source, MIT, FOSS flavor with no Google services
 > - Android 8.0+
 >
-> Downloads: [GitHub Releases](https://github.com/flamingspade1995-coder/litechat-android/releases) · [F-Droid](https://f-droid.org/) (submitted)
+> Downloads: [GitHub Releases](https://github.com/doobieswim/litechat-android/releases) · [F-Droid](https://f-droid.org/) (submitted)
 >
 > I tested it on [insert real phone + RAM number here]. Happy to answer questions.
 
@@ -53,7 +53,7 @@ Sub is about running modern software on old Android — this fits exactly. Post 
 Fork [yatsyk/awesome-byok-apps](https://github.com/yatsyk/awesome-byok-apps), add to the Android list, open PR. Suggested entry:
 
 ```markdown
-- [BYO AI](https://github.com/flamingspade1995-coder/litechat-android) — Android. Thin BYOK chat for OpenAI-compatible APIs. 4GB-friendly (1.6 MB APK), honest low-memory check, ads + one-time $4.99 Pro, FOSS flavor without Google services.
+- [BYO AI](https://github.com/doobieswim/litechat-android) — Android. Thin BYOK chat for OpenAI-compatible APIs. 4GB-friendly (1.6 MB APK), honest low-memory check, ads + one-time $4.99 Pro, FOSS flavor without Google services.
 ```
 
 ---

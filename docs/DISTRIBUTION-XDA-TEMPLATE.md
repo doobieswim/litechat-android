@@ -33,7 +33,7 @@ A lightweight AI chat client that connects to YOUR OpenAI-compatible API key. No
 
 ## Download
 
-- **GitHub Releases:** https://github.com/flamingspade1995-coder/litechat-android/releases
+- **GitHub Releases:** https://github.com/doobieswim/litechat-android/releases
 - **Play Store:** [Coming soon]
 - **F-Droid:** [Coming soon]
 
