@@ -24,7 +24,7 @@ class SecureStore(context: Context) {
     fun getApiKey(): String = prefs.getString(KEY_API, "") ?: ""
 
     fun setApiKey(value: String) {
-        prefs.edit().putString(KEY_API, value.trim()).apply()
+        prefs.edit().putString(KEY_API, ApiKeySanitizer.headerSafe(value)).apply()
     }
 
     /** C-017: failover provider keys, stored encrypted (REVIEW finding B1). */
@@ -32,7 +32,7 @@ class SecureStore(context: Context) {
         prefs.getString(providerKey(providerId), "") ?: ""
 
     fun setProviderKey(providerId: String, value: String) {
-        prefs.edit().putString(providerKey(providerId), value.trim()).apply()
+        prefs.edit().putString(providerKey(providerId), ApiKeySanitizer.headerSafe(value)).apply()
     }
 
     fun removeProviderKey(providerId: String) {

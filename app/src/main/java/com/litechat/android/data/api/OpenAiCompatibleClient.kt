@@ -32,6 +32,7 @@ import java.io.FileOutputStream
 import java.net.URLEncoder
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import com.litechat.android.data.prefs.ApiKeySanitizer
 import com.litechat.android.data.prefs.ProviderCatalog
 
 sealed class StreamEvent {
@@ -178,12 +179,18 @@ class OpenAiCompatibleClient(
                     } else if (streamError != null) {
                         trySend(StreamEvent.Error(streamError!!))
                     }
+                } catch (e: java.util.concurrent.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    trySend(
-                        StreamEvent.Error(
-                            "Stream failed ($streamError); fallback: ${e.message}",
-                        ),
-                    )
+                    if (userCancelled || activeCall?.isCanceled() == true) {
+                        canceled = true
+                    } else {
+                        trySend(
+                            StreamEvent.Error(
+                                "Stream failed ($streamError); fallback: ${e.message}",
+                            ),
+                        )
+                    }
                 }
             } else if (streamError != null && !gotDelta) {
                 trySend(StreamEvent.Error(streamError!!))
@@ -230,7 +237,7 @@ class OpenAiCompatibleClient(
             .get()
             .header("Accept", "application/json")
         if (apiKey.isNotBlank()) {
-            builder.header("Authorization", "Bearer $apiKey")
+            builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
         }
         val call = client.newCall(builder.build())
         activeCall = call
@@ -259,7 +266,7 @@ class OpenAiCompatibleClient(
      * Returns plain text, truncated to ~8K chars (≈2K tokens).
      */
     fun fetchPage(url: String): String {
-        val doc = org.jsoup.Jsoup.connect(url)
+        val doc = org.jsoup.Jsoup.connect(BrowseUrl.normalize(url))
             .userAgent("LiteChat/0.1 (Android; BYOK)")
             .timeout(15_000)
             .get()
@@ -313,6 +320,61 @@ class OpenAiCompatibleClient(
         imageFile: File,
         prompt: String,
     ): ByteArray {
+        val editModel = ProviderCatalog.resolveEditModel(baseUrl)
+            ?: throw IOException(ProviderCatalog.cannotEditPicturesLine(baseUrl))
+        return if (ProviderCatalog.fromBaseUrl(baseUrl).id == "xai") {
+            editXaiImage(baseUrl, apiKey, imageFile, prompt, editModel)
+        } else {
+            editOpenAiImage(baseUrl, apiKey, imageFile, prompt, editModel)
+        }
+    }
+
+    /** R-020: xAI rejects multipart. JSON + data URI. */
+    private fun editXaiImage(
+        baseUrl: String,
+        apiKey: String,
+        imageFile: File,
+        prompt: String,
+        editModel: String,
+    ): ByteArray {
+        if (imageFile.length() > 4L * 1024 * 1024) {
+            throw IOException("That picture is too big to edit.")
+        }
+        val mime = when {
+            imageFile.name.endsWith(".jpg", ignoreCase = true) ||
+                imageFile.name.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
+            else -> "image/png"
+        }
+        val dataUri = "data:$mime;base64," +
+            Base64.encodeToString(imageFile.readBytes(), Base64.NO_WRAP)
+        val payload = xaiEditJson(editModel, prompt, dataUri)
+        val url = imagesUrl(baseUrl, "edits")
+        val builder = Request.Builder()
+            .url(url)
+            .post(payload.toRequestBody(JSON))
+            .header("Content-Type", "application/json")
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
+        val call = client.newCall(builder.build())
+        activeCall = call
+        call.execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                if (response.code == 404 || response.code == 405) {
+                    throw IOException(ProviderCatalog.cannotEditPicturesLine(baseUrl))
+                }
+                throw mediaHttpError("pictures", response.code, raw)
+            }
+            return decodeEditedImage(raw, apiKey)
+        }
+    }
+
+    private fun editOpenAiImage(
+        baseUrl: String,
+        apiKey: String,
+        imageFile: File,
+        prompt: String,
+        editModel: String,
+    ): ByteArray {
         val root = baseUrl.trim().trimEnd('/')
         val url = imagesUrl(root, "edits")
         val mime = when {
@@ -328,33 +390,42 @@ class OpenAiCompatibleClient(
                 imageFile.asRequestBody(mime.toMediaType()),
             )
             .addFormDataPart("prompt", prompt)
+            .addFormDataPart("model", editModel)
             .addFormDataPart("n", "1")
             .addFormDataPart("response_format", "b64_json")
             .build()
         val builder = Request.Builder().url(url).post(body)
-        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
         val call = client.newCall(builder.build())
         activeCall = call
         call.execute().use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
                 if (response.code == 404 || response.code == 405) {
-                    throw IOException("This provider cannot edit images.")
+                    throw IOException(ProviderCatalog.cannotEditPicturesLine(baseUrl))
                 }
                 throw IOException("HTTP ${response.code}: ${raw.take(400)}")
             }
-            val rootObj = json.parseToJsonElement(raw).jsonObject
-            val data = rootObj["data"]?.jsonArray
-                ?: throw IOException("No data in image edit response")
-            if (data.isEmpty()) throw IOException("Empty image edit response")
-            val b64 = data[0].jsonObject["b64_json"]?.jsonPrimitive?.contentOrNull
-                ?: throw IOException("No b64_json in image edit response")
-            return Base64.decode(b64, Base64.DEFAULT)
+            return decodeEditedImage(raw, apiKey)
         }
+    }
+
+    private fun decodeEditedImage(raw: String, apiKey: String): ByteArray {
+        val rootObj = json.parseToJsonElement(raw).jsonObject
+        val first = rootObj["data"]?.jsonArray?.firstOrNull()?.jsonObject
+        val b64 = first?.get("b64_json")?.jsonPrimitive?.contentOrNull
+            ?: rootObj["b64_json"]?.jsonPrimitive?.contentOrNull
+        if (!b64.isNullOrBlank()) return Base64.decode(b64, Base64.DEFAULT)
+        val urlHit = first?.get("url")?.jsonPrimitive?.contentOrNull
+            ?: rootObj["url"]?.jsonPrimitive?.contentOrNull
+        if (!urlHit.isNullOrBlank()) return downloadImageBytes(urlHit, apiKey)
+        throw IOException("This provider cannot edit pictures.")
     }
 
     /** P-001: Whisper-compatible transcription. */
     fun transcribeAudio(baseUrl: String, apiKey: String, audioFile: File): String {
+        val stt = ProviderCatalog.resolveSttModel(baseUrl)
+            ?: throw IOException("${ProviderCatalog.fromBaseUrl(baseUrl).name} cannot turn speech into text.")
         val root = baseUrl.trim().trimEnd('/')
         val url = if (root.endsWith("/audio/transcriptions")) root
         else "$root/audio/transcriptions".replace("/v1/v1/", "/v1/")
@@ -366,10 +437,10 @@ class OpenAiCompatibleClient(
                 audioFile.name,
                 audioFile.asRequestBody("audio/m4a".toMediaType()),
             )
-            .addFormDataPart("model", "whisper-1")
+            .addFormDataPart("model", stt)
             .build()
         val builder = Request.Builder().url(finalUrl).post(body)
-        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
         val call = client.newCall(builder.build())
         activeCall = call
         call.execute().use { response ->
@@ -391,12 +462,14 @@ class OpenAiCompatibleClient(
         dest: File,
         voice: String = "alloy",
     ) {
+        val tts = ProviderCatalog.resolveTtsModel(baseUrl)
+            ?: throw IOException("${ProviderCatalog.fromBaseUrl(baseUrl).name} cannot speak out loud.")
         val root = baseUrl.trim().trimEnd('/')
         val url = if (root.endsWith("/audio/speech")) root else "$root/audio/speech".let {
             if (it.contains("/v1/audio/speech")) it else "$root/v1/audio/speech"
         }
         val payload = buildJsonObject {
-            put("model", "tts-1")
+            put("model", tts)
             put("input", text.take(4096))
             put("voice", voice)
         }.toString()
@@ -404,7 +477,7 @@ class OpenAiCompatibleClient(
             .url(url)
             .post(payload.toRequestBody(JSON))
             .header("Accept", "audio/mpeg")
-        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
         val call = client.newCall(builder.build())
         activeCall = call
         call.execute().use { response ->
@@ -434,9 +507,9 @@ class OpenAiCompatibleClient(
         model: String? = null,
         size: String = "1024x1024",
     ): ByteArray {
-        val chosen = model?.takeIf { it.isNotBlank() }
+        val chosen = model?.takeIf { it.isNotBlank() && it.contains("image", ignoreCase = true) }
             ?: ProviderCatalog.resolveImageModel(baseUrl)
-            ?: throw IOException("This provider cannot make pictures.")
+            ?: throw IOException(ProviderCatalog.cannotMakePicturesLine(baseUrl))
         val tries = listOf(chosen) + ProviderCatalog.imageModelFallbacks(baseUrl)
         var last: IOException? = null
         val native = ProviderCatalog.imageUsesNativeGenerate(baseUrl)
@@ -455,7 +528,7 @@ class OpenAiCompatibleClient(
                 if (!notFound) throw e
             }
         }
-        throw last ?: IOException("This provider cannot make pictures.")
+        throw last ?: IOException(ProviderCatalog.cannotMakePicturesLine(baseUrl))
     }
 
     private fun generateGeminiImage(
@@ -518,13 +591,19 @@ class OpenAiCompatibleClient(
         size: String,
     ): ByteArray {
         val root = baseUrl.trim().trimEnd('/')
-        val url = imagesUrl(root, "generations")
+        val url = if (ProviderCatalog.imageUsesOpenRouter(baseUrl)) {
+            openrouterImagesUrl(root)
+        } else {
+            imagesUrl(root, "generations")
+        }
         val body = buildJsonObject {
             put("model", model)
             put("prompt", prompt)
             put("n", 1)
-            put("size", size)
-            put("response_format", "b64_json")
+            if (!ProviderCatalog.imageUsesOpenRouter(baseUrl)) {
+                put("size", size)
+                put("response_format", "b64_json")
+            }
         }
         val builder = Request.Builder()
             .url(url)
@@ -532,7 +611,7 @@ class OpenAiCompatibleClient(
             .header("Content-Type", "application/json")
             .header("Accept", "application/json")
         if (apiKey.isNotBlank()) {
-            builder.header("Authorization", "Bearer $apiKey")
+            builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
         }
         val call = client.newCall(builder.build())
         activeCall = call
@@ -559,13 +638,15 @@ class OpenAiCompatibleClient(
     }
 
     private fun downloadImageBytes(url: String, apiKey: String): ByteArray {
-        val builder = Request.Builder().url(url).get()
-        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
-        client.newCall(builder.build()).execute().use { r ->
-            if (!r.isSuccessful) {
-                throw mediaHttpError("pictures", r.code, r.body?.string().orEmpty())
+        val tmp = java.io.File.createTempFile("pic", ".bin")
+        try {
+            streamUrlToFile(url, apiKey, tmp, googleKey = false)
+            if (tmp.length() > 8L * 1024 * 1024) {
+                throw IOException("That picture is too big.")
             }
-            return r.body?.bytes() ?: throw IOException("This provider cannot make pictures.")
+            return tmp.readBytes()
+        } finally {
+            tmp.delete()
         }
     }
 
@@ -581,7 +662,7 @@ class OpenAiCompatibleClient(
         size: String = "1280x720",
     ): String {
         val model = ProviderCatalog.resolveVideoModel(baseUrl)
-            ?: throw IOException("This provider cannot make videos.")
+            ?: throw IOException(ProviderCatalog.cannotMakeVideosLine(baseUrl))
         return when {
             ProviderCatalog.videoUsesNativeVeo(baseUrl) ->
                 createVeoVideo(baseUrl, apiKey, model, prompt)
@@ -639,7 +720,7 @@ class OpenAiCompatibleClient(
             .url(url)
             .post(body.toString().toRequestBody(JSON))
             .header("Content-Type", "application/json")
-        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
         val call = client.newCall(builder.build())
         activeCall = call
         call.execute().use { response ->
@@ -671,7 +752,7 @@ class OpenAiCompatibleClient(
             .url(url)
             .post(body.toString().toRequestBody(JSON))
             .header("Content-Type", "application/json")
-        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+        if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
         val call = client.newCall(builder.build())
         activeCall = call
         call.execute().use { response ->
@@ -749,7 +830,7 @@ class OpenAiCompatibleClient(
         while (System.currentTimeMillis() - start < timeout) {
             val url = xaiVideoPollUrl(baseUrl, jobId)
             val builder = Request.Builder().url(url).get()
-            if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+            if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
             val call = client.newCall(builder.build())
             activeCall = call
             val raw = call.execute().use { it.body?.string().orEmpty() }
@@ -780,7 +861,7 @@ class OpenAiCompatibleClient(
         while (System.currentTimeMillis() - start < timeout) {
             val url = "$root/$jobId"
             val builder = Request.Builder().url(url).get()
-            if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer $apiKey")
+            if (apiKey.isNotBlank()) builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
             val call = client.newCall(builder.build())
             activeCall = call
             val raw = call.execute().use { it.body?.string().orEmpty() }
@@ -811,7 +892,7 @@ class OpenAiCompatibleClient(
     ) {
         val builder = Request.Builder().url(url).get()
         if (apiKey.isNotBlank()) {
-            if (googleKey) builder.geminiKey(apiKey) else builder.header("Authorization", "Bearer $apiKey")
+            if (googleKey) builder.geminiKey(apiKey) else builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
         }
         val call = client.newCall(builder.build())
         activeCall = call
@@ -837,7 +918,8 @@ class OpenAiCompatibleClient(
 
     /** Gemini native doors reject Authorization: Bearer + an API key (401 OAuth). */
     private fun Request.Builder.geminiKey(apiKey: String): Request.Builder {
-        if (apiKey.isNotBlank()) header("x-goog-api-key", apiKey)
+        val k = ApiKeySanitizer.headerSafe(apiKey)
+        if (k.isNotBlank()) header("x-goog-api-key", k)
         return this
     }
 
@@ -883,7 +965,7 @@ class OpenAiCompatibleClient(
             .header("Content-Type", "application/json")
             .header("Accept", if (stream) "text/event-stream" else "application/json")
         if (apiKey.isNotBlank()) {
-            builder.header("Authorization", "Bearer $apiKey")
+            builder.header("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(apiKey)}")
         }
         builder.header("HTTP-Referer", "https://litechat.local")
         builder.header("X-Title", "LiteChat")
@@ -928,6 +1010,19 @@ class OpenAiCompatibleClient(
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
 
+        fun xaiEditJson(model: String, prompt: String, dataUri: String): String =
+            buildJsonObject {
+                put("model", model)
+                put("prompt", prompt)
+                put(
+                    "image",
+                    buildJsonObject {
+                        put("url", dataUri)
+                        put("type", "image_url")
+                    },
+                )
+            }.toString()
+
         fun friendlyMediaError(kind: String, code: Int, raw: String): String {
             if (code == 404 || code == 405) return "This provider cannot make $kind."
             val blob = raw.replace('\n', ' ')
@@ -948,6 +1043,12 @@ class OpenAiCompatibleClient(
                     root.replace("/generations", "/edits")
                 else -> "$root/images/$kind"
             }
+        }
+
+        /** OpenRouter pictures: POST /api/v1/images — not /images/generations. */
+        fun openrouterImagesUrl(baseUrl: String): String {
+            val root = baseUrl.trim().trimEnd('/')
+            return if (root.endsWith("/images")) root else "$root/images"
         }
 
         fun geminiNativeRoot(baseUrl: String): String {

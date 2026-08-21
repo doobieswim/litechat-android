@@ -34,6 +34,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.ViewTreeLifecycleOwner
+import androidx.lifecycle.ViewTreeViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.litechat.android.LiteChatApp
 import com.litechat.android.data.api.ChatMessageDto
 import com.litechat.android.data.context.ContextTrimmer
@@ -54,6 +65,7 @@ class OverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
     private var overlayView: ComposeView? = null
+    private var overlayLifecycle: OverlayComposeLifecycle? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -89,6 +101,9 @@ class OverlayService : Service() {
         val container = (applicationContext as LiteChatApp).container
 
         overlayView = ComposeView(this).apply {
+            val life = OverlayComposeLifecycle()
+            overlayLifecycle = life
+            life.attach(this)
             setContent {
                 MaterialTheme {
                     var input by remember { mutableStateOf("") }
@@ -104,7 +119,7 @@ class OverlayService : Service() {
                         Column(Modifier.padding(8.dp)) {
                             OutlinedTextField(
                                 value = input,
-                                onValueChange = { input = it },
+                                onValueChange = { input = InputPolicy.cap(it) },
                                 modifier = Modifier.fillMaxWidth().heightIn(max = 100.dp),
                                 placeholder = { Text("Ask AI…") },
                                 maxLines = 3,
@@ -215,6 +230,8 @@ class OverlayService : Service() {
     }
 
     fun hideOverlay() {
+        overlayLifecycle?.destroy()
+        overlayLifecycle = null
         overlayView?.let { windowManager.removeView(it) }
         overlayView = null
     }
@@ -239,5 +256,35 @@ class OverlayService : Service() {
             NotificationManager.IMPORTANCE_LOW
         )
         manager.createNotificationChannel(channel)
+    }
+}
+
+private class OverlayComposeLifecycle : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    private val store = ViewModelStore()
+    private val savedStateRegistryController = SavedStateRegistryController.create(this)
+
+    init {
+        savedStateRegistryController.performRestore(null)
+        lifecycleRegistry.currentState = Lifecycle.State.CREATED
+    }
+
+    override val lifecycle: Lifecycle get() = lifecycleRegistry
+    override val viewModelStore: ViewModelStore get() = store
+    override val savedStateRegistry: SavedStateRegistry
+        get() = savedStateRegistryController.savedStateRegistry
+
+    fun attach(view: android.view.View) {
+        lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+        ViewTreeLifecycleOwner.set(view, this)
+        ViewTreeViewModelStoreOwner.set(view, this)
+        view.setViewTreeSavedStateRegistryOwner(this)
+    }
+
+    fun destroy() {
+        if (lifecycleRegistry.currentState != Lifecycle.State.INITIALIZED) {
+            lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+        }
+        store.clear()
     }
 }

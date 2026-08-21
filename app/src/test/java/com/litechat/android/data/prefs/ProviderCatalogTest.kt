@@ -72,6 +72,8 @@ class ProviderCatalogTest {
         assertEquals("gpt-5.6-luna", ProviderCatalog.resolveModel("gpt-4o-mini"))
         assertEquals("openrouter/free", ProviderCatalog.resolveModel("openai/gpt-4o-mini"))
         assertEquals("deepseek-v4-flash", ProviderCatalog.resolveModel("deepseek-chat"))
+        assertEquals("openai/gpt-oss-20b", ProviderCatalog.resolveModel("llama-3.1-8b-instant"))
+        assertEquals("openai/gpt-oss-120b", ProviderCatalog.resolveModel("llama-3.3-70b-versatile"))
         assertEquals("openai/gpt-oss-20b", ProviderCatalog.resolveModel("gemma2-9b-it"))
         assertEquals("gemini-3.6-flash", ProviderCatalog.resolveModel("gemini-3.6-flash"))
         assertEquals("custom-keep", ProviderCatalog.resolveModel("custom-keep"))
@@ -87,10 +89,24 @@ class ProviderCatalogTest {
         assertEquals("gpt-image-2", ProviderCatalog.resolveImageModel(openai))
         assertEquals("grok-imagine-image-2.0", ProviderCatalog.resolveImageModel(xai))
         assertEquals(null, ProviderCatalog.resolveImageModel(groq))
+        assertEquals(
+            "openai/gpt-image-2",
+            ProviderCatalog.resolveImageModel("https://openrouter.ai/api/v1"),
+        )
+        assertEquals(null, ProviderCatalog.resolveVideoModel("https://openrouter.ai/api/v1"))
         assertEquals("veo-3.1-generate-preview", ProviderCatalog.resolveVideoModel(gemini))
-        assertEquals("sora-2", ProviderCatalog.resolveVideoModel(openai))
+        assertEquals("sora-2", ProviderCatalog.resolveVideoModel(openai, ProviderCatalog.SORA_SUNSET_MS - 1))
+        assertEquals(null, ProviderCatalog.resolveVideoModel(openai, ProviderCatalog.SORA_SUNSET_MS))
         assertEquals("grok-imagine-video-1.5", ProviderCatalog.resolveVideoModel(xai))
         assertEquals(null, ProviderCatalog.resolveVideoModel(groq))
+        assertEquals("gpt-image-2", ProviderCatalog.resolveEditModel(openai))
+        assertEquals(null, ProviderCatalog.resolveEditModel(groq))
+        assertEquals("whisper-large-v3", ProviderCatalog.resolveSttModel(groq))
+        assertEquals(null, ProviderCatalog.resolveTtsModel(groq))
+        assertEquals(
+            "gemini",
+            ProviderCatalog.fromBaseUrl("https://generativelanguage.googleapis.com/v1beta").id,
+        )
         assertTrue(ProviderCatalog.imageModelFallbacks(gemini).contains("gemini-2.5-flash-image"))
         assertTrue(ProviderCatalog.imageUsesNativeGenerate(gemini))
         assertFalse(ProviderCatalog.imageUsesNativeGenerate(openai))

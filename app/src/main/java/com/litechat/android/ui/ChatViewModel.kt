@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.litechat.android.core.flags.FeatureFlags
 import com.litechat.android.data.AppContainer
+import com.litechat.android.data.api.BrowseUrl
 import com.litechat.android.data.api.ChatMessageDto
+import com.litechat.android.data.api.SlashInput
 import com.litechat.android.data.api.RetryPolicy
 import com.litechat.android.data.api.StreamEvent
 import com.litechat.android.data.connectivity.ConnectivityObserver
@@ -13,6 +15,7 @@ import com.litechat.android.data.context.ContextTrimmer
 import com.litechat.android.data.db.ConversationEntity
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.db.SearchHit
+import com.litechat.android.data.prefs.ApiKeySanitizer
 import com.litechat.android.data.prefs.AppSettings
 import com.litechat.android.data.prefs.NamedKeyStore
 import com.litechat.android.data.prefs.PromptTemplate
@@ -411,8 +414,8 @@ class ChatViewModel(
     }
 
     fun send() {
-        val text = _state.value.input.trim()
-        if (text.isEmpty() || _state.value.isStreaming) return
+        val text = SlashInput.peel(_state.value.input)
+        if (text.isEmpty() || _state.value.isStreaming || _state.value.isGeneratingImage) return
 
         // Imp#2: block send when disconnected
         if (!container.connectivityObserver.isConnected) {
@@ -438,12 +441,13 @@ class ChatViewModel(
                 _state.update { it.copy(error = "Web browsing is a Pro feature — pay once to unlock") }
                 return
             }
-            val url = text.removePrefix("/browse ").trim()
+            val url = BrowseUrl.normalize(text.removePrefix("/browse ").trim())
             if (url.isEmpty()) {
-                _state.update { it.copy(error = "Usage: /browse <url>") }
+                _state.update { it.copy(error = "Usage: /browse example.com") }
                 return
             }
-            viewModelScope.launch {
+            stopRequested = false
+            streamJob = viewModelScope.launch {
                 var convId = _state.value.activeConversationId
                 if (convId == null) {
                     val c = container.chatRepository.createConversation(
@@ -453,7 +457,7 @@ class ChatViewModel(
                     convId = c.id
                     selectConversation(convId)
                 }
-                _state.update { it.copy(input = "", error = null) }
+                _state.update { it.copy(input = "", error = null, isStreaming = true) }
                 container.chatRepository.addMessage(convId, "user", "/browse $url")
                 // P-014: text consumed — no draft left behind.
                 viewModelScope.launch { container.settingsRepository.clearDraft(convId) }
@@ -488,10 +492,14 @@ class ChatViewModel(
                     }
                     container.chatRepository.addMessage(convId, "assistant",
                         answer.ifBlank { "No answer from model." })
+                } catch (e: java.util.concurrent.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    _state.update { it.copy(error = "Browse failed: ${e.message?.take(100)}") }
-                    container.chatRepository.addMessage(convId, "assistant",
-                        "Failed to fetch $url: ${e.message?.take(200)}")
+                    val line = ApiKeySanitizer.userSafeError(e, "Browse")
+                    _state.update { it.copy(error = line) }
+                    container.chatRepository.addMessage(convId, "assistant", line)
+                } finally {
+                    _state.update { it.copy(isStreaming = false) }
                 }
             }
             return
@@ -601,7 +609,8 @@ class ChatViewModel(
                 _state.update { it.copy(error = "Usage: /video <prompt>") }
                 return
             }
-            viewModelScope.launch {
+            stopRequested = false
+            streamJob = viewModelScope.launch {
                 var convId = _state.value.activeConversationId
                 if (convId == null) {
                     val c = container.chatRepository.createConversation(
@@ -611,7 +620,7 @@ class ChatViewModel(
                     convId = c.id
                     selectConversation(convId)
                 }
-                _state.update { it.copy(input = "", error = null, isGeneratingImage = true) }
+                _state.update { it.copy(input = "", error = null, isGeneratingImage = true, isStreaming = true) }
                 container.chatRepository.addMessage(convId, "user", "/video $prompt")
                 // P-014: text consumed — no draft left behind.
                 viewModelScope.launch { container.settingsRepository.clearDraft(convId) }
@@ -638,12 +647,14 @@ class ChatViewModel(
                     MediaCleanup.run(container.ctx)
                     container.chatRepository.addMessage(convId, "assistant",
                         "[VIDEO:${file.absolutePath}]")
+                } catch (e: java.util.concurrent.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    _state.update { it.copy(error = "Video failed: ${e.message?.take(120)}") }
-                    container.chatRepository.addMessage(convId, "assistant",
-                        "Video generation failed: ${e.message?.take(200) ?: "Unknown error"}")
+                    val line = ApiKeySanitizer.userSafeError(e, "Video")
+                    _state.update { it.copy(error = line) }
+                    container.chatRepository.addMessage(convId, "assistant", line)
                 } finally {
-                    _state.update { it.copy(isGeneratingImage = false) }
+                    _state.update { it.copy(isGeneratingImage = false, isStreaming = false) }
                 }
             }
             return
@@ -656,7 +667,8 @@ class ChatViewModel(
                 _state.update { it.copy(error = "Usage: /imagine <prompt>") }
                 return
             }
-            viewModelScope.launch {
+            stopRequested = false
+            streamJob = viewModelScope.launch {
                 var convId = _state.value.activeConversationId
                 if (convId == null) {
                     val c = container.chatRepository.createConversation(
@@ -666,7 +678,7 @@ class ChatViewModel(
                     convId = c.id
                     selectConversation(convId)
                 }
-                _state.update { it.copy(input = "", error = null, isGeneratingImage = true) }
+                _state.update { it.copy(input = "", error = null, isGeneratingImage = true, isStreaming = true) }
                 // Insert user's prompt as a regular message.
                 container.chatRepository.addMessage(convId, "user", "/imagine $prompt")
                 // P-014: text consumed — no draft left behind.
@@ -678,6 +690,7 @@ class ChatViewModel(
                             baseUrl = settings.baseUrl,
                             apiKey = key,
                             prompt = prompt,
+                            model = settings.model,
                         )
                     }
                     // Save to cache dir, downscaled for weak devices.
@@ -711,18 +724,14 @@ class ChatViewModel(
                         convId, "assistant",
                         "[IMAGE:${file.absolutePath}]"
                     )
+                } catch (e: java.util.concurrent.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    _state.update {
-                        it.copy(
-                            error = "Image generation failed: ${e.message?.take(120)}"
-                        )
-                    }
-                    container.chatRepository.addMessage(
-                        convId, "assistant",
-                        "Image generation failed: ${e.message?.take(200) ?: "Unknown error"}"
-                    )
+                    val line = ApiKeySanitizer.userSafeError(e, "Image generation")
+                    _state.update { it.copy(error = line) }
+                    container.chatRepository.addMessage(convId, "assistant", line)
                 } finally {
-                    _state.update { it.copy(isGeneratingImage = false) }
+                    _state.update { it.copy(isGeneratingImage = false, isStreaming = false) }
                 }
             }
             return
@@ -793,10 +802,9 @@ class ChatViewModel(
                     throw e
                 } catch (e: Exception) {
                     if (stopRequested) return@launch
-                    _state.update { it.copy(error = e.message?.take(160) ?: "Edit failed") }
-                    container.chatRepository.addMessage(
-                        convId, "assistant", e.message?.take(200) ?: "Edit failed",
-                    )
+                    val line = ApiKeySanitizer.userSafeError(e, "Edit")
+                    _state.update { it.copy(error = line) }
+                    container.chatRepository.addMessage(convId, "assistant", line)
                 } finally {
                     _state.update { it.copy(isGeneratingImage = false, isStreaming = false) }
                 }
@@ -910,6 +918,7 @@ class ChatViewModel(
                             waitingForConnection = true,
                             error = "Waiting for connection…",
                             retryProgress = null,
+                            isStreaming = false,
                         )
                     }
                     return@launch
@@ -1046,7 +1055,7 @@ class ChatViewModel(
                             )
                         }
                         if (result.isNotEmpty()) {
-                            container.chatRepository.addMessage(convId, "assistant", result)
+                            container.chatRepository.updateMessageContent(assistantId, convId, result)
                             _state.update { it.copy(isStreaming = false, streamingText = "", retryProgress = null) }
                             return@launch
                         }
@@ -1190,35 +1199,39 @@ class ChatViewModel(
                 val prefix = "[IMG:data:image/jpeg;base64,"
                 val budget = InputPolicy.MAX_INPUT_CHARS - prefix.length - " Describe this.".length
                 val b64 = withContext(Dispatchers.IO) {
-                    val bytes = container.ctx.contentResolver.openInputStream(uri)?.readBytes()
-                        ?: return@withContext ""
-                    // C-006 + REVIEW: downscale AND lower quality in a loop so the
-                    // base64 always fits the 32k input cap — no silent truncation.
-                    val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
-                    val maxDim = ImageCacheConfig.maxSaveDimension(
-                        DeviceCompat.snapshot(container.ctx).band
-                    )
-                    var sample = 1
-                    while (opts.outWidth / sample > maxDim || opts.outHeight / sample > maxDim) {
-                        sample *= 2
-                    }
-                    var encoded = ""
-                    for (quality in intArrayOf(80, 60, 40, 25)) {
-                        val decodeOpts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
-                        val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOpts)
-                            ?: continue
-                        val out = java.io.ByteArrayOutputStream()
-                        bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
-                        bitmap.recycle()
-                        val candidate = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
-                        if (candidate.length <= budget) {
-                            encoded = candidate
-                            break
+                    val tmp = java.io.File(container.ctx.cacheDir, "attach_${System.currentTimeMillis()}.bin")
+                    try {
+                        container.ctx.contentResolver.openInputStream(uri)?.use { inn ->
+                            tmp.outputStream().use { inn.copyTo(it) }
+                        } ?: return@withContext ""
+                        val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        android.graphics.BitmapFactory.decodeFile(tmp.absolutePath, opts)
+                        val maxDim = ImageCacheConfig.maxSaveDimension(
+                            DeviceCompat.snapshot(container.ctx).band
+                        )
+                        var sample = 1
+                        while (opts.outWidth / sample > maxDim || opts.outHeight / sample > maxDim) {
+                            sample *= 2
                         }
-                        sample *= 2 // smaller next pass
+                        var encoded = ""
+                        for (quality in intArrayOf(80, 60, 40, 25)) {
+                            val decodeOpts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+                            val bitmap = android.graphics.BitmapFactory.decodeFile(tmp.absolutePath, decodeOpts)
+                                ?: continue
+                            val out = java.io.ByteArrayOutputStream()
+                            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
+                            bitmap.recycle()
+                            val candidate = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                            if (candidate.length <= budget) {
+                                encoded = candidate
+                                break
+                            }
+                            sample *= 2
+                        }
+                        encoded
+                    } finally {
+                        tmp.delete()
                     }
-                    encoded
                 }
                 if (b64.isBlank()) {
                     _state.update { it.copy(error = "Attachment too large to send — try a smaller photo") }

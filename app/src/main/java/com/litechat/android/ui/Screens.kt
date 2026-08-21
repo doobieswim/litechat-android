@@ -93,6 +93,7 @@ import com.litechat.android.LiteChatApp
 import com.litechat.android.R
 import com.litechat.android.data.db.MessageEntity
 import com.litechat.android.data.db.SearchHit
+import com.litechat.android.data.prefs.ApiKeySanitizer
 import com.litechat.android.data.prefs.PromptTemplate
 import com.litechat.android.data.prefs.SettingsRepository
 import com.litechat.android.util.AgentLabGate
@@ -583,15 +584,17 @@ fun ChatScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         FloatingActionButton(
-                            onClick = { if (state.isStreaming) onStop() else onSend() },
+                            onClick = {
+                                if (state.isStreaming || state.isGeneratingImage) onStop() else onSend()
+                            },
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(52.dp),
                         ) {
                             Icon(
-                                if (state.isStreaming) Icons.Default.Close
+                                if (state.isStreaming || state.isGeneratingImage) Icons.Default.Close
                                 else Icons.Default.Send,
-                                contentDescription = if (state.isStreaming) "Stop" else "Send",
+                                contentDescription = if (state.isStreaming || state.isGeneratingImage) "Stop" else "Send",
                             )
                         }
                     }
@@ -1245,6 +1248,7 @@ fun SettingsScreen(
                                                                         modelsLoading = true
                                                                         modelsMsg = null
                                                                         scope.launch {
+                                                                            try {
                                                                             // REVIEW: listModels is blocking HTTP — never on Main.
                                                                             val lanBase = withContext(Dispatchers.IO) { LanDetector.scan() }
                                                                             if (lanBase != null) {
@@ -1260,7 +1264,11 @@ fun SettingsScreen(
                                                                                     else -> "${ids.size} models found"
                                                                                 }
                                                                             }
+                                                                            } catch (_: Exception) {
+                                                                                modelsMsg = "Could not fetch models"
+                                                                            } finally {
                                                                             modelsLoading = false
+                                                                            }
                                                                         }
                                                                     },
                                                                     enabled = !modelsLoading,
@@ -1281,7 +1289,11 @@ fun SettingsScreen(
                                                 }
                                                 testMsg = if (ids.isNotEmpty()) "Connected ✓" else "No models"
                                             } catch (e: Exception) {
-                                                testMsg = "Failed: ${e.message?.take(40)}"
+                                                testMsg = if (ApiKeySanitizer.isIllegalHeader(e)) {
+                                                    ApiKeySanitizer.BAD_KEY_LINE
+                                                } else {
+                                                    "Failed: ${e.message?.take(40)}"
+                                                }
                                             }
                                             testing = false
                                         }

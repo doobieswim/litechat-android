@@ -153,9 +153,9 @@ Already done: `applicationId` is `com.byoai.chat`; "Dev: mark Pro" is debug-only
 
 | Provider | Base URL | Model example |
 |----------|----------|---------------|
-| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
-| OpenRouter | `https://openrouter.ai/api/v1` | `openai/gpt-4o-mini` |
-| Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| OpenAI | `https://api.openai.com/v1` | `gpt-5.6-luna` |
+| OpenRouter | `https://openrouter.ai/api/v1` | `openrouter/free` |
+| Groq | `https://api.groq.com/openai/v1` | `openai/gpt-oss-20b` |
 | Ollama on phone | `http://127.0.0.1:11434/v1` | `llama3.2` |
 | Ollama on LAN PC | `http://192.168.x.x:11434/v1` | your tag |
 

@@ -77,21 +77,30 @@ class MemoryManager(private val context: Context) {
 
     private fun getAll(): List<MemoryEntry> {
         val raw = prefs.getString("memories", "[]") ?: "[]"
-        return try {
-            Json.parseToJsonElement(raw).jsonArray.map { el ->
-                val obj = el.jsonObject
-                MemoryEntry(
-                    obj["fact"]!!.jsonPrimitive.content,
-                    obj["hitCount"]!!.jsonPrimitive.content.toInt()
-                )
-            }
-        } catch (_: Exception) { emptyList() }
+        return decodeList(raw)
     }
 
     private fun saveAll(list: List<MemoryEntry>) {
-        // kotlinx.serialization handles escaping — a fact containing `"` or `\`
-        // can no longer corrupt the whole JSON document (REVIEW finding 7).
-        val encoded = Json.encodeToString(ListSerializer(MemoryEntry.serializer()), list)
+        val encoded = json.encodeToString(ListSerializer(MemoryEntry.serializer()), list)
         prefs.edit().putString("memories", encoded).apply()
+    }
+
+    companion object {
+        private val json = Json { encodeDefaults = true }
+
+        /** Missing hitCount must not wipe the whole list. */
+        internal fun decodeList(raw: String): List<MemoryEntry> {
+            return try {
+                Json.parseToJsonElement(raw).jsonArray.mapNotNull { el ->
+                    val obj = el.jsonObject
+                    val fact = obj["fact"]?.jsonPrimitive?.content?.trim().orEmpty()
+                    if (fact.isEmpty()) return@mapNotNull null
+                    val hits = obj["hitCount"]?.jsonPrimitive?.content?.toIntOrNull() ?: 1
+                    MemoryEntry(fact, hits)
+                }
+            } catch (_: Exception) {
+                emptyList()
+            }
+        }
     }
 }

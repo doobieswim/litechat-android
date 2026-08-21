@@ -51,9 +51,9 @@ object ProviderCatalog {
             keyUrl = "https://console.groq.com/keys",
             paid = false,
             models = listOf(
-                ModelOption("llama-3.1-8b-instant", "Llama 3.1 8B — tiny and fast"),
-                ModelOption("llama-3.3-70b-versatile", "Llama 3.3 70B — fast and free"),
-                ModelOption("openai/gpt-oss-20b", "GPT-OSS 20B — small"),
+                ModelOption("openai/gpt-oss-20b", "GPT-OSS 20B — tiny and fast"),
+                ModelOption("openai/gpt-oss-120b", "GPT-OSS 120B — smarter"),
+                ModelOption("groq/compound", "Groq Compound — can cost money"),
             ),
         ),
         ProviderOption(
@@ -167,6 +167,18 @@ object ProviderCatalog {
 
     fun fromBaseUrl(baseUrl: String): ProviderOption {
         val clean = baseUrl.trim().trimEnd('/')
+        val low = clean.lowercase()
+        when {
+            "generativelanguage.googleapis.com" in low -> return byId("gemini")
+            "api.groq.com" in low -> return byId("groq")
+            "openrouter.ai" in low -> return byId("openrouter")
+            "router.huggingface.co" in low -> return byId("huggingface")
+            "api.x.ai" in low -> return byId("xai")
+            "api.openai.com" in low -> return byId("openai")
+            "api.deepseek.com" in low -> return byId("deepseek")
+            "api.mistral.ai" in low -> return byId("mistral")
+            "11434" in low && ("127.0.0.1" in low || "localhost" in low) -> return byId("ollama")
+        }
         for (p in PROVIDERS) {
             if (p.id == "custom") continue
             if (clean.startsWith(p.baseUrl.trimEnd('/'))) return p
@@ -189,7 +201,9 @@ object ProviderCatalog {
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite" -> "gemini-3.6-flash"
             "gemini-2.5-pro" -> "gemini-3.1-pro-preview"
-            "gemma2-9b-it" -> "openai/gpt-oss-20b"
+            "gemma2-9b-it",
+            "llama-3.1-8b-instant" -> "openai/gpt-oss-20b"
+            "llama-3.3-70b-versatile" -> "openai/gpt-oss-120b"
             "meta-llama/llama-3.3-70b-instruct:free",
             "google/gemini-2.0-flash-exp:free",
             "openai/gpt-4o-mini" -> "openrouter/free"
@@ -214,34 +228,79 @@ object ProviderCatalog {
         return when (fromBaseUrl(baseUrl).id) {
             "gemini" -> "gemini-3.1-flash-image"
             "xai" -> "grok-imagine-image-2.0"
-            "openai", "openrouter", "custom" -> "gpt-image-2"
+            "openai", "custom" -> "gpt-image-2"
+            "openrouter" -> "openai/gpt-image-2"
             else -> null
         }
     }
 
-    /** Extra Gemini picture ids to try if the first 404s. */
+    /** Extra picture ids to try if the first 404s. */
     fun imageModelFallbacks(baseUrl: String): List<String> {
-        return if (fromBaseUrl(baseUrl).id == "gemini") {
-            listOf(
+        return when (fromBaseUrl(baseUrl).id) {
+            "gemini" -> listOf(
                 "gemini-3.1-flash-image-preview",
                 "gemini-3.1-flash-lite-image",
                 "gemini-2.5-flash-image",
                 "gemini-3-pro-image",
             )
-        } else {
-            emptyList()
+            "openrouter" -> listOf(
+                "google/gemini-3.1-flash-image",
+                "google/gemini-2.5-flash-image",
+            )
+            else -> emptyList()
         }
     }
 
     fun imageUsesNativeGenerate(baseUrl: String): Boolean =
         fromBaseUrl(baseUrl).id == "gemini"
 
+    fun imageUsesOpenRouter(baseUrl: String): Boolean =
+        fromBaseUrl(baseUrl).id == "openrouter"
+
+    fun cannotMakePicturesLine(baseUrl: String): String =
+        "${fromBaseUrl(baseUrl).name} cannot make pictures. Switch to Google Gemini."
+
     /** Video model for /video. Null = this host cannot make videos this way. */
-    fun resolveVideoModel(baseUrl: String): String? {
+    fun resolveVideoModel(baseUrl: String, nowMs: Long = System.currentTimeMillis()): String? {
         return when (fromBaseUrl(baseUrl).id) {
             "gemini" -> "veo-3.1-generate-preview"
             "xai" -> "grok-imagine-video-1.5"
-            "openai", "openrouter", "custom" -> "sora-2"
+            "openai", "custom" -> if (soraStillUp(nowMs)) "sora-2" else null
+            else -> null
+        }
+    }
+
+    /** OpenAI Videos API / sora-2 shut 2026-09-24 00:00 UTC. */
+    const val SORA_SUNSET_MS = 1_790_208_000_000L
+
+    fun soraStillUp(nowMs: Long = System.currentTimeMillis()): Boolean = nowMs < SORA_SUNSET_MS
+
+    fun cannotMakeVideosLine(baseUrl: String): String =
+        "${fromBaseUrl(baseUrl).name} cannot make videos. Switch to Google Gemini."
+
+    /** /edit door. Null = this host has no image-edits API we speak. */
+    fun resolveEditModel(baseUrl: String): String? {
+        return when (fromBaseUrl(baseUrl).id) {
+            "openai", "custom" -> "gpt-image-2"
+            "xai" -> "grok-imagine-image-2.0"
+            else -> null
+        }
+    }
+
+    fun cannotEditPicturesLine(baseUrl: String): String =
+        "${fromBaseUrl(baseUrl).name} cannot edit pictures. Switch to OpenAI or Grok."
+
+    fun resolveSttModel(baseUrl: String): String? {
+        return when (fromBaseUrl(baseUrl).id) {
+            "openai", "custom" -> "whisper-1"
+            "groq" -> "whisper-large-v3"
+            else -> null
+        }
+    }
+
+    fun resolveTtsModel(baseUrl: String): String? {
+        return when (fromBaseUrl(baseUrl).id) {
+            "openai", "custom" -> "tts-1"
             else -> null
         }
     }

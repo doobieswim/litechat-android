@@ -31,7 +31,7 @@ class AppContainer(context: Context) {
             AppDatabase.MIGRATION_2_3,
             AppDatabase.MIGRATION_3_4,
         )
-        .fallbackToDestructiveMigration().build()
+        .build()
 
     val secureStore = SecureStore(appContext)
     /** C-020: persistent user memory (hit-count promotion, Pro-gated). */

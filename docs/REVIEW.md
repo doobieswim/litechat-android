@@ -1,4 +1,353 @@
-# LiteChat — Exhaustive Code Review Report
+# LiteChat — Code review log
+
+## Review — 2026-08-21 — leftover 1–8 (wipe / RAM / trim / peel / labels)
+
+**Scope:** last WIRE batch still **uncommitted** on `b90a21e`. Files: `AppContainer.kt`, `OpenAiCompatibleClient.kt` (`downloadImageBytes`, `streamUrlToFile`), `ChatViewModel.kt` (`attachImage`, `send`), `ContextTrimmer.kt`, `SlashInput.kt`, `ProviderCatalog.kt`, `README.md`, tests, `verify_static.py`.
+**Role:** `LITECHAT-REVIEW`. Read-only. Did not edit `app/**`. No Gradle.
+**This-review check:** `python3 scripts/verify_static.py` → **222/222**. Hard-constraint grep (WebView / trust-all / RN / Flutter) empty.
+
+**Verdict: Approve**
+
+The eight asked items are in the working tree. Independent check (not the coding pass’s own write-up). B-002 tap targets were never this batch. Do not re-open B-001 / B-004 / R-019 / R-020 / doors.
+
+### AC check
+
+1. **No chat wipe on missed upgrade** — `AppContainer.kt:28-34`: `fallbackToDestructiveMigration()` gone. Named `MIGRATION_1_2`…`3_4` only. `Entities.kt` `version = 4`. No other `fallbackToDestructive` in `app/**`.
+2. **Picture URL streams to disk** — `OpenAiCompatibleClient.kt:640-650` + `887-907`: GET → `byteStream().copyTo(FileOutputStream)`, then refuse if `tmp.length() > 8MB`, then `readBytes()`. `activeCall` set so Stop can cut the GET.
+3. **Attach no whole-file `readBytes`** — `ChatViewModel.kt:1201-1234`: stream copy to cache file → `decodeFile` bounds + sample + quality loop (80→25) until b64 fits the 32k budget. `openInputStream.readBytes()` is not on this path.
+4. **Trim keeps the live question** — `ContextTrimmer.kt:35-58` peels a trailing user, drops oldest pairs, glues the user back. Test `trailing unmatched user is not dropped` asserts `m2-` stays and `m0-` goes.
+5. **Stuck `v` / `⁶`** — `SlashInput.peel` (`SlashInput.kt:13-20`) on `send()` (`ChatViewModel.kt:417`). Strips 1–4 junk chars before `/imagine` etc. JVM test for `v/imagine` and U+2076.
+6. **Groq Compound cost line** — `ProviderCatalog.kt:56`: `Groq Compound — can cost money`. Host stays `paid = false` (free key).
+7. **Sora after 24 Sep 2026** — `SORA_SUNSET_MS = 1_790_208_000_000` = 2026-09-24 00:00 UTC. `resolveVideoModel` returns `sora-2` only if `nowMs < SORA_SUNSET_MS`, else null → named “cannot make videos” line. Test at sunset-1 vs sunset.
+8. **README picker ids** — OpenAI `gpt-5.6-luna`, OpenRouter `openrouter/free`. Matches catalog + Settings default.
+
+### Issues
+
+None for this batch.
+
+### Nits (not Issues)
+
+- **8 MB cap is after the full copy** (`downloadImageBytes`). Heap is bounded. A huge URL can still fill disk, then delete. Abort in the copy loop if you ever reopen this.
+- Picture path still `readBytes()` the temp file after the cap (≤8 MB heap).
+- Attach still decodes a Bitmap to shrink (needed). Copy to cache has no byte cap.
+- Overlay composer does not call `SlashInput.peel` (overlay has no `send()` of its own).
+- B-002 hard-to-tap buttons still Research. Peel does not fix taps.
+- B-003 still **Research** in BACKLOG even though peel landed. REVIEW does not flip tickets.
+- Groq host tagline is still “Free key.” Compound line is the money flag.
+- Whole batch is **uncommitted**. Lost on a crash. Not on the phone.
+
+**Next:** do not bake unless asked. Say **WIRE** if you want this committed. Then a new play-debug APK only if you ask.
+
+---
+
+## Review — 2026-08-21 — R-020 xAI /edit JSON
+
+**Scope:** `OpenAiCompatibleClient.kt` (`editXaiImage`, `xaiEditJson`, `editOpenAiImage`), tests, `verify_static.py`. Read-only. No Gradle. **216/216**.
+**Role:** `LITECHAT-REVIEW`
+
+**Verdict: Approve**
+
+Matches DIG: Grok edit is JSON + data URI. OpenAI stays multipart. Others still refuse.
+
+### AC check
+
+- xAI branch: `Content-Type: application/json`, `xaiEditJson` with `image.url` + `type=image_url`, model from `resolveEditModel` (`grok-imagine-image-2.0`).
+- OpenAI: still `MultipartBody`.
+- Groq/Gemini/OpenRouter: `resolveEditModel` is null → named refuse line.
+- JVM test asserts JSON is not multipart.
+- 4MB cap before `readBytes`.
+
+### Issues
+
+None.
+
+### Nits (not Issues)
+
+- Decode miss still says “This provider cannot edit pictures.” (generic).
+- xAI non-404 uses `friendlyMediaError` (120-char HTTP blob). Unlikely to contain the key.
+
+**Next:** new play-debug APK only if asked. Not on the phone yet.
+
+---
+
+## Review — 2026-08-21 — all doors (Groq picker, /edit, voice)
+
+**Scope:** Groq catalog ids, `resolveEditModel` / `resolveSttModel` / `resolveTtsModel`, `editImage`/`transcribeAudio`/`speakToFile`, remap of dead Llama ids, tests, `verify_static.py`. Read-only. No Gradle. **214/214**.
+**Role:** `LITECHAT-REVIEW`
+
+**Verdict: Approve**
+
+Dead Groq Llama picks are gone. `/edit` and voice no longer send OpenAI-only ids to every host.
+
+### AC check
+
+- Groq picker: `openai/gpt-oss-20b`, `openai/gpt-oss-120b`, `groq/compound`. No `llama-3.3-70b-versatile` option.
+- Saved `llama-3.1-8b-instant` / `llama-3.3-70b-versatile` remap.
+- `/edit`: refuse unless OpenAI/custom (`gpt-image-2`) or xAI (`grok-imagine-image-2.0`); multipart includes `model`.
+- STT: Groq `whisper-large-v3`; OpenAI `whisper-1`; Gemini etc refuse.
+- TTS: OpenAI/custom `tts-1` only; others refuse.
+
+### Issues
+
+None for this batch.
+
+### Nits (not Issues)
+
+- xAI `/images/edits` may want JSON, not OpenAI multipart — unproven until a phone hit.
+- HTTP 404 on edit still says “This provider cannot edit images.” (generic).
+- README OpenAI/OpenRouter example ids are still old (`gpt-4o-mini`) — not this ticket.
+
+**Next:** new play-debug APK only if asked. Not on the phone yet.
+
+---
+
+## Review — 2026-08-21 — /imagine /video per host
+
+**Scope:** `ProviderCatalog.kt` host match + picture/video doors, `OpenAiCompatibleClient.kt` OpenRouter `/images`, `ChatViewModel.kt` passes chat model only if it looks like a picture id, tests, `verify_static.py`. Read-only. No Gradle. **210/210**.
+**Role:** `LITECHAT-REVIEW`
+
+**Verdict: Approve**
+
+The old “OpenRouter = OpenAI images + Sora” path was wrong. Code now matches the live doors.
+
+### AC check
+
+- OpenRouter pictures: `openrouterImagesUrl` → `{base}/images`, slug `openai/gpt-image-2`, Gemini image fallbacks. No `response_format` on that door.
+- OpenRouter video: `resolveVideoModel` is null (not `sora-2`).
+- Gemini/xAI/OpenAI doors unchanged.
+- Groq/HF/DeepSeek/Mistral/Ollama refuse with a named line.
+- `fromBaseUrl` matches Google even without `/openai/`.
+- Chat `gemini-3.6-flash` is not sent as a picture id (`contains("image")` gate).
+
+### Issues
+
+None for this batch.
+
+### Nits (not Issues)
+
+- Gemini native miss still says “This provider cannot make pictures.” instead of the named line.
+- A Groq chat model whose **id contains “image”** would try Groq `/images/generations` instead of refusing. Unlikely.
+- OpenRouter is still tagged `paid = false` while pictures can bill — old catalog, not this ticket.
+
+**Next:** new play-debug APK only if the human asks. Not on the phone yet.
+
+---
+
+## Review — 2026-08-21 — B-004 Stop / memory / hide key
+
+**Scope:** WIRE B-004 (+ still-uncommitted B-001, R-019, BrowseUrl). Files: `ChatViewModel.kt`, `Screens.kt`, `ProviderSetupFields.kt`, `MemoryManager.kt`, `OverlayService.kt`, `NamedKeyStore.kt`, `OpenAiCompatibleClient.kt`, `ConnectivityObserver.kt`, `BrowseUrl.kt`, `ApiKeySanitizer.kt`, tests, `verify_static.py`. Read-only. No Gradle. `python3 scripts/verify_static.py` → **207/207**.
+**Role:** `LITECHAT-REVIEW`
+
+**Verdict: Approve**
+
+B-004 AC is in the tree. Prior picture/key and bare-URL browse still look right.
+
+### AC check
+
+- Stop: `/browse` `/imagine` `/video` assign `streamJob`; FAB uses `isStreaming || isGeneratingImage`; `send()` refuses while generating; cancel is rethrown.
+- Memory: `decodeList` defaults missing `hitCount` to 1; save uses `encodeDefaults = true`. JVM test present.
+- Key: `PasswordVisualTransformation` on the paste field.
+- Overlay: `ViewTreeLifecycleOwner` + SavedState + ViewModelStore before `setContent`; paste capped.
+- Failover writes the same assistant row (`updateMessageContent(assistantId, convId, result)`).
+- Named keys run `headerSafe` on save.
+
+### Issues
+
+None for this batch.
+
+### Nits (not Issues)
+
+- Room `fallbackToDestructiveMigration()` still on (`AppContainer.kt`) — out of B-004.
+- Picture URL still `body?.bytes()` — leftover.
+- Overlay uses `ViewTreeLifecycleOwner.set` (not compiled here). If a flavor fails, swap to the `setViewTreeLifecycleOwner` extension.
+- Named-key *add* boxes were not in this mask pass.
+
+**Next:** human spot-check on a **new** play-debug APK. Do not bake unless asked.
+
+---
+
+## Review — 2026-08-21 — FULL PROJECT addendum (3-layer fan-out)
+
+**Scope:** UI / data-network-db / prefs-media-gradle subagents. Read-only. No Gradle. Written after `/browse` bare-URL WIRE (do not treat that as unreviewed leftover).
+**Role:** `LITECHAT-REVIEW` combine step.
+
+**Verdict: Issues** — extra real bugs beyond the first full-project pass. Do not bake until the human asks. Do not re-open B-001 / R-019 / BrowseUrl (already in the tree).
+
+### Already fixed (do not re-open)
+
+- B-001 / R-019 key strip + no key in errors
+- `/browse` accepts `example.com` (`BrowseUrl.normalize`)
+
+### New Issues (user-visible first)
+
+1. **Stop does not cancel `/browse` `/imagine` `/video`** — `ChatViewModel.kt:447, 605, 660` never set `streamJob`. FAB is only `isStreaming` (`Screens.kt:587`). Send can start a second call.
+2. **Memory silently wipes** — `MemoryManager.kt:85,94` encode skips default `hitCount`; decode `!!` throws → empty list → overwrite.
+3. **API key shown in the clear** — Settings `OutlinedTextField` (`Screens.kt:1148`, `ProviderSetupFields.kt:110`).
+4. **Overlay can crash on enable** — `OverlayService.kt:91` ComposeView with no `ViewTreeLifecycleOwner`.
+5. **Failover ghost assistant** — `ChatViewModel.kt:1043` inserts a second row instead of updating the first.
+6. **Stuck Stop after disconnect mid-retry** — `ChatViewModel.kt:901` returns without clearing `isStreaming`.
+7. **Picture URL download still `body?.bytes()`** — `OpenAiCompatibleClient.kt:569`; GET not on `activeCall`.
+8. **Room `fallbackToDestructiveMigration()`** — `AppContainer.kt:34` can wipe chats.
+9. **Context trimmer splits a turn** — `ContextTrimmer.kt:59` when history ends on the current user message.
+10. **Fetch models button can stick on “Fetching…”** — `Screens.kt:1248` no `finally`.
+11. **Video poll ignores HTTP errors** — `:722/:756/:787` loop until timeout.
+12. **Stream fallback swallows cancel** — `OpenAiCompatibleClient.kt:182`.
+13. **Offline launch looks online** — `ConnectivityObserver.kt:25`.
+14. **Attach `readBytes()` whole photo** — `ChatViewModel.kt:1187`.
+15. **Overlay paste uncapped** — `OverlayService.kt:107`.
+16. **Named keys skip headerSafe on save** — `NamedKeyStore.kt:53` (send path still strips).
+
+### Passes
+
+Chat `/search` `/edit` Stop works. Imagine/video network on IO. One OkHttpClient. Keys not in DataStore JSON. AGP 8.7.3. Coil band size. MediaCleanup. Encrypted prefs. `largeHeap=false`.
+
+**Next:** human `LITECHAT-WIRE` for a Stop + memory + key-mask batch, or a debug APK of what is already coded. Do not bake unless asked.
+
+---
+
+## Review — 2026-08-21 — FULL PROJECT (features having problems)
+
+**Scope:** whole tree + phone facts from this session. Read-only. No Gradle. `verify_static` **196/196**. Uncommitted WIRE: B-001 + R-019 (REVIEW already **Approve**).
+**Role:** audit / `LITECHAT-REVIEW` fan-out started; this section written from live greps so it is not lost if RAM dies.
+
+**Verdict: Issues** — the phone is on an **old APK**. Several “broken features” are already fixed in this tree and never installed. Remaining real bugs below.
+
+### 0. Install gap (why “a lot of features” feel broken)
+
+The play-debug on the phone does **not** include B-001/R-019. `/imagine` died on a junk **⁶** in the key and printed the key. That is fixed in git working tree, not on device.
+
+### Confirmed bugs (still in code)
+
+1. **`ChatViewModel.kt:660`** — `/imagine` uses `viewModelScope.launch` and never sets `streamJob`.
+   - Why: Stop does not cancel a picture job (`stopStreaming` only cancels `streamJob`).
+   - Fix: `streamJob = viewModelScope.launch { ... }` like `/edit` / `/search`.
+
+2. **`OpenAiCompatibleClient.kt:569`** — `downloadImageBytes` still `body?.bytes()` (full image in heap).
+   - Why: 4GB law; URL-shaped OpenAI pictures can spike RAM.
+   - Fix: stream to `File` like video (C-028). Gemini native path returns b64 already, so this is the URL fallback only.
+
+3. **`OpenAiCompatibleClient.kt:737,766,800`** — `Thread.sleep` in video poll loops.
+   - Why: if ever called off IO, ANR. Callers wrap in `withContext(IO)` today — still a landmine.
+   - Fix: `delay()` in a suspend poll, or keep documented IO-only.
+
+4. **`AppContainer.kt:34`** — `fallbackToDestructiveMigration()` still on beside named migrations.
+   - Why: a missed migration **wipes chats**.
+   - Fix: remove fallback once versions are named; last-resort only.
+
+5. **B-002 (Research)** — Compose Continue / text fields miss accessibility click and type (phone, Android 16). Coordinate tap worked. Not a one-line cause.
+
+6. **B-003 (Research)** — Gboard can prepend `v` / `⁶` in the chat box so `/imagine` never matches.
+
+### Passes (were dead in Aug 15 audit, now wired)
+
+- MemoryManager instantiated in `AppContainer.kt:38`.
+- NamedKeyStore instantiated `:40`, save in ViewModel ~1409.
+- Overlay `showOverlay()` called from `onStartCommand` (`OverlayService.kt:81`) and has a send field.
+- Fork exists (`ChatRepository.forkConversation`, ViewModel ~1434).
+- Search is Pro-gated (`ChatViewModel.kt:254`).
+- Imagine network on IO (`ChatViewModel.kt:677`).
+- No `addUnsafeNonAscii`. No WebView / trust-all / RN / Flutter in main.
+
+### Uncommitted (must land before a bake)
+
+`ApiKeySanitizer.kt` (untracked) + client/store/VM/Screens/tests. REVIEW **Approve** for B-001/R-019. Not on the phone.
+
+### Tickets
+
+| Item | State |
+|------|--------|
+| B-001 / R-019 | Approve in tree; **need new APK** |
+| Imagine Stop | leftover Issue |
+| Image URL `bytes()` | leftover Issue |
+| Destructive Room fallback | leftover Issue |
+| B-002 / B-003 | Research |
+
+**Next:** install a new play-debug of this tree, then re-test pictures. Do not bake unless asked. 3-layer subagents may add an addendum.
+
+---
+
+## Review — 2026-08-21 — B-001 + R-019 (WIRE)
+
+**Scope:** uncommitted WIRE: `ApiKeySanitizer.kt` (new), `SecureStore.kt`, `OpenAiCompatibleClient.kt`, `ChatViewModel.kt`, `Screens.kt`, `ReviewFixLogicTest.kt`, `verify_static.py`. Read-only. No Gradle. `python3 scripts/verify_static.py` → **196/196**.
+**Role:** `LITECHAT-REVIEW`
+
+**Verdict: Approve**
+
+Prior Issues (raw `x-goog-api-key`, save-only-trim, no WIRE) are closed.
+
+### AC check
+
+- B-001 strip on save: `SecureStore.setApiKey` / `setProviderKey` use `headerSafe`.
+- B-001 strip on send: every `Authorization: Bearer` in the client uses `headerSafe`; `geminiKey` uses it and skips empty.
+- B-001 test: `ApiKeySanitizerTest` strips U+2076 and builds OkHttp `Headers` without throw.
+- R-019: `/imagine` `/video` `/edit` use `userSafeError`; Test uses `isIllegalHeader` → everyday line. No `addUnsafeNonAscii`. Theme line is everyday.
+
+### Issues
+
+None.
+
+### Nits (not Issues)
+
+- `getApiKey()` still returns the stored string. A ⁶ can still *show* in Settings until Save. Send path already strips, so `/imagine` should work on the new APK without re-paste.
+- `NamedKeyStore` does not call `headerSafe` on save. Client still strips at header time.
+- `/browse` still uses `e.message.take(200)` (out of ticket).
+
+### Tickets
+
+| Ticket | After this review |
+|--------|-------------------|
+| B-001 strip key headers | **Approve** |
+| R-019 no key in errors | **Approve** |
+
+**Next:** human spot-check on a **new** play-debug APK (this tree is not on the phone). Do not bake unless asked.
+
+---
+
+## Review — 2026-08-21 — B-001 (pictures) + last Gemini `/imagine` WIRE
+
+**Scope:** Human said `LITECHAT-REVIEW` after DEBUG. No new WIRE since B-001. Reviewed current `app/**` bytes for the picture path (`9910113`, `7bbfa47`) and B-001 AC. Read-only. No Gradle. `python3 scripts/verify_static.py` → **189/189 passed**.
+**Role:** `LITECHAT-REVIEW`
+
+**Verdict: Issues** — nothing to Approve. B-001 is Ready but **not coded**. Pictures still die on the phone before Google is called.
+
+### Issues
+
+1. **`OpenAiCompatibleClient.kt:840`** — `header("x-goog-api-key", apiKey)` uses the raw key.
+   - Why it matters: phone error `Unexpected char 0x2076 at 0 in x-goog-api-key`. OkHttp never sends. `/imagine` and Test both die.
+   - Suggested fix: strip non-ASCII (and other illegal header bytes) here **and** on every `Authorization: Bearer $apiKey` (same file `:233` and the other Bearer lines).
+
+2. **`SecureStore.kt:26-28` and `:34-35`** — `setApiKey` / `setProviderKey` only `trim()`.
+   - Why it matters: a Gboard **⁶** stays in encrypted storage. Next launch still broken.
+   - Suggested fix: same strip on save so old junk keys get cleaned once.
+
+3. **No WIRE for B-001** — BACKLOG says Ready; `app/**` unchanged for this ticket (`git status`: only `docs/BUGS.md` + `docs/BACKLOG.md`).
+   - Why it matters: REVIEW grades code. There is no code.
+   - Suggested fix: human `LITECHAT-WIRE` B-001, then REVIEW again.
+
+### What last Gemini WIRE did right (not Issues)
+
+- Native `generateContent` + `x-goog-api-key` only (`9910113`) — correct vs Google 401 on Bearer+AI Studio key.
+- Fallback picture ids exist (`ProviderCatalog.kt` image fallbacks).
+- Static suite still green.
+
+### Nits (not Issues)
+
+- `/imagine` still not on `streamJob` (old leftover). Stop FAB may not show while generating.
+- Picture path still returns a full `ByteArray` (old leftover).
+
+### Tickets
+
+| Ticket | After this review |
+|--------|-------------------|
+| B-001 strip key headers | **Issues** — not implemented |
+| B-002 Compose a11y | Research — not in this review |
+| B-003 Gboard extra letters | Research — not in this review |
+
+**Next:** WIRE B-001. Do not bake an APK until that lands and REVIEW Approves.
+
+---
+
+# LiteChat — Exhaustive Code Review Report (archive)
 
 **Date:** 2026-08-14
 **Method:** 3 parallel read-only review subagents (UI / data-network-db / prefs-util-media-gradle) + real Gradle build (`:app:compilePlayDebugKotlin`, JDK 17, SDK 36) + git history analysis.

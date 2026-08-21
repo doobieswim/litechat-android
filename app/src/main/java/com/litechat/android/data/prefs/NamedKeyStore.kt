@@ -51,7 +51,7 @@ class NamedKeyStore(context: Context) {
         getAll().firstOrNull { it.isActive }?.key ?: ""
 
     fun save(key: NamedKey) {
-        persist(withKey(getAll(), key))
+        persist(withKey(getAll(), key.copy(key = ApiKeySanitizer.headerSafe(key.key))))
     }
 
     fun delete(name: String) {

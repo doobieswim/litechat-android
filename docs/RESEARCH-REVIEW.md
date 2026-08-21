@@ -96,6 +96,90 @@ PROOF grades → this file
 
 # Log (newest first)
 
+## Research review — 2026-08-21 — R-020 (xAI /edit JSON)
+
+**Scope:** `docs/DIG-DOORS-LEFTOVERS-2026-08-21.md` + BACKLOG **R-020**. Read-only except this file. No Gradle. No `app/**`. No Ready flip.
+**Role:** `LITECHAT-PROOF`
+
+**Verdict: Approve**
+
+### Checklist
+
+1. **Scope** — DIG stayed in docs. Ticket names `editImage` only.
+2. **Grounding** — xAI edit page (JSON, not multipart) is load-bearing and matches the official curl. Sora sunset 2026-09-24 cited. Groq Compound tool prices cited. OpenRouter free names marked **weak**.
+3. **Product laws** — xAI Imagine **paid** (~$0.04/image) labeled. Groq search **$5/1000** labeled. No 7B/WebView/SoftRAM.
+4. **Theme** — AC is everyday. No fight words.
+5. **Ticket** — goal, checkbox AC, files, out of scope, research link, cost.
+6. **Usefulness** — WIRE can ship a JSON edit path without guessing.
+
+### Issues
+
+None.
+
+### Not in this ticket (do not block Approve)
+
+Groq Compound is already in the picker with a “free key” host line. DIG correctly left that **not Ready**. Human may ask DIG for a tiny label ticket later.
+
+**Next:** DIG or human may stamp R-020 **Ready**. Then `LITECHAT-WIRE`. I do not flip Ready.
+
+---
+
+## Research review — 2026-08-21 — Re-check: R-019 (PROOF issues 1–2)
+
+**Scope:** the 2 Issues from the prior R-019 verdict only: files-likely-touched on the ticket; `AQ.` marked as forum not Google docs.
+**Role:** `LITECHAT-PROOF` re-check. Read-only except this file. No Gradle. No `app/**`. No Ready flip.
+
+**Verdict: Approve** — both Issues closed.
+
+### Issue-by-issue
+
+1. **Files likely touched — ✅ closed.** R-019 names `ChatViewModel.kt` (`/imagine` ~717/722, `/video` ~642/644, `/edit` ~796/798) and `Screens.kt` (Test ~1283). WIRE can take it without guessing.
+2. **`AQ.` claim — ✅ closed.** Dig §2 and the ticket say **forum, not a Google product page**. Rule is “do not reject `AQ.`,” not “Google officially switched.” Everyday summary matches.
+
+### Nits (not Issues)
+
+- Ticket status line still says “waiting LITECHAT-PROOF.” DIG/human may set **Ready** after this Approve. PROOF does not flip it.
+- B-001 remains Ready from DEBUG. Not this ticket.
+
+### Next
+
+DIG or human: stamp R-019 **Ready**. Then WIRE (can pair with B-001). REVIEW grades code. No APK until WIRE + REVIEW.
+
+---
+
+## Research review — 2026-08-21 — R-019 (Gemini picture keys / no key in errors)
+
+**Scope:** `docs/DIG-GEMINI-PICTURE-KEYS-2026-08-21.md` + BACKLOG **R-019**. Phone `/imagine` leak. Not grading B-001 (DEBUG Ready; that is WIRE).
+**Role:** `LITECHAT-PROOF`. Read-only except this file. No DIG rewrite. No `app/**`. No Gradle. No Ready flip.
+
+**Checklist:** scope ✓ (no app edits in this drop). Grounding mixed. Product laws ✓ (Tier A, stay generateContent, $0). Theme ✓ (proposed line is everyday). Ticket quality ✗. Usefulness ✓ (WIRE would hide the key).
+
+**Verdict: Issues**
+
+### Issues
+
+1. **`docs/BACKLOG.md` R-019** — no “files likely touched.”
+   - Why it matters: WIRE cannot take this after Approve without guessing. PROOF checklist requires files.
+   - Suggested fix: DIG add e.g. `ChatViewModel.kt` (`/imagine` `/video` `/edit` catches ~717/722 and siblings), `Screens.kt` (Test catch ~1283). Then re-PROOF.
+
+2. **`docs/DIG-GEMINI-PICTURE-KEYS-2026-08-21.md` §2** — “Google changed the shape / AI Studio now mints AQ.” is a **forum** thread (Jul 2026), not an opened Google product page.
+   - Why it matters: treating forum as official can mis-teach WIRE copy.
+   - Suggested fix: keep “do not reject `AQ.` keys” (harmless, matches the phone key). Mark the minting claim as forum, not Google docs.
+
+### Not Issues
+
+- Phone leak is real: `ChatViewModel.kt:717` and `:722` put `e.message` in the banner and bubble. OkHttp’s throw includes the header value. That part does not need the okhttp#6738 number.
+- Picture model table matches Google models page (2026-08-14): `gemini-3.1-flash-image` first. DIG correctly did **not** ask to change ids.
+- B-001 left Ready. DIG did not sneak a Ready flip.
+- User-facing line “This key has a bad character…” passes theme law.
+- Cost $0 labeled. No Interactions API / extra stack.
+
+### Next
+
+DIG fixes 1–2 in the ticket + one paragraph in the dig. Re-PROOF. Then DIG/human may set R-019 Ready. B-001 can WIRE in parallel (already Ready).
+
+---
+
 ## Research review — 2026-08-15 — Full-queue re-verification (human: "make tickets Ready")
 
 **Scope:** whole research queue — R-011…R-018, Research A/B/C, P-001…P-008 proposals, H-001…H-010 — re-checked after the human asked PROOF to clear the queue so Ready tickets can exist.

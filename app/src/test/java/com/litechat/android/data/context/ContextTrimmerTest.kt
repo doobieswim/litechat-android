@@ -49,4 +49,17 @@ class ContextTrimmerTest {
         assertEquals(2, kept.size)
         assertEquals(0, removed)
     }
+
+    @Test
+    fun `trailing unmatched user is not dropped as an orphan assistant`() {
+        val messages = listOf(
+            msg("user", 0), msg("assistant", 0),
+            msg("user", 1), msg("assistant", 1),
+            msg("user", 2),
+        )
+        val (kept, _) = ContextTrimmer.trim(messages, highWaterTokens = 1, lowWaterTokens = 150)
+        assertEquals("user", kept.last().role)
+        assertTrue(kept.any { it.content.startsWith("m2-") })
+        assertTrue(kept.none { it.content.startsWith("m0-") })
+    }
 }

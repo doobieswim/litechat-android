@@ -22,11 +22,11 @@ class ConnectivityObserver(context: Context) {
 
     enum class State { Connected, Disconnected }
 
-    private val _state = MutableLiveData(State.Connected)
-    val state: LiveData<State> = _state
-
     private val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+    private val _state = MutableLiveData(if (snapshotConnected()) State.Connected else State.Disconnected)
+    val state: LiveData<State> = _state
 
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
@@ -62,10 +62,12 @@ class ConnectivityObserver(context: Context) {
 
     /** Current connectivity snapshot (synchronous, non-blocking). */
     val isConnected: Boolean
-        get() {
-            val caps = connectivityManager.getNetworkCapabilities(
-                connectivityManager.activeNetwork,
-            ) ?: return false
-            return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        }
+        get() = snapshotConnected()
+
+    private fun snapshotConnected(): Boolean {
+        val caps = connectivityManager.getNetworkCapabilities(
+            connectivityManager.activeNetwork,
+        ) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
 }

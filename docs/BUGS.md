@@ -81,4 +81,29 @@ Phone bugs:
 
 ## Log
 
-_(empty — first DEBUG run appends here)_
+## Debug — 2026-08-21 — B-001
+**Symptom:** `/imagine` and Settings **Test** fail. No picture.
+**Steps:** 1. Gemini + pasted AI Studio-style key. 2. Test. 3. `/imagine a small red apple…`
+**Expected:** Test says connected, or a real Google error. Picture or honest “this host cannot make pictures.”
+**Actual:** `Unexpected char 0x2076 at 0 in x-goog-api-key value: ⁶…` and `Unexpected char 0x2076 at 7 in Authorization`. OkHttp never sends the request. Chat also showed “Max retries (3) exhausted.”
+**Cause:** The saved key had a junk Unicode **⁶** (U+2076) on the front (keyboard paste). `SecureStore.setApiKey` only `trim()`s (`SecureStore.kt:26-28`). `geminiKey` puts the raw string in `x-goog-api-key` (`OpenAiCompatibleClient.kt:839-841`). Test uses `Authorization: Bearer $apiKey` (`OpenAiCompatibleClient.kt:232-233`). OkHttp forbids that char in headers.
+**Ticket:** B-001 **Ready**
+**Next:** WIRE — strip illegal header chars on save and again before every header. Then `/imagine` can fail with a Google HTTP error, not a local header crash.
+
+## Debug — 2026-08-21 — B-002
+**Symptom:** Remote taps often miss. Continue did nothing until a coordinate tap. Settings API key and Message box: “No focused input” so the agent could not type.
+**Steps:** Opened BYO AI with Hermes Bridge. `tap_text Continue` hit a parent; node click failed; `(360,1450)` worked. `/type` on API key and Message returned no focused input.
+**Expected:** Material buttons and text fields take accessibility click and type.
+**Actual:** Continue is a `Button` (`Screens.kt:1097-1100`) but the tree showed `TextView` Continue `clickable=false` and a parent `View` whose click action failed. OutlinedTextField did not show as a focused EditText.
+**Cause:** Not a one-line logic bug. Compose/M3 on this Android 16 phone is not exposing click/type to Accessibility. Need a WIRE pass (semantics / `mergeDescendants` / test on device). Not proven enough for Ready.
+**Ticket:** B-002 **Research**
+**Next:** more device facts after B-001, or WIRE spike if human names it.
+
+## Debug — 2026-08-21 — B-003
+**Symptom:** Chat box got an extra `v` (`v/imagine…`) so `/imagine` did not run. A `⁶` also sat in the composer.
+**Steps:** Clipboard paste via Gboard chip into Message.
+**Expected:** The pasted line is exactly what was copied.
+**Actual:** Extra `v` prefix; later a lone `⁶` in the box.
+**Cause:** Keyboard/clipboard on the phone, not BYO send() parsing. `/imagine` only matches `text.startsWith("/imagine ")` (`ChatViewModel.kt:652-654`). Out of scope to “fix Gboard.” B-001 sanitize still needed so a `⁶` in the **key** cannot kill pictures.
+**Ticket:** B-003 **Research** (no WIRE unless human wants send() to trim junk prefixes)
+**Next:** human deletes the extra letter, or ignore after B-001.

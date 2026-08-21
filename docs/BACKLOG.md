@@ -13,6 +13,33 @@ Coding agent: only take **Ready** (or human-named id). Claim with `Doing`, finis
 
 ## Now / next (coding)
 
+### B-001 — Strip illegal chars from API keys before HTTP headers
+- **Status:** Done — WIRE 2026-08-21. Strip illegal header bytes on save + every Bearer / x-goog-api-key. Files: `ApiKeySanitizer.kt`, `SecureStore.kt`, `OpenAiCompatibleClient.kt`, `ReviewFixLogicTest.kt`, `verify_static.py`.
+- **Goal:** A key with junk Unicode (proven: leading U+2076 **⁶** from Gboard) must not crash OkHttp. Pictures/Test should reach Google or show Google’s error.
+- **Cause:** `SecureStore.setApiKey` only `trim()` (`SecureStore.kt:26-28`). Raw key goes to `x-goog-api-key` (`OpenAiCompatibleClient.kt:840`) and `Authorization: Bearer $apiKey` (`OpenAiCompatibleClient.kt:233`). OkHttp throws `Unexpected char 0x2076`.
+- **AC:**
+  - [ ] On save, drop characters OkHttp forbids in header values (at least non-ASCII). Keep the rest of the key.
+  - [ ] Same strip in `geminiKey` and every `Authorization` builder so old saved junk keys still work.
+  - [ ] JVM test: key `"\\u2076AQ.test"` sends a header with no U+2076 and does not throw when building the request.
+  - [ ] `/imagine` with a clean Gemini key no longer dies with `Unexpected char 0x2076`.
+- **Files:** `SecureStore.kt`, `OpenAiCompatibleClient.kt`, a small unit test. Optional `saveSettings` in `ChatViewModel.kt:1070`.
+- **Out of scope:** new APK bake unless human asks; changing Gemini picture model ids; Gboard itself.
+- **Log:** `docs/BUGS.md` B-001
+
+### B-002 — Compose buttons/fields miss accessibility click and type
+- **Status:** Research — DEBUG 2026-08-21. Not Ready (cause not a single proven line).
+- **Notes:** Continue `Button` (`Screens.kt:1097-1100`): tree `clickable=false` on the label; parent click failed; coordinate tap worked. API key + Message: `/type` → no focused input. Android 16 + M3. Need semantics pass, not a guess.
+- **Log:** `docs/BUGS.md` B-002
+
+### B-003 — Gboard paste can add extra letters (`v/imagine`, lone ⁶)
+- **Status:** Research — DEBUG 2026-08-21. IME, not send() logic. `/imagine` prefix check is `ChatViewModel.kt:652-654`.
+- **Log:** `docs/BUGS.md` B-003
+
+### B-004 — Stop, memory wipe, hide key (REVIEW 2026-08-21 fan-out)
+- **Status:** Done — WIRE 2026-08-21 (human LITECHAT-WIRE after full-project Issues). Files: `ChatViewModel.kt`, `Screens.kt`, `ProviderSetupFields.kt`, `MemoryManager.kt`, `OverlayService.kt`, `NamedKeyStore.kt`, `OpenAiCompatibleClient.kt`, `ConnectivityObserver.kt`, `ReviewFixLogicTest.kt`.
+- **Goal:** Stop cancels browse/pictures/video; memory does not wipe; key is hidden; overlay does not crash on Compose lifecycle.
+- **Out of scope:** Room destructive fallback, attach `readBytes`, ContextTrimmer pair walk, video poll HTTP, new APK.
+
 ### C-032 — Play compliance: in-app AI-content reporting + acceptable-use (policy-mandated)
 - **Status:** Done — WIRE 2026-08-15. PROOF approved Research B 2026-08-15 (this ticket was flagged for pre-PROOF Ready; re-affirmed post-approval). Not a product choice: Play rejects apps that generate AI content without in-app reporting. Independent of H-008.
 - **Fixed (2026-08-15):** long-press → "Report content" on every bubble (text, [IMAGE:], [VIDEO:]) → reason picker → mailto to litechat@proton.me (zero server); one-time acceptable-use dialog after onboarding (no dismiss path); EEA/UK non-personalized ads via RequestConfiguration.PublisherPrivacyPersonalizationState.DISABLED (play-services-ads 23.x removed npa/setNonPersonalizedAds — zero UMP SDK); "no ads in overlay" guard comment. Files: `Screens.kt`, `ChatViewModel.kt`, `SettingsRepository.kt`, `AdMobLazyInit.kt` (play), `OverlayService.kt`. Verify: 92/92 static, both flavors compile, unit tests pass, foss debug APK built.
@@ -523,6 +550,35 @@ Flow-complete: PROOF Approve (2026-08-15 full-queue) + human decision. All ticke
 - **Deliverable:** `docs/OPENCLAW-ANDROID-DIG.md` + `COMPETITIVE-STEAL-LIST.md` Opclaw row + `DIG-FINDINGS.md` §8. Clones: `/opt/data/workspace/openclaw-android` (AidanPark ★1734, no-proot), `/opt/data/workspace/openclaw-termux` (mithun50 ★1678, Flutter).
 - **Key findings:** HenWorks Opclaw = closed shell, **~263 MB APK**; category underneath is open (openclaw/openclaw ★386K; clawhub ★9.3K; awesome-openclaw-skills ★52K). "No proot, ~200MB, 3–10 min" = glibc-ld.so-only trick (native shell + WebView dashboard + terminal emulator + Node patches). Agent lane is a crowded gold rush; thin-client lane stays ours. 263 MB vs 1.6 MB = show-don't-tell contrast.
 - **No Ready child proposed** — research-only validation of the Tier A lane.
+
+### R-019 — Do not show OkHttp header errors (they contain the API key)
+- **Status:** Done — WIRE 2026-08-21 after PROOF Approve. Everyday line, no OkHttp dump. Files: `ApiKeySanitizer.kt`, `ChatViewModel.kt`, `Screens.kt`, `ReviewFixLogicTest.kt`.
+- **Deliverable:** `docs/DIG-GEMINI-PICTURE-KEYS-2026-08-21.md`
+- **Why:** Phone `/imagine` bubble printed `Unexpected char 0x2076 … x-goog-api-key value:` plus the key. OkHttp puts the header value in the exception. `ChatViewModel` `/imagine` catch uses `e.message.take(200)` (~717, ~722).
+- **Also found (not a new Ready):** Forum (Jul 2026), **not** a Google product page, reports `AQ.` keys. Do not reject a key for missing `AIza`. Picture model ids already match Google 2026-08-14 (`gemini-3.1-flash-image` first). B-001 stays Ready from DEBUG — DIG does not touch it.
+- **Files likely touched:** `ChatViewModel.kt` (`/imagine` ~717/722, `/video` ~642/644, `/edit` ~796/798), `Screens.kt` (Settings Test catch ~1283)
+- **AC (for WIRE after PROOF Approve):**
+  - [ ] `/imagine`, `/video`, `/edit`, and Settings Test never show raw OkHttp `Unexpected char` text
+  - [ ] Everyday line if the key has illegal header bytes: “This key has a bad character. Delete it and paste again.”
+  - [ ] No key bytes in the bubble, banner, or log
+  - [ ] Do not use `addUnsafeNonAscii`
+- **Out of scope:** baking an APK; changing Gemini picture model ids; requiring `AIza` prefix
+- **Cost:** $0
+
+### R-020 — xAI /edit must be JSON, not OpenAI multipart
+- **Status:** Done — WIRE 2026-08-21 after PROOF Approve. xAI `/edit` is JSON + data URI. OpenAI stays multipart. Files: `OpenAiCompatibleClient.kt`, `ReviewFixLogicTest.kt`, `verify_static.py`.
+- **Deliverable:** `docs/DIG-DOORS-LEFTOVERS-2026-08-21.md`
+- **Why:** Official xAI page (2026-08-13): OpenAI `images.edit()` multipart is **not** supported. Door is `POST /v1/images/edits` with JSON (`model`, `prompt`, `image.url` as a public URL or `data:image/png;base64,...`). Current WIRE still sends multipart. Will fail on Grok.
+- **AC (for WIRE after PROOF Approve):**
+  - [ ] If host is xAI, `/edit` sends JSON to `/images/edits` (not multipart)
+  - [ ] Image is a data-URI or URL, model `grok-imagine-image-2.0`
+  - [ ] OpenAI `/edit` stays multipart
+  - [ ] Groq / Gemini / OpenRouter still refuse edit
+  - [ ] Everyday fail line, no raw dump
+- **Files likely touched:** `OpenAiCompatibleClient.kt` (`editImage`)
+- **Out of scope:** Gemini native image-edit; Sora sunset; OpenRouter picker reshuffle; new APK
+- **Cost:** xAI Imagine is paid (~$0.04/image on their page). Do not hide that.
+- **Also found (not Ready):** Sora Videos API shuts **2026-09-24** (OpenAI docs). Groq Compound chat id is real but **web search costs $5/1000**. OpenRouter `openrouter/free` stays the safest free chat pick.
 
 ---
 

@@ -442,7 +442,7 @@ class SettingsRepository(
         val PRESETS = listOf(
             Preset("OpenAI", "https://api.openai.com/v1", "gpt-5.6-luna"),
             Preset("OpenRouter", "https://openrouter.ai/api/v1", "openrouter/free"),
-            Preset("Groq", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
+            Preset("Groq", "https://api.groq.com/openai/v1", "openai/gpt-oss-20b"),
             Preset("Ollama (local)", "http://127.0.0.1:11434/v1", "llama3.2"),
             Preset("Custom", "https://", "your-model-id"),
         )

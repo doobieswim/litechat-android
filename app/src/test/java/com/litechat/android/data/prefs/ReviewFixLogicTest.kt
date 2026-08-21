@@ -1,6 +1,9 @@
 package com.litechat.android.data.prefs
 
+import com.litechat.android.data.api.BrowseUrl
 import com.litechat.android.data.api.OpenAiCompatibleClient
+import com.litechat.android.data.api.SlashInput
+import com.litechat.android.data.context.MemoryManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -17,6 +20,24 @@ class ImagesUrlTest {
             "https://api.openai.com/v1/images/generations",
             OpenAiCompatibleClient.imagesUrl("https://api.openai.com/v1", "generations"),
         )
+        assertEquals(
+            "https://openrouter.ai/api/v1/images",
+            OpenAiCompatibleClient.openrouterImagesUrl("https://openrouter.ai/api/v1"),
+        )
+    }
+
+    @Test
+    fun `xai edit json is not multipart`() {
+        val body = OpenAiCompatibleClient.xaiEditJson(
+            "grok-imagine-image-2.0",
+            "make it blue",
+            "data:image/png;base64,abc",
+        )
+        assertTrue(body.contains("grok-imagine-image-2.0"))
+        assertTrue(body.contains("image_url"))
+        assertTrue(body.contains("data:image/png;base64,abc"))
+        assertFalse(body.contains("multipart"))
+        assertFalse(body.contains("form-data"))
     }
 
     @Test
@@ -161,5 +182,70 @@ class TemplateImportStrictTest {
         assertEquals("Hi [X]", list[0].template)
         assertFalse(list[0].id == "builtin_translate")
         assertTrue(list[0].variables["X"] == "1")
+    }
+}
+
+class ApiKeySanitizerTest {
+    @Test
+    fun `strips superscript six and keeps the rest`() {
+        val raw = "\u2076AQ.test-key_1"
+        assertEquals("AQ.test-key_1", ApiKeySanitizer.headerSafe(raw))
+        okhttp3.Headers.Builder()
+            .add("x-goog-api-key", ApiKeySanitizer.headerSafe(raw))
+            .add("Authorization", "Bearer ${ApiKeySanitizer.headerSafe(raw)}")
+            .build()
+    }
+
+    @Test
+    fun `userSafeError hides Unexpected char and the key`() {
+        val e = IllegalArgumentException(
+            "Unexpected char 0x2076 at 0 in x-goog-api-key value: SECRETKEY",
+        )
+        val line = ApiKeySanitizer.userSafeError(e, "Image generation")
+        assertEquals(ApiKeySanitizer.BAD_KEY_LINE, line)
+        assertFalse(line.contains("SECRETKEY"))
+        assertFalse(line.contains("0x2076"))
+        assertFalse(line.contains("Unexpected char"))
+    }
+}
+
+class BrowseUrlTest {
+    @Test
+    fun `bare host gets https`() {
+        assertEquals("https://example.com", BrowseUrl.normalize("example.com"))
+        assertEquals("https://www.bbc.co.uk/news", BrowseUrl.normalize("www.bbc.co.uk/news"))
+    }
+
+    @Test
+    fun `keeps a real https url`() {
+        assertEquals(
+            "https://en.wikipedia.org/wiki/Tea",
+            BrowseUrl.normalize("https://en.wikipedia.org/wiki/Tea"),
+        )
+    }
+
+    @Test
+    fun `fixes http slash typo`() {
+        assertEquals("https://example.com", BrowseUrl.normalize("http//:example.com"))
+        assertEquals("https://example.com", BrowseUrl.normalize("https//:example.com"))
+    }
+}
+
+class MemoryDecodeTest {
+    @Test
+    fun `missing hitCount does not wipe the list`() {
+        val list = MemoryManager.decodeList("""[{"fact":"likes tea"}]""")
+        assertEquals(1, list.size)
+        assertEquals("likes tea", list[0].fact)
+        assertEquals(1, list[0].hitCount)
+    }
+}
+
+class SlashInputTest {
+    @Test
+    fun `peels a stuck letter in front of imagine`() {
+        assertEquals("/imagine a cat", SlashInput.peel("v/imagine a cat"))
+        assertEquals("/imagine a cat", SlashInput.peel("\u2076/imagine a cat"))
+        assertEquals("/imagine a cat", SlashInput.peel("/imagine a cat"))
     }
 }
